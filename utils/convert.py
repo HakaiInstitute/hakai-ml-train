@@ -1,6 +1,5 @@
 # A script to rasterise a shapefile to the same projection & pixel resolution as a reference image.
 from osgeo import gdal, ogr
-import subprocess
 
 
 def shp2tiff(in_shp, out_tiff, ref_tiff, label_attr="label"):

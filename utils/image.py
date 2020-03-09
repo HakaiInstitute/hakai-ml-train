@@ -1,14 +1,14 @@
-from osgeo import gdal, osr, ogr
+from osgeo import gdal, osr
 import rasterio
 from pathlib import Path
 import os
-from tqdm.auto import tqdm, trange
+from tqdm import tqdm
 import itertools
-from multiprocessing import Semaphore, Process
+from multiprocessing import Pool
+import functools
 
 
-def _crop_to_png(sem, dest, src, x0, y0, crop_size):
-    sem.acquire()
+def _crop_to_png(src, dest, x0, y0, crop_size):
     options_list = [
         '-ot Byte',
         '-of PNG',
@@ -16,17 +16,9 @@ def _crop_to_png(sem, dest, src, x0, y0, crop_size):
         f'-srcwin {x0} {y0} {crop_size} {crop_size}'
     ]
     gdal.Translate(dest, src, options=" ".join(options_list))
-    sem.release()
 
 
-def slice_and_dice_image(src_img, src_labels, dest_x, dest_y, crop_size=200, cpus=os.cpu_count()):
-    semaphore = Semaphore(value=cpus)
-
-    # Create small image dataset
-    dest_x = Path(dest_x)
-    dest_y = Path(dest_y)
-
-    # Get X and Y dimensions of image
+def check_same_extent(src_img, src_labels):
     with rasterio.open(src_img) as img:
         w = img.width
         h = img.height
@@ -35,17 +27,32 @@ def slice_and_dice_image(src_img, src_labels, dest_x, dest_y, crop_size=200, cpu
         if w != img.width or h != img.height:
             raise RuntimeError("Label dataset must have the same extent as the image dataset")
 
+    return True
+
+
+def _wrapped_cropper(src, dest, crop_size, origins, i):
+    dest = str(dest.joinpath(f"{i}.png"))
+    x0, y0 = origins[i]
+    _crop_to_png(src, dest, x0, y0, crop_size)
+
+
+def slice_and_dice_image(src_img, dest_d, crop_size=200, cpus=os.cpu_count()):
+    # Create small image dataset
+    dest_d = Path(dest_d)
+
+    # Get X and Y dimensions of image
+    with rasterio.open(src_img) as img:
+        w = img.width
+        h = img.height
+
     x0s = list(range(0, w, crop_size))
     y0s = list(range(0, h, crop_size))
-    origins = itertools.product(x0s, y0s)
+    origins = list(itertools.product(x0s, y0s))
 
-    for i, (x0, y0) in tqdm(enumerate(origins), total=len(x0s) * len(y0s)):
-        # Crop label sections and save
-        dest = str(dest_x.joinpath(f"{i}.png"))
-        Process(target=_crop_to_png, args=(semaphore, dest, src_img, x0, y0, crop_size)).start()
-
-        dest = str(dest_y.joinpath(f"{i}.png"))
-        Process(target=_crop_to_png, args=(semaphore, dest, src_labels, x0, y0, crop_size)).start()
+    # Crop label sections and save
+    f = functools.partial(_wrapped_cropper, src_img, dest_d, crop_size, origins)
+    with Pool() as pool:
+        r = list(tqdm(pool.imap_unordered(f, range(len(origins))), total=len(origins)))
 
 
 def clip_raster_with_shp_mask(dest, src, mask):

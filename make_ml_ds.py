@@ -5,16 +5,19 @@ import geopandas as gpd
 import utils as ut
 
 
-def make(img, mask, kelp, out, crop_size=200):
+def make(img, kelp, out, crop_size=200, mask=None):
     """
     Create tiled png images from drone imagery with kelp labels. Useful for creating a dataset for ML learning.
 
-    :param img: The drone imagery to make the tiled dataset from.
-    :param mask: A shapefile to clip the drone imagery with. Useful for clipping out boundary artifacts.
-    :param kelp: A shapefile delineating the kelp beds. Used to create tiled label rasters for ML algorithms.
-    :param out: The directory to save the output dataset and intermediate files.
-    :param crop_size: The size of the tiled dataset images. Used for both length and width.
-    :return: None. Creates a tiled dataset at location `out`.
+    Args:
+        img: The drone imagery to make the tiled dataset from.
+        kelp: A shapefile delineating the kelp beds. Used to create tiled label rasters for ML algorithms.
+        out: The directory to save the output dataset and intermediate files.
+        crop_size: The size of the tiled dataset images. Used for both length and width.
+        mask: Optional shapefile to clip the drone imagery with. Useful for clipping out boundary artifacts.
+
+    Returns: None. Creates a tiled dataset at location `out`.
+
     """
     # Create out directory if not already exists
     Path(out).mkdir(parents=True, exist_ok=True)
@@ -38,10 +41,13 @@ def make(img, mask, kelp, out, crop_size=200):
     kelp_r = str(Path(out).joinpath('./kelp.tif'))
     ut.convert.shp2tiff(kelp_s, kelp_r, img, label_attr="label")
 
-    # Crop the image using the mask
-    print("Clipping imagery raster to mask...")
-    clipped_img = str(Path(out).joinpath(f"{Path(img).stem}_clipped.tif"))
-    ut.image.clip_raster_with_shp_mask(clipped_img, img, mask)
+    # Crop the image using the mask if given
+    if mask is not None:
+        print("Clipping imagery raster to mask...")
+        clipped_img = str(Path(out).joinpath(f"{Path(img).stem}_clipped.tif"))
+        ut.image.clip_raster_with_shp_mask(clipped_img, img, mask)
+    else:
+        clipped_img = img
 
     # Crop kelp raster to img extent
     print("Clipping kelp raster to image extent...")
@@ -49,9 +55,42 @@ def make(img, mask, kelp, out, crop_size=200):
     extent = ut.image.get_raster_extent(clipped_img)
     ut.image.clip_raster_by_extent(clipped_kelp, kelp_r, extent=extent)
 
+    print("Creating image patches dataset...")
     # Slice the image into fixed width and height sections
-    ut.image.slice_and_dice_image(clipped_img, clipped_kelp, dest_x, dest_y, crop_size=crop_size)
+    ut.image.check_same_extent(clipped_img, clipped_kelp)
+    ut.image.slice_and_dice_image(clipped_img, dest_x, crop_size=crop_size)
+
+    print("Creating label patches dataset...")
+    ut.image.slice_and_dice_image(clipped_kelp, dest_y, crop_size=crop_size)
 
 
 if __name__ == '__main__':
-    fire.Fire(make)
+    # fire.Fire(make)
+    make(
+        "/workspace/data/NW_Calvert/2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
+        "/workspace/data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
+        "/workspace/data/datasets/Calvert_WestBeach_2016",
+    )
+
+    make(
+        "/workspace/data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif",
+        "/workspace/data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
+        "/workspace/data/datasets/NW_Calvert_2016",
+        mask="/workspace/data/NW_Calvert/2016/Calvert_ChokedNorthBeach2016_Mask.shp"
+    )
+
+    make(
+        "/workspace/data/NW_Calvert/2015/calvert_choked15_CSRS_mos_U0015.tif",
+        "/workspace/data/NW_Calvert/2015/2015_Kelp_Extent_FINAL21072016.shp",
+        "/workspace/data/datasets/Calvert_2015",
+    )
+
+    make(
+        "/workspace/data/NW_Calvert/2012/NWCalvert_2012.tif",
+        "/workspace/data/NW_Calvert/2012/2012_Kelp_Extent_FINAL21072016.shp",
+        "/workspace/data/datasets/Calvert_2012",
+    )
+
+# python make_ml_ds.py h:Geospatial_Ichy_Bin\Taylor_Denouden\NW_Calvert\2016\20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif h:Geospatial_Ichy_Bin\Taylor_Denouden\NW_Calvert\2016\2016_Kelp_Extent_KH_May15_2017.shp h:Geospatial_Ichy_Bin\Taylor_Denouden\datasets\NW_Calvert_2016 --mask=h:Geospatial_Ichy_Bin\Taylor_Denouden\NW_Calvert\2016\2016_Kelp_Extent_KH_May15_2017.shp
+
+# python make_ml_ds.py /workspace/data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif /workspace/data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp /workspace/data/datasets/NW_Calvert_2016 --mask=/workspace/data/NW_Calvert/2016/Calvert_ChokedNorthBeach2016_Mask.shp
