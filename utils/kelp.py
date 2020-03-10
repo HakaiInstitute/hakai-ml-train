@@ -16,7 +16,15 @@ def get_label(species, density):
     4
     >>> get_label("mixed", "high")
     5
+    >>> get_label("Macro", "High")
+    1
+    >>> get_label("neReO", "hIGh")
+    3
+    >>> get_label("MIXED", "HIGH")
+    5
     """
+    density = str(density).lower()
+    species = str(species).lower()
 
     if density == 'low':
         den = 0

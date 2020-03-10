@@ -71,6 +71,7 @@ def make(img, kelp, out, crop_size=200, mask=None):
 
 if __name__ == '__main__':
     # fire.Fire(make)
+
     make(
         "data/NW_Calvert/2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
         "data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
@@ -81,7 +82,7 @@ if __name__ == '__main__':
         "data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif",
         "data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
         "data/datasets/Calvert_ChokedNorthBeach_2016",
-        mask="data/NW_Calvert/2016/Calvert_ChokedNorthBeach2016_Mask.shp"
+        mask="data/NW_Calvert/2016/Calvert_ChokedNorthBeach_2016_Mask.shp"
     )
 
     make(
@@ -93,9 +94,17 @@ if __name__ == '__main__':
     make(
         "data/NW_Calvert/2012/NWCalvert_2012.tif",
         "data/NW_Calvert/2012/2012_Kelp_Extent_FINAL21072016.shp",
-        "data/datasets/Calvert_2012",
+        "data/datasets/Calvert_2012"
     )
 
-# python make_ml_ds.py h:Geospatial_Ichy_Bin\Taylor_Denouden\NW_Calvert\2016\20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif h:Geospatial_Ichy_Bin\Taylor_Denouden\NW_Calvert\2016\2016_Kelp_Extent_KH_May15_2017.shp h:Geospatial_Ichy_Bin\Taylor_Denouden\datasets\NW_Calvert_2016 --mask=h:Geospatial_Ichy_Bin\Taylor_Denouden\NW_Calvert\2016\2016_Kelp_Extent_KH_May15_2017.shp
+    # make(
+    #     "data/McNaughtons/CentralCoast_McNaughtonGroup_MOS_U0168_ForDerekJ.tif",
+    #     "data/McNaughtons/McNaughtons_Group_Kelp_2017_forDerekJ.shp",
+    #     "data/datasets/McNaughtons_2017"
+    # )
 
-# python make_ml_ds.py /workspace/data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif /workspace/data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp /workspace/data/datasets/NW_Calvert_2016 --mask=/workspace/data/NW_Calvert/2016/Calvert_ChokedNorthBeach2016_Mask.shp
+    # make(
+    #     "data/Manley_Womanley/centralcoast_stirling_mos_U0061.tif",
+    #     "data/Manley_Womanley/Kelp_20160706_CentralCoast_U0061.shp",
+    #     "data/datasets/Manley_Womanley_2016"
+    # )

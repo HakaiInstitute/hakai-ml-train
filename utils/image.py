@@ -2,9 +2,9 @@ from osgeo import gdal, osr
 import rasterio
 from pathlib import Path
 import os
-from tqdm import tqdm
 import itertools
-from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor
+from tqdm.auto import tqdm
 
 
 def check_same_extent(src_a, src_b):
@@ -67,21 +67,29 @@ def slice_and_dice_image(src_img, dest_d, crop_size=200, cpus=os.cpu_count()):
 
     x0s = list(range(0, w, crop_size))
     y0s = list(range(0, h, crop_size))
-    origins = list(itertools.product(x0s, y0s))
+    origins = tuple(itertools.product(x0s, y0s))
 
     # Crop img sections and save
-    pbar = tqdm(total=len(origins))
-    
-    def update(*a):
-        pbar.update()
+    # progress = tqdm(total=len(origins))
+    # with ProcessPoolExecutor(max_workers=cpus) as pool:
+    #     futures = []
+    #     for i, (x0, y0) in enumerate(origins):
+    #         dest = str(dest_d.joinpath(f"{i}.png"))
+    #         future = pool.submit(_crop_to_png, src_img, dest, x0, y0, crop_size)
+    #         future.add_done_callback(lambda p: progress.update())
+    #         futures.append(future)
+    #
+    #     for future in futures:
+    #         try:
+    #             result = future.result()
+    #         except Exception as e:
+    #             print(e)
+    #             import sys
+    #             sys.exit(1)
 
-    pool = Pool(cpus)
-    for i, (x0, y0) in enumerate(origins):
+    for i, (x0, y0) in enumerate(tqdm(origins, total=len(origins))):
         dest = str(dest_d.joinpath(f"{i}.png"))
-        pool.apply_async(_crop_to_png, args=(src_img, dest, x0, y0, crop_size), callback=update)
-    pool.close()
-    pool.join()
-
+        _crop_to_png(src_img, dest, x0, y0, crop_size)
 
 def clip_raster_with_shp_mask(dest, src, mask):
     """
