@@ -5,38 +5,58 @@ import os
 from tqdm import tqdm
 import itertools
 from multiprocessing import Pool
-import functools
 
 
-def _crop_to_png(src, dest, x0, y0, crop_size):
-    options_list = [
-        '-ot Byte',
-        '-of PNG',
-        '-scale',
-        f'-srcwin {x0} {y0} {crop_size} {crop_size}'
-    ]
-    gdal.Translate(dest, src, options=" ".join(options_list))
+def check_same_extent(src_a, src_b):
+    """
+    Check that the projected extents of the geo-located images at src_img and src_labels are the same.
+    Args:
+        src_a: Path to first geo-located image
+        src_b: Path to second geo-located image
 
-
-def check_same_extent(src_img, src_labels):
-    with rasterio.open(src_img) as img:
+    Returns: True if images have the same extent
+    """
+    with rasterio.open(src_a) as img:
         w = img.width
         h = img.height
 
-    with rasterio.open(src_labels) as img:
+    with rasterio.open(src_b) as img:
         if w != img.width or h != img.height:
             raise RuntimeError("Label dataset must have the same extent as the image dataset")
 
     return True
 
 
-def _wrapped_cropper(src, dest, crop_size, origins, i):
-    dest = str(dest.joinpath(f"{i}.png"))
-    x0, y0 = origins[i]
-    _crop_to_png(src, dest, x0, y0, crop_size)
+def _crop_to_png(src, dest, x0, y0, crop_size):
+    """
+    Crop the raster at location src and save at location dest to square section of length and width crop_size from
+    origin (x0, y0). Crops from src coordinates, not projected coordinates
+    Args:
+        src: Path to the image to crop
+        dest: Path to save the cropped image to
+        x0: Leftmost x coordinate to crop to
+        y0: Topmost y coordinate to crop to
+        crop_size: The length and width of the cropped section
+
+    Returns: None
+    """
+    options = gdal.TranslateOptions(outputType=gdal.GDT_Byte, format="PNG", srcWin=[x0, y0, crop_size, crop_size])
+    gdal.Translate(dest, src, options=options)
 
 
 def slice_and_dice_image(src_img, dest_d, crop_size=200, cpus=os.cpu_count()):
+    """
+    Create a machine learning dataset of image patches. Chops src_img into square sections of length/width crop_size
+    and saves the patches and intermediate files to direction dest_d. Uses `cpus` count of cpus to process image in
+    parallel.
+    Args:
+        src_img: Path to the image to crop into square sections
+        dest_d: Path to directory to save the processed image
+        crop_size: The length and width of cropped sections to create
+        cpus: The number of cpus to parallelize the processing task on. Defaults to all available
+
+    Returns: None
+    """
     # Create small image dataset
     dest_d = Path(dest_d)
 
@@ -49,30 +69,56 @@ def slice_and_dice_image(src_img, dest_d, crop_size=200, cpus=os.cpu_count()):
     y0s = list(range(0, h, crop_size))
     origins = list(itertools.product(x0s, y0s))
 
-    # Crop label sections and save
-    f = functools.partial(_wrapped_cropper, src_img, dest_d, crop_size, origins)
-    with Pool() as pool:
-        r = list(tqdm(pool.imap_unordered(f, range(len(origins))), total=len(origins)))
+    # Crop img sections and save
+    pbar = tqdm(total=len(origins))
+    
+    def update(*a):
+        pbar.update()
+
+    pool = Pool(cpus)
+    for i, (x0, y0) in enumerate(origins):
+        dest = str(dest_d.joinpath(f"{i}.png"))
+        pool.apply_async(_crop_to_png, args=(src_img, dest, x0, y0, crop_size), callback=update)
+    pool.close()
+    pool.join()
 
 
 def clip_raster_with_shp_mask(dest, src, mask):
+    """
+    Clip a raster at path src to shapefile at path mask and save at location dest.
+    Args:
+        dest: The path to the desired save location
+        src: The path to raster to clip
+        mask: The path to the shapefile to use for clipping
+
+    Returns: None
+    """
     opts = gdal.WarpOptions(format="GTiff", cutlineDSName=mask, cutlineLayer=Path(mask).stem, cropToCutline=True)
     gdal.Warp(dest, src, options=opts)
 
 
 def clip_raster_by_extent(dest, src, extent):
     """
-    Clips raster at location src to extent and saves at location dest
-    :param dest: Path to save clipped raster
-    :param src: Source raster to clip
-    :param extent: Either an array of extent in format [ulx, uly, lrx, lry]
-    :return: None
+    Clips raster at location src to extent and saves at location dest.
+    Args:
+        dest: Path to save clipped raster
+        src: Source raster to clip
+        extent: Either an array of extent in format [ulx, uly, lrx, lry]
+
+    Returns: None
     """
     opts = gdal.TranslateOptions(format="GTiff", projWin=extent)
     gdal.Translate(dest, src, options=opts)
 
 
 def get_raster_corners(src):
+    """
+    Returns the projected corner coordinates of the images located at src.
+    Args:
+        src: Path to a geo-located raster image.
+
+    Returns: Coordinates of projected corners in same srs as src. Format is [ulx, uly, llx, lly, lrx, lry, urx, ury].
+    """
     gdalSrc = gdal.Open(src, gdal.GA_ReadOnly)
     upx, xres, xskew, upy, yskew, yres = gdalSrc.GetGeoTransform()
     cols = gdalSrc.RasterXSize
@@ -95,6 +141,13 @@ def get_raster_corners(src):
 
 def get_raster_extent(src):
     """
+    Get the upper left and lower right projected coordinates of the image at path src.
+    Args:
+        src: Path to a geo-located raster image.
+
+    Returns: Extent coordinates in same srs as src. Format is [ulx, uly, lrx, lry].
+
+    DocTests:
     >>> get_raster_extent("../data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069_clipped.tif")
     [558095.357204558, 5726228.007563976, 561383.0880298427, 5723000.81666507]
     """
@@ -102,9 +155,16 @@ def get_raster_extent(src):
     return [ulx, uly, lrx, lry]
 
 
-def get_raster_crs(src):
+def get_raster_srs(src):
     """
-    >>> get_raster_crs("../data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069_clipped.tif")
+    Get the spatial reference system code for the geo-located image at path src.
+    Args:
+        src: Path to a geo-located raster image.
+
+    Returns: EPSG code at a string
+
+    DocTests:
+    >>> get_raster_srs("../data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069_clipped.tif")
     '3156'
     """
     d = gdal.Open(src)

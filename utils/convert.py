@@ -1,9 +1,17 @@
-# A script to rasterise a shapefile to the same projection & pixel resolution as a reference image.
 from osgeo import gdal, ogr
 
 
 def shp2tiff(in_shp, out_tiff, ref_tiff, label_attr="label"):
-    """Convert in_shp shapefile to geotiff using the ref_tiff projection and scale."""
+    """
+    Convert in_shp shapefile to geotiff using the ref_tiff projection and scale.
+    Args:
+        in_shp: Path to the shapefile to convert
+        out_tiff: Path to save the raster file that is created
+        ref_tiff: Path to a geo-referenced tiff to use as a reference for the desired srs and extent
+        label_attr: The attr of the shp file to use to populate the raster pixel values
+
+    Returns: None
+    """
     gdal_format = 'GTiff'
     datatype = gdal.GDT_Byte
 
@@ -33,11 +41,3 @@ def shp2tiff(in_shp, out_tiff, ref_tiff, label_attr="label"):
     output = None
     image = None
     shapefile = None
-
-
-if __name__ == '__main__':
-    shp_f = '../data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp'
-    out_f = '../data/kelp.py.tif'
-    ref_f = '../data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif'
-
-    shp2tiff(shp_f, out_f, ref_f)

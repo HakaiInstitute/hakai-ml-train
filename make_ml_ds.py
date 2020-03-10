@@ -3,6 +3,11 @@ from pathlib import Path
 
 import geopandas as gpd
 import utils as ut
+from osgeo import gdal
+# Make GDAL raise python exceptions for errors (warnings won't raise an exception)
+gdal.UseExceptions()
+# Stop GDAL printing both warnings and errors to STDERR
+gdal.PushErrorHandler('CPLQuietErrorHandler')
 
 
 def make(img, kelp, out, crop_size=200, mask=None):
@@ -67,28 +72,28 @@ def make(img, kelp, out, crop_size=200, mask=None):
 if __name__ == '__main__':
     # fire.Fire(make)
     make(
-        "/workspace/data/NW_Calvert/2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
-        "/workspace/data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
-        "/workspace/data/datasets/Calvert_WestBeach_2016",
+        "data/NW_Calvert/2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
+        "data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
+        "data/datasets/Calvert_WestBeach_2016",
     )
 
     make(
-        "/workspace/data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif",
-        "/workspace/data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
-        "/workspace/data/datasets/NW_Calvert_2016",
-        mask="/workspace/data/NW_Calvert/2016/Calvert_ChokedNorthBeach2016_Mask.shp"
+        "data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif",
+        "data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
+        "data/datasets/Calvert_ChokedNorthBeach_2016",
+        mask="data/NW_Calvert/2016/Calvert_ChokedNorthBeach2016_Mask.shp"
     )
 
     make(
-        "/workspace/data/NW_Calvert/2015/calvert_choked15_CSRS_mos_U0015.tif",
-        "/workspace/data/NW_Calvert/2015/2015_Kelp_Extent_FINAL21072016.shp",
-        "/workspace/data/datasets/Calvert_2015",
+        "data/NW_Calvert/2015/calvert_choked15_CSRS_mos_U0015.tif",
+        "data/NW_Calvert/2015/2015_Kelp_Extent_FINAL21072016.shp",
+        "data/datasets/Calvert_2015",
     )
 
     make(
-        "/workspace/data/NW_Calvert/2012/NWCalvert_2012.tif",
-        "/workspace/data/NW_Calvert/2012/2012_Kelp_Extent_FINAL21072016.shp",
-        "/workspace/data/datasets/Calvert_2012",
+        "data/NW_Calvert/2012/NWCalvert_2012.tif",
+        "data/NW_Calvert/2012/2012_Kelp_Extent_FINAL21072016.shp",
+        "data/datasets/Calvert_2012",
     )
 
 # python make_ml_ds.py h:Geospatial_Ichy_Bin\Taylor_Denouden\NW_Calvert\2016\20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif h:Geospatial_Ichy_Bin\Taylor_Denouden\NW_Calvert\2016\2016_Kelp_Extent_KH_May15_2017.shp h:Geospatial_Ichy_Bin\Taylor_Denouden\datasets\NW_Calvert_2016 --mask=h:Geospatial_Ichy_Bin\Taylor_Denouden\NW_Calvert\2016\2016_Kelp_Extent_KH_May15_2017.shp
