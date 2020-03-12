@@ -44,34 +44,32 @@ def make(img, kelp, out, crop_size=200, mask=None):
     # Convert the kelp shapefile to a raster
     print("Rasterizing kelp shapefile...")
     kelp_r = str(Path(out).joinpath('./kelp.tif'))
-    ut.convert.shp2tiff(kelp_s, kelp_r, img, label_attr="label")
+    ut.data_prep.shp2tiff(kelp_s, kelp_r, img, label_attr="label")
 
     # Crop the image using the mask if given
     if mask is not None:
         print("Clipping imagery raster to mask...")
         clipped_img = str(Path(out).joinpath(f"{Path(img).stem}_clipped.tif"))
-        ut.image.clip_raster_with_shp_mask(clipped_img, img, mask)
+        ut.data_prep.clip_raster_with_shp_mask(clipped_img, img, mask)
     else:
         clipped_img = img
 
     # Crop kelp raster to img extent
     print("Clipping kelp raster to image extent...")
     clipped_kelp = str(Path(out).joinpath("kelp_clipped.tif"))
-    extent = ut.image.get_raster_extent(clipped_img)
-    ut.image.clip_raster_by_extent(clipped_kelp, kelp_r, extent=extent)
+    extent = ut.data_prep.get_raster_extent(clipped_img)
+    ut.data_prep.clip_raster_by_extent(clipped_kelp, kelp_r, extent=extent)
 
     print("Creating image patches dataset...")
     # Slice the image into fixed width and height sections
-    ut.image.check_same_extent(clipped_img, clipped_kelp)
-    ut.image.slice_and_dice_image(clipped_img, dest_x, crop_size=crop_size)
+    ut.data_prep.check_same_extent(clipped_img, clipped_kelp)
+    ut.data_prep.slice_and_dice_image(clipped_img, dest_x, crop_size=crop_size)
 
     print("Creating label patches dataset...")
-    ut.image.slice_and_dice_image(clipped_kelp, dest_y, crop_size=crop_size)
+    ut.data_prep.slice_and_dice_image(clipped_kelp, dest_y, crop_size=crop_size)
 
 
-if __name__ == '__main__':
-    # fire.Fire(make)
-
+def main():
     make(
         "data/NW_Calvert/2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
         "data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
@@ -108,3 +106,7 @@ if __name__ == '__main__':
     #     "data/Manley_Womanley/Kelp_20160706_CentralCoast_U0061.shp",
     #     "data/datasets/Manley_Womanley_2016"
     # )
+
+if __name__ == '__main__':
+    # fire.Fire(make)
+    main()

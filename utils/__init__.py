@@ -1,3 +1,4 @@
 from . import kelp
-from . import convert
-from . import image
+from . import data_prep
+from . import dataset
+from . import vis
