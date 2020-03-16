@@ -36,7 +36,8 @@ def make(img, kelp, out, crop_size=200, mask=None):
     print("Adding label field to Kelp data..")
     # Create and populate a new label attribute for shapefile class
     df = gpd.read_file(kelp)
-    labels = [ut.kelp.get_label(row["Species"], row["Density"]) for _, row in df.iterrows()]
+    # labels = [ut.kelp.get_species_density_label(row["Species"], row["Density"]) for _, row in df.iterrows()]
+    labels = [ut.kelp.get_species_label(row["Species"]) for _, row in df.iterrows()]
     df['label'] = labels
     kelp_s = str(Path(out).joinpath("kelp.shp"))
     df.to_file(kelp_s)
@@ -63,13 +64,25 @@ def make(img, kelp, out, crop_size=200, mask=None):
     print("Creating image patches dataset...")
     # Slice the image into fixed width and height sections
     ut.data_prep.check_same_extent(clipped_img, clipped_kelp)
-    ut.data_prep.slice_and_dice_image(clipped_img, dest_x, crop_size=crop_size)
+    # ut.data_prep.slice_and_dice_image(clipped_img, dest_x, crop_size=crop_size)
 
     print("Creating label patches dataset...")
     ut.data_prep.slice_and_dice_image(clipped_kelp, dest_y, crop_size=crop_size)
 
 
 def main():
+    make(
+        "data/NW_Calvert/2012/NWCalvert_2012.tif",
+        "data/NW_Calvert/2012/2012_Kelp_Extent_FINAL21072016.shp",
+        "data/datasets/Calvert_2012"
+    )
+
+    # make(
+    #     "data/NW_Calvert/2015/calvert_choked15_CSRS_mos_U0015.tif",
+    #     "data/NW_Calvert/2015/2015_Kelp_Extent_FINAL21072016.shp",
+    #     "data/datasets/Calvert_2015",
+    # )
+    #
     make(
         "data/NW_Calvert/2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
         "data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
@@ -83,18 +96,6 @@ def main():
         mask="data/NW_Calvert/2016/Calvert_ChokedNorthBeach_2016_Mask.shp"
     )
 
-    make(
-        "data/NW_Calvert/2015/calvert_choked15_CSRS_mos_U0015.tif",
-        "data/NW_Calvert/2015/2015_Kelp_Extent_FINAL21072016.shp",
-        "data/datasets/Calvert_2015",
-    )
-
-    make(
-        "data/NW_Calvert/2012/NWCalvert_2012.tif",
-        "data/NW_Calvert/2012/2012_Kelp_Extent_FINAL21072016.shp",
-        "data/datasets/Calvert_2012"
-    )
-
     # make(
     #     "data/McNaughtons/CentralCoast_McNaughtonGroup_MOS_U0168_ForDerekJ.tif",
     #     "data/McNaughtons/McNaughtons_Group_Kelp_2017_forDerekJ.shp",
@@ -106,6 +107,7 @@ def main():
     #     "data/Manley_Womanley/Kelp_20160706_CentralCoast_U0061.shp",
     #     "data/datasets/Manley_Womanley_2016"
     # )
+
 
 if __name__ == '__main__':
     # fire.Fire(make)

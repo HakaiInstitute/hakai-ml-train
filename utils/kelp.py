@@ -1,26 +1,72 @@
-def get_label(species, density):
+def get_species_label(species):
     """
     :param species: string of species name. Should be "macro", "nereo", or "mixed"
     :param density: string of density. Should be "low" or "high"
     :return: int label
 
-    >>> get_label("macro", "low")
+    >>> get_species_label("macro")
     0
-    >>> get_label("macro", "high")
+    >>> get_species_label("nereo")
     1
-    >>> get_label("nereo", "low")
+    >>> get_species_label("mixed")
     2
-    >>> get_label("nereo", "high")
-    3
-    >>> get_label("mixed", "low")
-    4
-    >>> get_label("mixed", "high")
-    5
-    >>> get_label("Macro", "High")
+    >>> get_species_label("Macro")
+    0
+    >>> get_species_label("neReO")
     1
-    >>> get_label("neReO", "hIGh")
+    >>> get_species_label("MIXED")
+    2
+    """
+    species = str(species).lower()
+
+    try:
+        result = ['macro', 'nereo', 'mixed'].index(species)
+    except ValueError:
+        raise ValueError(f"Species {species} does not have a defined label")
+
+    return result
+
+
+def get_species_from_species_label(label):
+    """
+    :param label: int label
+    :return: str kelp species
+
+    >>> [get_species_from_species_label(i) for i in range(3)]
+    ['macro', 'nereo', 'mixed']
+    """
+
+    try:
+        result = ['macro', 'nereo', 'mixed'][label]
+    except IndexError:
+        raise IndexError(f"Species for label {label} does not exist")
+
+    return result
+
+
+def get_species_density_label(species, density):
+    """
+    :param species: string of species name. Should be "macro", "nereo", or "mixed"
+    :param density: string of density. Should be "low" or "high"
+    :return: int label
+
+    >>> get_species_density_label("macro", "low")
+    0
+    >>> get_species_density_label("macro", "high")
+    1
+    >>> get_species_density_label("nereo", "low")
+    2
+    >>> get_species_density_label("nereo", "high")
     3
-    >>> get_label("MIXED", "HIGH")
+    >>> get_species_density_label("mixed", "low")
+    4
+    >>> get_species_density_label("mixed", "high")
+    5
+    >>> get_species_density_label("Macro", "High")
+    1
+    >>> get_species_density_label("neReO", "hIGh")
+    3
+    >>> get_species_density_label("MIXED", "HIGH")
     5
     """
     density = str(density).lower()
@@ -45,12 +91,12 @@ def get_label(species, density):
     return (spe << 1) | den
 
 
-def get_species_from_label(label):
+def get_species_from_species_density_label(label):
     """
     :param label: int label
     :return: str kelp species
 
-    >>> [get_species_from_label(i) for i in range(6)]
+    >>> [get_species_from_species_density_label(i) for i in range(6)]
     ['macro', 'macro', 'nereo', 'nereo', 'mixed', 'mixed']
     """
     la = label >> 1
@@ -64,12 +110,12 @@ def get_species_from_label(label):
         raise RuntimeError(f"Species for label {label} does not exist")
 
 
-def get_density_from_label(label):
+def get_density_from_species_density_label(label):
     """
     :param label: int label
     :return: str kelp density
 
-    >>> [get_density_from_label(i) for i in range(6)]
+    >>> [get_density_from_species_density_label(i) for i in range(6)]
     ['low', 'high', 'low', 'high', 'low', 'high']
     """
     la = label % 2

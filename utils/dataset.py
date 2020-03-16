@@ -1,4 +1,5 @@
 from torch.utils.data import Dataset
+import torch
 from PIL import Image
 from pathlib import Path
 import numpy as np
@@ -21,14 +22,14 @@ transforms = SimpleNamespace(
     train_transforms=T.Compose([
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
-        T.RandomRotation(degrees=45),
+        T.RandomRotation(degrees=90),
         T.ToTensor(),
         _normalize,
     ]),
     train_target_transforms=T.Compose([
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
-        T.RandomRotation(degrees=45, fill=(0,)),
+        T.RandomRotation(degrees=90, fill=(0,)),
         _target_to_tensor,
     ]),
     test_transforms=T.Compose([
@@ -57,11 +58,13 @@ class SegmentationDataset(Dataset):
         target = Image.open(self.labels[idx])
 
         seed = np.random.randint(2147483647)
-
+        
+        torch.manual_seed(seed)
         random.seed(seed)  # apply this seed to img transforms
         if self.transform is not None:
             img = self.transform(img)
 
+        torch.manual_seed(seed)
         random.seed(seed)  # apply this seed to target transforms
         if self.target_transform is not None:
             target = self.target_transform(target)

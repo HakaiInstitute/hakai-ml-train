@@ -1,4 +1,4 @@
-from osgeo import gdal, osr
+from osgeo import gdal, osr, ogr
 import rasterio
 from pathlib import Path
 import os
