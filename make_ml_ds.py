@@ -1,6 +1,6 @@
 import fire
 from pathlib import Path
-
+import os
 import geopandas as gpd
 import utils as ut
 from osgeo import gdal
@@ -10,7 +10,7 @@ gdal.UseExceptions()
 gdal.PushErrorHandler('CPLQuietErrorHandler')
 
 
-def make(img, kelp, out, crop_size=200, mask=None):
+def make(img, kelp, out, crop_size=200, mask=None, cpus=os.cpu_count()):
     """
     Create tiled png images from drone imagery with kelp labels. Useful for creating a dataset for ML learning.
 
@@ -36,8 +36,15 @@ def make(img, kelp, out, crop_size=200, mask=None):
     print("Adding label field to Kelp data..")
     # Create and populate a new label attribute for shapefile class
     df = gpd.read_file(kelp)
+    # Species and density labels
     # labels = [ut.kelp.get_species_density_label(row["Species"], row["Density"]) for _, row in df.iterrows()]
-    labels = [ut.kelp.get_species_label(row["Species"]) for _, row in df.iterrows()]
+
+    # Not kelp 0, macro 1, nereo 2, mixed 3
+    # labels = [ut.kelp.get_species_label(row["Species"]) for _, row in df.iterrows()]
+
+    # Kelp is 1, not kelp is 0
+    labels = [1 for _, row in df.iterrows()]
+
     df['label'] = labels
     kelp_s = str(Path(out).joinpath("kelp.shp"))
     df.to_file(kelp_s)
@@ -64,10 +71,17 @@ def make(img, kelp, out, crop_size=200, mask=None):
     print("Creating image patches dataset...")
     # Slice the image into fixed width and height sections
     ut.data_prep.check_same_extent(clipped_img, clipped_kelp)
-    # ut.data_prep.slice_and_dice_image(clipped_img, dest_x, crop_size=crop_size)
+    ut.data_prep.slice_and_dice_image(clipped_img, dest_x, crop_size=crop_size, cpus=cpus)
 
     print("Creating label patches dataset...")
-    ut.data_prep.slice_and_dice_image(clipped_kelp, dest_y, crop_size=crop_size)
+    ut.data_prep.slice_and_dice_image(clipped_kelp, dest_y, crop_size=crop_size, cpus=cpus)
+
+    # Delete blank images
+    print("Deleting completely black image crops")
+    ut.data_prep.filter_blank_images(out)
+
+    print("Deleting extra labels")
+    ut.data_prep.del_extra_labels(out)
 
 
 def main():
@@ -77,12 +91,12 @@ def main():
         "data/datasets/Calvert_2012"
     )
 
-    # make(
-    #     "data/NW_Calvert/2015/calvert_choked15_CSRS_mos_U0015.tif",
-    #     "data/NW_Calvert/2015/2015_Kelp_Extent_FINAL21072016.shp",
-    #     "data/datasets/Calvert_2015",
-    # )
-    #
+    make(
+        "data/NW_Calvert/2015/calvert_choked15_CSRS_mos_U0015.tif",
+        "data/NW_Calvert/2015/2015_Kelp_Extent_FINAL21072016.shp",
+        "data/datasets/Calvert_2015",
+    )
+
     make(
         "data/NW_Calvert/2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
         "data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
@@ -93,7 +107,7 @@ def main():
         "data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif",
         "data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
         "data/datasets/Calvert_ChokedNorthBeach_2016",
-        mask="data/NW_Calvert/2016/Calvert_ChokedNorthBeach_2016_Mask.shp"
+        mask="data/NW_Calvert/2016/Calvert_ChokedNorthBeach2016_Mask.shp"
     )
 
     # make(

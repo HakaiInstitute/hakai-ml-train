@@ -5,24 +5,26 @@ def get_species_label(species):
     :return: int label
 
     >>> get_species_label("macro")
-    0
+    1
     >>> get_species_label("nereo")
-    1
+    2
     >>> get_species_label("mixed")
-    2
+    3
     >>> get_species_label("Macro")
-    0
-    >>> get_species_label("neReO")
     1
-    >>> get_species_label("MIXED")
+    >>> get_species_label("neReO")
     2
+    >>> get_species_label("MIXED")
+    3
     """
     species = str(species).lower()
 
     try:
-        result = ['macro', 'nereo', 'mixed'].index(species)
+        result = ['macro', 'nereo', 'mixed'].index(species) + 1
     except ValueError:
-        raise ValueError(f"Species {species} does not have a defined label")
+        print(f"Species {species} does not have a defined label")
+        # raise ValueError(f"Species {species} does not have a defined label")
+        result = 100
 
     return result
 
@@ -32,12 +34,12 @@ def get_species_from_species_label(label):
     :param label: int label
     :return: str kelp species
 
-    >>> [get_species_from_species_label(i) for i in range(3)]
+    >>> [get_species_from_species_label(i) for i in range(1, 4)]
     ['macro', 'nereo', 'mixed']
     """
 
     try:
-        result = ['macro', 'nereo', 'mixed'][label]
+        result = ['macro', 'nereo', 'mixed'][label-1]
     except IndexError:
         raise IndexError(f"Species for label {label} does not exist")
 

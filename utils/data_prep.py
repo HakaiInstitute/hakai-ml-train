@@ -5,6 +5,7 @@ import os
 import itertools
 from concurrent.futures import ProcessPoolExecutor
 from tqdm.auto import tqdm
+from PIL import Image
 
 
 def check_same_extent(src_a, src_b):
@@ -70,26 +71,28 @@ def slice_and_dice_image(src_img, dest_d, crop_size=200, cpus=os.cpu_count()):
     origins = tuple(itertools.product(x0s, y0s))
 
     # Crop img sections and save
-    # progress = tqdm(total=len(origins))
-    # with ProcessPoolExecutor(max_workers=cpus) as pool:
-    #     futures = []
-    #     for i, (x0, y0) in enumerate(origins):
-    #         dest = str(dest_d.joinpath(f"{i}.png"))
-    #         future = pool.submit(_crop_to_png, src_img, dest, x0, y0, crop_size)
-    #         future.add_done_callback(lambda p: progress.update())
-    #         futures.append(future)
-    #
-    #     for future in futures:
-    #         try:
-    #             result = future.result()
-    #         except Exception as e:
-    #             print(e)
-    #             import sys
-    #             sys.exit(1)
+    if cpus > 1:
+        with ProcessPoolExecutor(max_workers=cpus) as pool, tqdm(total=len(origins)) as progress:
+            futures = []
+            for i, (x0, y0) in enumerate(origins):
+                dest = str(dest_d.joinpath(f"{i}.png"))
+                future = pool.submit(_crop_to_png, src_img, dest, x0, y0, crop_size)
+                future.add_done_callback(lambda p: progress.update())
+                futures.append(future)
 
-    for i, (x0, y0) in enumerate(tqdm(origins, total=len(origins))):
-        dest = str(dest_d.joinpath(f"{i}.png"))
-        _crop_to_png(src_img, dest, x0, y0, crop_size)
+            for future in futures:
+                try:
+                    result = future.result()
+                except Exception as e:
+                    print(e)
+                    import sys
+                    sys.exit(1)
+
+    else:
+        for i, (x0, y0) in enumerate(tqdm(origins, total=len(origins))):
+            dest = str(dest_d.joinpath(f"{i}.png"))
+            _crop_to_png(src_img, dest, x0, y0, crop_size)
+
 
 def clip_raster_with_shp_mask(dest, src, mask):
     """
@@ -220,6 +223,51 @@ def shp2tiff(in_shp, out_tiff, ref_tiff, label_attr="label"):
     output = None
     image = None
     shapefile = None
+
+
+def filter_blank_images(dataset):
+    imgs_dir = Path(dataset).joinpath("x")
+    labels_dir = Path(dataset).joinpath("y")
+
+    imgs = list(imgs_dir.glob("*.png"))
+    print(len(list(imgs)), "Total images in dataset", dataset)
+
+    removed = 0
+    for img_path in tqdm(imgs, total=len(imgs)):
+        img = Image.open(img_path)
+        if img.getbbox() is None:
+            # Delete label files
+            labels_dir.joinpath(img_path.name).unlink()
+            labels_dir.joinpath(img_path.with_suffix(".png.aux.xml").name).unlink()
+
+            # Delete img files
+            imgs_dir.joinpath(img_path.with_suffix(".png.aux.xml").name).unlink()
+            img_path.unlink()
+
+            removed += 1
+
+
+def del_extra_labels(dataset):
+    imgs_dir = Path(dataset).joinpath("x")
+    labels_dir = Path(dataset).joinpath("y")
+
+    imgs = list(imgs_dir.glob("*.png"))
+    print(len(list(imgs)), "Total images in dataset", dataset)
+
+    labels = list(labels_dir.glob("*.png"))
+    print(len(list(labels)), "Total labels in dataset", dataset)
+
+    img_names = [l.name for l in imgs]
+
+    removed = 0
+    for label in labels:
+        if label.name not in img_names:
+            removed += 1
+            # Delete label files
+            label.with_suffix(".png.aux.xml").unlink()
+            label.unlink()
+
+    print(removed, "labels removed")
 
 
 if __name__ == "__main__":
