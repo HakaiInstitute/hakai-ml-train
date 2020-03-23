@@ -3,8 +3,10 @@ import rasterio
 from pathlib import Path
 import os
 import itertools
-from concurrent.futures import ProcessPoolExecutor
+import numpy as np
+import multiprocessing as mp
 from tqdm.auto import tqdm
+from tqdm.contrib.itertools import product as tproduct
 from PIL import Image
 
 
@@ -28,24 +30,20 @@ def check_same_extent(src_a, src_b):
     return True
 
 
-def _crop_to_png(src, dest, x0, y0, crop_size):
-    """
-    Crop the raster at location src and save at location dest to square section of length and width crop_size from
-    origin (x0, y0). Crops from src coordinates, not projected coordinates
-    Args:
-        src: Path to the image to crop
-        dest: Path to save the cropped image to
-        x0: Leftmost x coordinate to crop to
-        y0: Topmost y coordinate to crop to
-        crop_size: The length and width of the cropped section
-
-    Returns: None
-    """
-    options = gdal.TranslateOptions(outputType=gdal.GDT_Byte, format="PNG", srcWin=[x0, y0, crop_size, crop_size])
-    gdal.Translate(dest, src, options=options)
+def f(src_img, dest, mode, x0, y0, crop_size):
+    with rasterio.open(src_img) as dataset:
+        if mode == 'L':
+            subset = dataset.read(1, window=((y0, y0 + crop_size), (x0, x0 + crop_size)))
+            subset = np.squeeze(subset)
+            Image.fromarray(subset, mode).save(dest)
+        else:  # mode == 'RGB':
+            subset = dataset.read([1, 2, 3], window=((y0, y0 + crop_size), (x0, x0 + crop_size)))
+            subset = np.moveaxis(subset, 0, 2)  # (c, h, w) = (h, w, c)
+            if np.any(subset > 0):
+                Image.fromarray(subset, mode).save(dest)
 
 
-def slice_and_dice_image(src_img, dest_d, crop_size=200, cpus=os.cpu_count()):
+def slice_and_dice_image(src_img, dest_d, mode='L', crop_size=200):
     """
     Create a machine learning dataset of image patches. Chops src_img into square sections of length/width crop_size
     and saves the patches and intermediate files to direction dest_d. Uses `cpus` count of cpus to process image in
@@ -53,45 +51,28 @@ def slice_and_dice_image(src_img, dest_d, crop_size=200, cpus=os.cpu_count()):
     Args:
         src_img: Path to the image to crop into square sections
         dest_d: Path to directory to save the processed image
+        mode: The Pillow image write mode. E.g. 'RGB', 'L' (for BW)
         crop_size: The length and width of cropped sections to create
-        cpus: The number of cpus to parallelize the processing task on. Defaults to all available
 
     Returns: None
     """
-    # Create small image dataset
-    dest_d = Path(dest_d)
+    with rasterio.open(src_img) as dataset:
+        x0s = range(0, dataset.width, crop_size)
+        y0s = range(0, dataset.height, crop_size)
 
-    # Get X and Y dimensions of image
-    with rasterio.open(src_img) as img:
-        w = img.width
-        h = img.height
-
-    x0s = list(range(0, w, crop_size))
-    y0s = list(range(0, h, crop_size))
-    origins = tuple(itertools.product(x0s, y0s))
-
-    # Crop img sections and save
-    if cpus > 1:
-        with ProcessPoolExecutor(max_workers=cpus) as pool, tqdm(total=len(origins)) as progress:
-            futures = []
-            for i, (x0, y0) in enumerate(origins):
-                dest = str(dest_d.joinpath(f"{i}.png"))
-                future = pool.submit(_crop_to_png, src_img, dest, x0, y0, crop_size)
-                future.add_done_callback(lambda p: progress.update())
-                futures.append(future)
-
-            for future in futures:
-                try:
-                    result = future.result()
-                except Exception as e:
-                    print(e)
-                    import sys
-                    sys.exit(1)
-
-    else:
-        for i, (x0, y0) in enumerate(tqdm(origins, total=len(origins))):
+        dest_d = Path(dest_d)
+        for i, (x0, y0) in enumerate(tproduct(x0s, y0s)):
             dest = str(dest_d.joinpath(f"{i}.png"))
-            _crop_to_png(src_img, dest, x0, y0, crop_size)
+
+            if mode == 'L':
+                subset = dataset.read(1, window=((y0, y0+crop_size), (x0, x0+crop_size)))
+                subset = np.squeeze(subset)
+                Image.fromarray(subset, mode).save(dest)
+            else:  # mode == 'RGB':
+                subset = dataset.read([1, 2, 3], window=((y0, y0+crop_size), (x0, x0+crop_size)))
+                subset = np.moveaxis(subset, 0, 2)  # (c, h, w) = (h, w, c)
+                if np.any(subset > 0):
+                    Image.fromarray(subset, mode).save(dest)
 
 
 def clip_raster_with_shp_mask(dest, src, mask):
@@ -105,7 +86,9 @@ def clip_raster_with_shp_mask(dest, src, mask):
     Returns: None
     """
     opts = gdal.WarpOptions(format="GTiff", cutlineDSName=mask, cutlineLayer=Path(mask).stem, cropToCutline=True)
-    gdal.Warp(dest, src, options=opts)
+    ds = gdal.Warp(dest, src, options=opts)
+    ds = None
+    opts = None
 
 
 def clip_raster_by_extent(dest, src, extent):
@@ -119,7 +102,9 @@ def clip_raster_by_extent(dest, src, extent):
     Returns: None
     """
     opts = gdal.TranslateOptions(format="GTiff", projWin=extent)
-    gdal.Translate(dest, src, options=opts)
+    ds = gdal.Translate(dest, src, options=opts)
+    ds = None
+    opts = None
 
 
 def get_raster_corners(src):
@@ -216,9 +201,10 @@ def shp2tiff(in_shp, out_tiff, ref_tiff, label_attr="label"):
     band.SetNoDataValue(0)
 
     # rasterize_opts = gdal.RasterizeOptions({'attribute': label_attr, "noData": -1})
-    gdal.RasterizeLayer(output, [1], shapefile_layer, options=[f"ATTRIBUTE={label_attr}", f"NODATA=-1"])
+    ds = gdal.RasterizeLayer(output, [1], shapefile_layer, options=[f"ATTRIBUTE={label_attr}", f"NODATA=-1"])
 
     # Close datasets
+    ds = None
     band = None
     output = None
     image = None
@@ -238,10 +224,10 @@ def filter_blank_images(dataset):
         if img.getbbox() is None:
             # Delete label files
             labels_dir.joinpath(img_path.name).unlink()
-            labels_dir.joinpath(img_path.with_suffix(".png.aux.xml").name).unlink()
+            # labels_dir.joinpath(img_path.with_suffix(".png.aux.xml").name).unlink()
 
             # Delete img files
-            imgs_dir.joinpath(img_path.with_suffix(".png.aux.xml").name).unlink()
+            # imgs_dir.joinpath(img_path.with_suffix(".png.aux.xml").name).unlink()
             img_path.unlink()
 
             removed += 1

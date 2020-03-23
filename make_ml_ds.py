@@ -1,16 +1,11 @@
 import fire
 from pathlib import Path
-import os
 import geopandas as gpd
 import utils as ut
 from osgeo import gdal
-# Make GDAL raise python exceptions for errors (warnings won't raise an exception)
-gdal.UseExceptions()
-# Stop GDAL printing both warnings and errors to STDERR
-gdal.PushErrorHandler('CPLQuietErrorHandler')
 
 
-def make(img, kelp, out, crop_size=200, mask=None, cpus=os.cpu_count()):
+def make(img, kelp, out, crop_size=200, mask=None):
     """
     Create tiled png images from drone imagery with kelp labels. Useful for creating a dataset for ML learning.
 
@@ -26,6 +21,7 @@ def make(img, kelp, out, crop_size=200, mask=None, cpus=os.cpu_count()):
     """
     # Create out directory if not already exists
     Path(out).mkdir(parents=True, exist_ok=True)
+    print("Creating file:", out)
 
     # Make the output directories if they don't exist
     dest_x = str(Path(out).joinpath('x'))
@@ -71,14 +67,14 @@ def make(img, kelp, out, crop_size=200, mask=None, cpus=os.cpu_count()):
     print("Creating image patches dataset...")
     # Slice the image into fixed width and height sections
     ut.data_prep.check_same_extent(clipped_img, clipped_kelp)
-    ut.data_prep.slice_and_dice_image(clipped_img, dest_x, crop_size=crop_size, cpus=cpus)
+    ut.data_prep.slice_and_dice_image(clipped_img, dest_x, mode='RGB', crop_size=crop_size)
 
     print("Creating label patches dataset...")
-    ut.data_prep.slice_and_dice_image(clipped_kelp, dest_y, crop_size=crop_size, cpus=cpus)
+    ut.data_prep.slice_and_dice_image(clipped_kelp, dest_y, mode='L', crop_size=crop_size)
 
     # Delete blank images
-    print("Deleting completely black image crops")
-    ut.data_prep.filter_blank_images(out)
+    # print("Deleting completely black image crops")
+    # ut.data_prep.filter_blank_images(out)
 
     print("Deleting extra labels")
     ut.data_prep.del_extra_labels(out)
@@ -86,43 +82,52 @@ def make(img, kelp, out, crop_size=200, mask=None, cpus=os.cpu_count()):
 
 def main():
     make(
-        "data/NW_Calvert/2012/NWCalvert_2012.tif",
-        "data/NW_Calvert/2012/2012_Kelp_Extent_FINAL21072016.shp",
-        "data/datasets/Calvert_2012"
+        "data/RPAS/NW_Calvert_2012/NWCalvert_2012.tif",
+        "data/RPAS/NW_Calvert_2012/2012_Kelp_Extent_FINAL21072016.shp",
+        "data/datasets/RPAS/Calvert_2012",
     )
 
     make(
-        "data/NW_Calvert/2015/calvert_choked15_CSRS_mos_U0015.tif",
-        "data/NW_Calvert/2015/2015_Kelp_Extent_FINAL21072016.shp",
-        "data/datasets/Calvert_2015",
+        "data/RPAS/NW_Calvert_2015/calvert_choked15_CSRS_mos_U0015.tif",
+        "data/RPAS/NW_Calvert_2015/2015_Kelp_Extent_FINAL21072016.shp",
+        "data/datasets/RPAS/Calvert_2015",
     )
 
     make(
-        "data/NW_Calvert/2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
-        "data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
-        "data/datasets/Calvert_WestBeach_2016",
+        "data/RPAS/NW_Calvert_2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
+        "data/RPAS/NW_Calvert_2016/2016_Kelp_Extent_KH_May15_2017.shp",
+        "data/datasets/RPASCalvert_WestBeach_2016",
     )
 
     make(
-        "data/NW_Calvert/2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif",
-        "data/NW_Calvert/2016/2016_Kelp_Extent_KH_May15_2017.shp",
-        "data/datasets/Calvert_ChokedNorthBeach_2016",
-        mask="data/NW_Calvert/2016/Calvert_ChokedNorthBeach2016_Mask.shp"
+        "data/RPAS/NW_Calvert_2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif",
+        "data/RPAS/NW_Calvert_2016/2016_Kelp_Extent_KH_May15_2017.shp",
+        "data/datasets/RPAS/Calvert_ChokedNorthBeach_2016",
+        mask="data/RPAS/NW_Calvert_2016/Calvert_ChokedNorthBeach_2016_Mask.shp",
     )
 
-    # make(
-    #     "data/McNaughtons/CentralCoast_McNaughtonGroup_MOS_U0168_ForDerekJ.tif",
-    #     "data/McNaughtons/McNaughtons_Group_Kelp_2017_forDerekJ.shp",
-    #     "data/datasets/McNaughtons_2017"
-    # )
 
-    # make(
-    #     "data/Manley_Womanley/centralcoast_stirling_mos_U0061.tif",
-    #     "data/Manley_Womanley/Kelp_20160706_CentralCoast_U0061.shp",
-    #     "data/datasets/Manley_Womanley_2016"
-    # )
+class GdalErrorHandler(object):
+    def __init__(self):
+        self.err_level = gdal.CE_None
+        self.err_no = 0
+        self.err_msg = ''
+
+    def handler(self, err_level, err_no, err_msg):
+        self.err_level = err_level
+        self.err_no = err_no
+        self.err_msg = err_msg
 
 
 if __name__ == '__main__':
+    err = GdalErrorHandler()
+    handler = err.handler  # Note don't pass class method directly or python segfaults
+    # due to a reference counting bug
+    # http://trac.osgeo.org/gdal/ticket/5186#comment:4
+
+    gdal.PushErrorHandler(handler)
+    gdal.UseExceptions()  # Exceptions will get raised on anything >= gdal.CE_Failure
+
     # fire.Fire(make)
     main()
+
