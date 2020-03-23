@@ -128,14 +128,11 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-.idea
 data
-
 *.pt
-
-!.idea
 *.tiff
 
 .idea/workspace.xml
-
 .idea/aws.xml
+
+*runs/
