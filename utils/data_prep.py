@@ -1,10 +1,7 @@
 from osgeo import gdal, osr, ogr
 import rasterio
 from pathlib import Path
-import os
-import itertools
 import numpy as np
-import multiprocessing as mp
 from tqdm.auto import tqdm
 from tqdm.contrib.itertools import product as tproduct
 from PIL import Image
@@ -30,17 +27,17 @@ def check_same_extent(src_a, src_b):
     return True
 
 
-def f(src_img, dest, mode, x0, y0, crop_size):
-    with rasterio.open(src_img) as dataset:
-        if mode == 'L':
-            subset = dataset.read(1, window=((y0, y0 + crop_size), (x0, x0 + crop_size)))
-            subset = np.squeeze(subset)
-            Image.fromarray(subset, mode).save(dest)
-        else:  # mode == 'RGB':
-            subset = dataset.read([1, 2, 3], window=((y0, y0 + crop_size), (x0, x0 + crop_size)))
-            subset = np.moveaxis(subset, 0, 2)  # (c, h, w) = (h, w, c)
-            if np.any(subset > 0):
-                Image.fromarray(subset, mode).save(dest)
+def _pad_out(crop, crop_size):
+    """Pads numpy arrays so that cropped sections are all exactly crop_size*crop_size in shape"""
+    if crop.shape[0] != crop_size or crop.shape[1] != crop_size:
+        if len(crop.shape) == 2:
+            padding = ((0, crop_size - crop.shape[0]), (0, crop_size - crop.shape[1]))
+        else:
+            padding = ((0, crop_size - crop.shape[0]), (0, crop_size - crop.shape[1]), (0, 0))
+
+        return np.pad(crop, padding, mode='constant', constant_values=0)
+    else:
+        return crop
 
 
 def slice_and_dice_image(src_img, dest_d, mode='L', crop_size=200):
@@ -63,15 +60,20 @@ def slice_and_dice_image(src_img, dest_d, mode='L', crop_size=200):
         dest_d = Path(dest_d)
         for i, (x0, y0) in enumerate(tproduct(x0s, y0s)):
             dest = str(dest_d.joinpath(f"{i}.png"))
+            window = ((y0, y0+crop_size), (x0, x0+crop_size))
 
             if mode == 'L':
-                subset = dataset.read(1, window=((y0, y0+crop_size), (x0, x0+crop_size)))
+                subset = dataset.read(1, window=window)
                 subset = np.squeeze(subset)
+                subset = np.clip(subset, 0, 255).astype(np.uint8)
+                subset = _pad_out(subset, crop_size)
                 Image.fromarray(subset, mode).save(dest)
             else:  # mode == 'RGB':
-                subset = dataset.read([1, 2, 3], window=((y0, y0+crop_size), (x0, x0+crop_size)))
+                subset = dataset.read([1, 2, 3], window=window)
                 subset = np.moveaxis(subset, 0, 2)  # (c, h, w) = (h, w, c)
+                subset = np.clip(subset, 0, 255).astype(np.uint8)
                 if np.any(subset > 0):
+                    subset = _pad_out(subset, crop_size)
                     Image.fromarray(subset, mode).save(dest)
 
 
@@ -222,15 +224,10 @@ def filter_blank_images(dataset):
     for img_path in tqdm(imgs, total=len(imgs)):
         img = Image.open(img_path)
         if img.getbbox() is None:
-            # Delete label files
-            labels_dir.joinpath(img_path.name).unlink()
-            # labels_dir.joinpath(img_path.with_suffix(".png.aux.xml").name).unlink()
-
-            # Delete img files
-            # imgs_dir.joinpath(img_path.with_suffix(".png.aux.xml").name).unlink()
+            removed += 1
             img_path.unlink()
 
-            removed += 1
+    print(removed, "imgs removed")
 
 
 def del_extra_labels(dataset):
@@ -249,8 +246,6 @@ def del_extra_labels(dataset):
     for label in labels:
         if label.name not in img_names:
             removed += 1
-            # Delete label files
-            label.with_suffix(".png.aux.xml").unlink()
             label.unlink()
 
     print(removed, "labels removed")

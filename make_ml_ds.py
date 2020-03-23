@@ -96,7 +96,7 @@ def main():
     make(
         "data/RPAS/NW_Calvert_2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
         "data/RPAS/NW_Calvert_2016/2016_Kelp_Extent_KH_May15_2017.shp",
-        "data/datasets/RPASCalvert_WestBeach_2016",
+        "data/datasets/RPAS/Calvert_WestBeach_2016",
     )
 
     make(
