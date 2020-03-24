@@ -11,9 +11,8 @@ import numpy as np
 from pathlib import Path
 
 from utils.dataset import SegmentationDataset, TransformDataset, transforms as T
-from utils.metrics import ConfusionMatrix
 from models import deeplabv3, half_precision
-
+from loss import iou
 
 disable_cuda = False
 num_classes = 2
@@ -75,7 +74,6 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
     for epoch in trange(start_epoch, num_epochs, desc="epoch"):
         sum_loss = 0.
         sum_iou = np.zeros(num_classes)
-        cm = ConfusionMatrix(num_classes).to(device)
 
         for phase in ['train', 'eval']:
             with tqdm(iter(dataloaders[phase]), desc=phase) as pbar:
@@ -102,10 +100,8 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                     # Compute metrics
                     sum_loss += loss.detach().cpu().item()
                     info['mean_loss'] = sum_loss / (i + 1)
-
-                    mask = y != ignore_index
-                    cm.update(y[mask], pred.max(dim=1)[1][mask])
-                    info['IoUs'] = np.around(np.nan_to_num(cm.get_iou().detach().cpu().numpy()), 4)
+                    sum_iou += iou(y, pred).detach().cpu().numpy()
+                    info['mIoUs'] = np.around(sum_iou / (i + 1), 4)
 
                     pbar.set_postfix(info)
 
@@ -113,8 +109,8 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                     #     writer.add_graph(model, x)
 
                     writer.add_scalar(f'Loss/{phase}', info['mean_loss'], global_step)
-                    writer.add_scalar(f'Mean IoU/{phase}', np.mean(info['IoUs']), global_step)
-                    writer.add_histogram(f'IoUs/{phase}', info['IoUs'], global_step, bins=num_classes)
+                    writer.add_scalar(f'Mean IoU/{phase}', np.mean(info['mIoUs']), global_step)
+                    writer.add_histogram(f'IoUs/{phase}', info['mIoUs'], global_step, bins=num_classes)
 
                     if global_step % 200 == 0:
                         # Show images
@@ -187,7 +183,6 @@ if __name__ == '__main__':
         ds_train = dataset_saved['train']
         ds_val = dataset_saved['val']
 
-
     # Net, opt, loss, dataloaders
     model = deeplabv3.create_model(num_classes)
     model = model.to(device)
@@ -221,7 +216,8 @@ if __name__ == '__main__':
     else:
         epoch = 0
 
-    model = train_model(model, data_loaders, num_classes, optimizer, criterion, num_epochs, save_path, start_epoch=epoch)
+    model = train_model(model, data_loaders, num_classes, optimizer, criterion, num_epochs, save_path,
+                        start_epoch=epoch)
 
     # Save the final model
     save_path = Path(f'checkpoints/deeplabv3/deeplabv3_epoch{num_epochs}.pt')
