@@ -72,10 +72,10 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
     best_loss = None
 
     for epoch in trange(start_epoch, num_epochs, desc="epoch"):
-        sum_loss = 0.
-        sum_iou = np.zeros(num_classes)
-
         for phase in ['train', 'eval']:
+            sum_loss = 0.
+            sum_iou = np.zeros(num_classes)
+
             with tqdm(iter(dataloaders[phase]), desc=phase) as pbar:
                 for i, (x, y) in enumerate(pbar):
                     global_step = (epoch * len(dataloaders[phase])) + i
