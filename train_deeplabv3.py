@@ -12,7 +12,7 @@ from pathlib import Path
 
 from utils.dataset import SegmentationDataset, TransformDataset, transforms as T
 from models import deeplabv3, half_precision
-from loss import iou
+from utils.loss import iou
 
 disable_cuda = False
 num_classes = 2
