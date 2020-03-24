@@ -14,10 +14,11 @@ from utils.dataset import SegmentationDataset, TransformDataset, transforms as T
 from models import deeplabv3, half_precision
 from utils.loss import iou
 
+use_half_precision = True
 disable_cuda = False
 num_classes = 2
 num_epochs = 200
-batch_size = 4
+batch_size = 16
 ignore_index = 100  # Value of labels that we ignore in loss and other logic (e.g. kelp with unknown species)
 
 prep_datasets = False
