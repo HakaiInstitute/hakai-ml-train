@@ -23,6 +23,7 @@ ignore_index = 100  # Value of labels that we ignore in loss and other logic (e.
 
 prep_datasets = True
 torch_dataset_pickle = Path('checkpoints/datasets.pt')
+torch_dataset_pickle.parents[0].mkdir(parents=True, exist_ok=True)
 ds_paths = [
     "data/datasets/RPAS/Calvert_2012",
     "data/datasets/RPAS/Calvert_2015",
@@ -208,7 +209,7 @@ if __name__ == '__main__':
     }
 
     # Train the model
-    save_path = Path('../checkpoints/deeplabv3/checkpoint.pt')
+    save_path = Path('checkpoints/deeplabv3/checkpoint.pt')
     save_path.parents[0].mkdir(parents=True, exist_ok=True)
 
     # Restart at checkpoint if it exists
@@ -223,6 +224,6 @@ if __name__ == '__main__':
     model = train_model(model, data_loaders, num_classes, optimizer, criterion, num_epochs, save_path, start_epoch=epoch)
 
     # Save the final model
-    save_path = Path(f'../checkpoints/deeplabv3/deeplabv3_epoch{num_epochs}.pt')
+    save_path = Path(f'checkpoints/deeplabv3/deeplabv3_epoch{num_epochs}.pt')
     save_path.parents[0].mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), save_path)
