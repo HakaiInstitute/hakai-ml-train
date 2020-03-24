@@ -21,7 +21,7 @@ num_epochs = 200
 batch_size = 4
 ignore_index = 100  # Value of labels that we ignore in loss and other logic (e.g. kelp with unknown species)
 
-prep_datasets = True
+prep_datasets = False
 torch_dataset_pickle = Path('checkpoints/datasets.pt')
 torch_dataset_pickle.parents[0].mkdir(parents=True, exist_ok=True)
 ds_paths = [
@@ -80,7 +80,7 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
         for phase in ['train', 'eval']:
             with tqdm(iter(dataloaders[phase]), desc=phase) as pbar:
                 for i, (x, y) in enumerate(pbar):
-                    global_step = (epoch + 1) * (i + 1)
+                    global_step = (epoch * len(dataloaders[phase])) + i
 
                     x = x.to(device)
                     y = y.to(device)
@@ -109,14 +109,14 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
 
                     pbar.set_postfix(info)
 
-                    #                     if global_step == 1:
-                    #                         writer.add_graph(model, x)
+                    # if global_step == 1:
+                    #     writer.add_graph(model, x)
 
                     writer.add_scalar(f'Loss/{phase}', info['mean_loss'], global_step)
                     writer.add_scalar(f'Mean IoU/{phase}', np.mean(info['IoUs']), global_step)
                     writer.add_histogram(f'IoUs/{phase}', info['IoUs'], global_step, bins=num_classes)
 
-                    if global_step % 500 == 0:
+                    if global_step % 200 == 0:
                         # Show images
                         grid = torchvision.utils.make_grid(x, nrow=x.shape[0])
                         grid = T.inv_normalize(grid)
