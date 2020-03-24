@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
 import os
-from tqdm.auto import tqdm, trange
+from tqdm import tqdm, trange
 from collections import OrderedDict
 import numpy as np
 from pathlib import Path
@@ -66,7 +66,10 @@ def get_indices_of_kelp_images(dataset):
 
 
 def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epochs, save_path, start_epoch=0):
-    writer = SummaryWriter()
+    writers = {
+        'train': SummaryWriter(comment='_train'),
+        'eval': SummaryWriter(comment='_eval')
+    }
     info = OrderedDict()
 
     best_loss = None
@@ -108,25 +111,26 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                     # if global_step == 1:
                     #     writer.add_graph(model, x)
 
-                    writer.add_scalar(f'Loss/{phase}', info['mean_loss'], global_step)
-                    writer.add_scalar(f'Mean IoU/{phase}', np.mean(info['mIoUs']), global_step)
-                    writer.add_histogram(f'IoUs/{phase}', info['mIoUs'], global_step, bins=num_classes)
+                    writers[phase].add_scalar('Loss', info['mean_loss'], global_step)
+                    writers[phase].add_scalar('Mean IoU', np.mean(info['mIoUs']), global_step)
+                    writers[phase].add_scalar('IoU BG', sum_iou[0] / (i+1), global_step)
+                    writers[phase].add_scalar('IoU Kelp', sum_iou[1] / (i+1), global_step)
 
                     if global_step % 200 == 0:
                         # Show images
-                        grid = torchvision.utils.make_grid(x, nrow=x.shape[0])
+                        grid = torchvision.utils.make_grid(x, nrow=2)
                         grid = T.inv_normalize(grid)
-                        writer.add_image(f'{phase}/images', grid, global_step)
+                        writers[phase].add_image('images', grid, global_step)
 
                         # Show labels and predictions
                         y = y.unsqueeze(dim=1)
-                        grid = torchvision.utils.make_grid(y, nrow=y.shape[0]).type(torch.FloatTensor)
-                        writer.add_image(f'{phase}/labels', grid, global_step)
+                        grid = torchvision.utils.make_grid(y, nrow=2)
+                        writers[phase].add_image('labels', grid, global_step)
 
                         # Show predictions
                         pred = pred.max(dim=1)[1].unsqueeze(dim=1)
-                        grid = torchvision.utils.make_grid(pred, nrow=pred.shape[0]).type(torch.FloatTensor)
-                        writer.add_image(f'{phase}/preds', grid, global_step)
+                        grid = torchvision.utils.make_grid(pred, nrow=2)
+                        writers[phase].add_image('preds', grid, global_step)
 
         # Model checkpointing after eval stage
         if best_loss is None or info['mean_loss'] < best_loss:
