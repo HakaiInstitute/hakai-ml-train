@@ -74,8 +74,12 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
     info = OrderedDict()
 
     best_loss = None
+    pbar_epoch = trange(num_epochs, desc="epoch")
+    if start_epoch != 0:
+        pbar_epoch.update(start_epoch)
+        pbar_epoch.refresh()
 
-    for epoch in trange(start_epoch, num_epochs, desc="epoch"):
+    for epoch in pbar_epoch:
         for phase in ['train', 'eval']:
             sum_loss = 0.
             sum_iou = np.zeros(num_classes)
@@ -144,6 +148,7 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                 'mean_eval_loss': info['mean_loss'],
             }, save_path)
 
+    pbar_epoch.close()
     writer.close()
     return model
 

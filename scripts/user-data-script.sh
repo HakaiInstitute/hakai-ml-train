@@ -51,14 +51,15 @@ if [ $VOLUME_ID ]; then
 		ln -s /dltraining/datasets ./data/
 		ln -s /dltraining/checkpoints ./
 
-		# Create conda env (Too slow...)
-#		conda env create -f environment.yml
-
 		# Initiate training using the pytorch_36 conda environment
-		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36; pip install tensorboard tqdm; python train_deeplabv3.py"
-
+		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
+															 pip install tensorboard tqdm"
+		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
+															 python train_deeplabv3.py &"
+		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
+															 tensorboard --logdir=runs --port=6008"
 fi
 
 # After training, clean up by cancelling spot requests and terminating itself
 SPOT_FLEET_REQUEST_ID=$(aws ec2 describe-spot-instance-requests --region $AWS_REGION --filter "Name=instance-id,Values='$INSTANCE_ID'" --query "SpotInstanceRequests[].Tags[?Key=='aws:ec2spot:fleet-request-id'].Value[]" --output text)
-aws ec2 cancel-spot-fleet-requests --region $AWS_REGION --spot-fleet-request-ids $SPOT_FLEET_REQUEST_ID --terminate-instances
+aws ec2 cancel-spot-fleet-requests --region $AWS_REGION --spot-fleet-request.sh-ids $SPOT_FLEET_REQUEST_ID --terminate-instances

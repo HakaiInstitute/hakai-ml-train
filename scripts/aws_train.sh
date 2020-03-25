@@ -1,3 +1,5 @@
+# From tutorial https://aws.amazon.com/blogs/machine-learning/train-deep-learning-models-on-gpus-using-amazon-ec2-spot-instances/
+
 # Create a server
 aws ec2 run-instances \
     --image-id ami-0dbb717f493016a1a \
@@ -20,8 +22,20 @@ aws ec2 create-volume \
 # Attach volume to server
 aws ec2 attach-volume \
     --volume-id vol-026e6c7d749e50474 \
-    --instance-id i-0d26889523a4df950 \
+    --instance-id i-0017cc77db0160262 \
     --device /dev/sdf
 
 # SSH to server
-ssh ubuntu@ec2-54-174-122-132.compute-1.amazonaws.com
+ssh ubuntu@ec2-54-158-207-105.compute-1.amazonaws.com
+
+# Create Spot fleet role
+aws iam create-role \
+     --role-name DL-Training-Spot-Fleet-Role \
+     --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Sid":"","Effect":"Allow","Principal":{"Service":"spotfleet.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+
+aws iam attach-role-policy \
+     --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole --role-name DL-Training-Spot-Fleet-Role
+
+# Turn train script to base64 and attach to spot-fleet request
+USER_DATA=`base64 user-data-script.sh -w0`
+sed -i '' "s|base64_encoded_bash_script|$USER_DATA|g" spot_fleet_config.json
