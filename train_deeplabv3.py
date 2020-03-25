@@ -14,7 +14,7 @@ from utils.dataset import SegmentationDataset, TransformDataset, transforms as T
 from models import deeplabv3, half_precision
 from utils.loss import iou
 
-use_half_precision = True
+use_half_precision = False
 disable_cuda = False
 num_classes = 2
 num_epochs = 200
@@ -84,8 +84,10 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                 for i, (x, y) in enumerate(pbar):
                     global_step = (epoch * len(dataloaders[phase])) + i
 
-                    x = x.to(device)
                     y = y.to(device)
+                    x = x.to(device)
+                    if use_half_precision:
+                        x = x.half()
 
                     optimizer.zero_grad()
 
@@ -95,7 +97,7 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                         model.eval()
 
                     pred = model(x)['out']
-                    loss = criterion(pred, y)
+                    loss = criterion(pred.float(), y)
 
                     if phase == 'train':
                         loss.backward()
@@ -104,7 +106,7 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                     # Compute metrics
                     sum_loss += loss.detach().cpu().item()
                     info['mean_loss'] = sum_loss / (i + 1)
-                    sum_iou += iou(y, pred).detach().cpu().numpy()
+                    sum_iou += iou(y, pred.float()).detach().cpu().numpy()
                     info['mIoUs'] = np.around(sum_iou / (i + 1), 4)
 
                     pbar.set_postfix(info)
@@ -113,25 +115,25 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                     #     writer.add_graph(model, x)
 
                     writers[phase].add_scalar('Loss', info['mean_loss'], global_step)
-                    writers[phase].add_scalar('Mean IoU', np.mean(info['mIoUs']), global_step)
-                    writers[phase].add_scalar('IoU BG', sum_iou[0] / (i+1), global_step)
-                    writers[phase].add_scalar('IoU Kelp', sum_iou[1] / (i+1), global_step)
+                    writers[phase].add_scalar('IoU/Mean', np.mean(info['mIoUs']), global_step)
+                    writers[phase].add_scalar('IoU/BG', sum_iou[0] / (i+1), global_step)
+                    writers[phase].add_scalar('IoU/Kelp', sum_iou[1] / (i+1), global_step)
 
-                    if global_step % 200 == 0:
+                    if global_step % 100 == 0:
                         # Show images
-                        grid = torchvision.utils.make_grid(x, nrow=2)
+                        grid = torchvision.utils.make_grid(x, nrow=8)
                         grid = T.inv_normalize(grid)
-                        writers[phase].add_image('images', grid, global_step)
+                        writers[phase].add_image('Input', grid, global_step)
 
                         # Show labels and predictions
                         y = y.unsqueeze(dim=1)
-                        grid = torchvision.utils.make_grid(y, nrow=2)
-                        writers[phase].add_image('labels', grid, global_step)
+                        grid = torchvision.utils.make_grid(y, nrow=8)
+                        writers[phase].add_image('Labels/True', grid, global_step)
 
                         # Show predictions
                         pred = pred.max(dim=1)[1].unsqueeze(dim=1)
-                        grid = torchvision.utils.make_grid(pred, nrow=2)
-                        writers[phase].add_image('preds', grid, global_step)
+                        grid = torchvision.utils.make_grid(pred, nrow=8)
+                        writers[phase].add_image('Labels/Pred', grid, global_step)
 
         # Model checkpointing after eval stage
         if best_loss is None or info['mean_loss'] < best_loss:
@@ -191,7 +193,8 @@ if __name__ == '__main__':
     # Net, opt, loss, dataloaders
     model = deeplabv3.create_model(num_classes)
     model = model.to(device)
-    # model = half_precision(model)
+    if use_half_precision:
+        model = half_precision(model)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
 
