@@ -21,9 +21,11 @@ aws ec2 create-volume \
 
 # Attach volume to server
 aws ec2 attach-volume \
-    --volume-id vol-026e6c7d749e50474 \
-    --instance-id i-0017cc77db0160262 \
+    --volume-id vol-0cba113a129caebc1 \
+    --instance-id i-0904c6cb98b666ae8 \
     --device /dev/sdf
+
+# Upload data to the mounted EBS volume using scp
 
 # SSH to server
 ssh ubuntu@ec2-54-158-207-105.compute-1.amazonaws.com
@@ -37,5 +39,8 @@ aws iam attach-role-policy \
      --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole --role-name DL-Training-Spot-Fleet-Role
 
 # Turn train script to base64 and attach to spot-fleet request
-USER_DATA=`base64 user-data-script.sh -w0`
-sed -i '' "s|base64_encoded_bash_script|$USER_DATA|g" spot_fleet_config.json
+base64 user-data-script.sh -w0 | xclip
+
+# Request the spot instances
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config.json
+
