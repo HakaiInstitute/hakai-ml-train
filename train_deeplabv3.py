@@ -149,7 +149,10 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
             }, save_path)
 
     pbar_epoch.close()
-    writer.close()
+    writers['train'].flush()
+    writers['train'].close()
+    writers['eval'].flush()
+    writers['eval'].close()
     return model
 
 
