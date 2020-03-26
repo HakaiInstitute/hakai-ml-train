@@ -1,27 +1,17 @@
 import torch
 import numpy as np
-import rasterio
-from pathlib import Path
-from PIL import Image
-import itertools
 from tqdm.auto import tqdm
-import multiprocessing as mp
-from functools import partial
+from utils.GeoTiffDataset import GeoTiffDataset, GeoTiffWriter
+from torch.utils.data import DataLoader
 
 
-def _batcher(iterable, n):
-    """Collect data into fixed-length chunks or blocks"""
-    args = [iter(iterable)] * n
-    return zip(*args)
-
-
-def predict_tiff(model, img_path, dest_dir, device, transform, crop_size=200, batch_size=4):
+def predict_tiff(model, img_path, dest_path, device, transform, crop_size=200, batch_size=8):
     """
     Predict segmentation classes on a geotiff image.
     Args:
         model: A PyTorch Model class
         img_path: Path to the image to classify
-        dest_dir: Location to save the new image
+        dest_path: Location to save the new image
         device: A torch device
         crop_size: Size of patches to predict on before stitching them back together
         batch_size: The size of mini images to process at one time. Must be greater than 1.
@@ -29,65 +19,30 @@ def predict_tiff(model, img_path, dest_dir, device, transform, crop_size=200, ba
     Returns: str Path to classified GeoTiff segmentation
     """
     model.eval()
-    dest_dir = Path(dest_dir)
-    with rasterio.open(img_path) as in_data:
-        with rasterio.open(dest_dir, 'w',
-                           driver='GTiff',
-                           height=in_data.height,
-                           width=in_data.width,
-                           count=1,
-                           dtype='uint8',
-                           crs=in_data.crs,
-                           transform=in_data.transform
-                           ) as out_data:
-            all_x0s = range(0, in_data.width, crop_size)
-            all_y0s = range(0, in_data.height, crop_size)
+    ds = GeoTiffDataset(img_path, transform)
+    writer = GeoTiffWriter(ds, dest_path)
+    dataloader = DataLoader(ds, batch_size, shuffle=False, num_workers=1, pin_memory=True, drop_last=True)
 
-            for i, x0y0_batch in enumerate(tqdm(_batcher(itertools.product(all_x0s, all_y0s), batch_size),
-                                                total=len(all_x0s)*len(all_y0s))):
-                # Expand dims for batches of size 1
-                if len(np.array(x0y0_batch).shape) == 3:
-                    x0y0_batch = [x0y0_batch]
+    for i, xs in enumerate(tqdm(iter(dataloader))):
+        xs = xs.to(device)
 
-                subsets = []
-                for x0, y0 in x0y0_batch:
-                    subsets.append(in_data.read([1, 2, 3], window=((y0, y0 + crop_size), (x0, x0 + crop_size))))
+        # Do segmentation
+        segmentation = model(xs)['out']
 
-                # Pad out sections that aren't size crop_size * crop_size
-                subset_shapes = [s.shape[1:] for s in subsets]  # For un-padding later
-                print(subset_shapes)
-                for i, s in enumerate(subsets):
-                    if s.shape[1] != crop_size or s.shape[2] != crop_size:
-                        y_pad = crop_size - s.shape[1]
-                        x_pad = crop_size - s.shape[2]
-                        subsets[i] = np.pad(s, ((0,0), (0,y_pad), (0,x_pad)), mode='constant', constant_values=0)
+        # torch.cuda.synchronize() # For profiling only
+        segmentation = segmentation.detach().cpu().numpy()
+        segmentation = np.argmax(segmentation, axis=1)
+        segmentation = np.expand_dims(segmentation, axis=1)
+        segmentation = segmentation.astype(np.uint8)
 
-                subsets = [np.moveaxis(s, 0, 2) for s in subsets]  # (b, c, h, w) -> (b, h, w, c)
-
-                # Numpy to PIL image
-                subset_imgs = [Image.fromarray(s, mode="RGB") for s in subsets]
-
-                # Apply transform to Tensor
-                subset_imgs = [transform(s) for s in subset_imgs]
-                subset_imgs = torch.stack(subset_imgs, dim=0).to(device)
-
-                # Do segmentation
-                segmentation = model(subset_imgs)['out']
-                # torch.cuda.synchronize() # For profiling only
-                segmentation = segmentation.detach().cpu().numpy()
-                segmentation = np.argmax(segmentation, axis=1)
-                segmentation = np.expand_dims(segmentation, axis=1)
-                # Unpad results
-                segmentation = [s[:,0:crop[0], 0:crop[1]] for s, crop in zip(segmentation, subset_shapes)]
-                print([s.shape for s in segmentation])
-
-                # Save part of tiff wither rasterio
-                for seg in segmentation:
-                    out_data.write(seg.astype(np.uint8), window=((y0, y0+seg.shape[1]), (x0, x0+seg.shape[2])))
+        # Save part of tiff wither rasterio
+        for j, seg in enumerate(segmentation):
+            writer.write_index(i*batch_size + j, seg)
 
 
 if __name__ == '__main__':
     import sys
+
     sys.path.append("../")
 
     from models import deeplabv3
