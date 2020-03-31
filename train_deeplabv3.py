@@ -18,7 +18,7 @@ use_half_precision = False
 disable_cuda = False
 num_classes = 2
 num_epochs = 200
-batch_size = 16
+batch_size = 64
 ignore_index = 100  # Value of labels that we ignore in loss and other logic (e.g. kelp with unknown species)
 
 prep_datasets = False
@@ -90,8 +90,6 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
 
             with tqdm(iter(dataloaders[phase]), desc=phase) as pbar:
                 for i, (x, y) in enumerate(pbar):
-                    global_step = (epoch * len(dataloaders[phase])) + i
-
                     y = y.to(device)
                     x = x.to(device)
                     if use_half_precision:
@@ -119,29 +117,25 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
 
                     pbar.set_postfix(info)
 
-                    # if global_step == 1:
-                    #     writer.add_graph(model, x)
+                writers[phase].add_scalar('Loss', info['mean_loss'], epoch)
+                writers[phase].add_scalar('IoU/Mean', np.mean(info['mIoUs']), epoch)
+                writers[phase].add_scalar('IoU/BG', sum_iou[0] / (i + 1), epoch)
+                writers[phase].add_scalar('IoU/Kelp', sum_iou[1] / (i + 1), epoch)
 
-                    writers[phase].add_scalar('Loss', info['mean_loss'], global_step)
-                    writers[phase].add_scalar('IoU/Mean', np.mean(info['mIoUs']), global_step)
-                    writers[phase].add_scalar('IoU/BG', sum_iou[0] / (i+1), global_step)
-                    writers[phase].add_scalar('IoU/Kelp', sum_iou[1] / (i+1), global_step)
+                img_grid = torchvision.utils.make_grid(x, nrow=8)
+                img_grid = T.inv_normalize(img_grid)
 
-                    if global_step % 500 == 0:
-                        img_grid = torchvision.utils.make_grid(x, nrow=8)
-                        img_grid = T.inv_normalize(img_grid)
+                # Show labels and predictions
+                y = y.unsqueeze(dim=1)
+                label_grid = torchvision.utils.make_grid(y, nrow=8).cuda()
+                label_grid = alpha_blend(img_grid, label_grid)
+                writers[phase].add_image('Labels/True', label_grid, epoch)
 
-                        # Show labels and predictions
-                        y = y.unsqueeze(dim=1)
-                        label_grid = torchvision.utils.make_grid(y, nrow=8).cuda()
-                        label_grid = alpha_blend(img_grid, label_grid)
-                        writers[phase].add_image('Labels/True', label_grid, global_step)
-
-                        # Show predictions
-                        pred = pred.max(dim=1)[1].unsqueeze(dim=1)
-                        pred_grid = torchvision.utils.make_grid(pred, nrow=8).cuda()
-                        pred_grid = alpha_blend(img_grid, pred_grid)
-                        writers[phase].add_image('Labels/Pred', pred_grid, global_step)
+                # Show predictions
+                pred = pred.max(dim=1)[1].unsqueeze(dim=1)
+                pred_grid = torchvision.utils.make_grid(pred, nrow=8).cuda()
+                pred_grid = alpha_blend(img_grid, pred_grid)
+                writers[phase].add_image('Labels/Pred', pred_grid, epoch)
 
         # Model checkpointing after eval stage
         if best_loss is None or info['mean_loss'] < best_loss:
