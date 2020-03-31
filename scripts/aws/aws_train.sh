@@ -4,7 +4,7 @@
 aws ec2 run-instances \
     --image-id ami-0dbb717f493016a1a \
     --count 1 \
-    --instance-type m4.xlarge \
+    --instance-type m5.large \
     --key-name 'dl-training' \
     --subnet-id 'subnet-25a3790e' \
     --query "Instances[0].InstanceId" \
@@ -21,14 +21,14 @@ aws ec2 create-volume \
 
 # Attach volume to server
 aws ec2 attach-volume \
-    --volume-id vol-0cba113a129caebc1 \
-    --instance-id i-0904c6cb98b666ae8 \
+    --volume-id vol-09112db86e6277922 \
+    --instance-id i-0f694c7b21737eb08 \
     --device /dev/sdf
 
 # Upload data to the mounted EBS volume using scp
 
 # SSH to server
-ssh ubuntu@ec2-54-158-207-105.compute-1.amazonaws.com
+ssh ubuntu@ec2-3-83-3-245.compute-1.amazonaws.com
 
 # Create Spot fleet role
 aws iam create-role \

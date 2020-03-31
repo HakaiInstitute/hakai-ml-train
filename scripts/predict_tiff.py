@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from tqdm.auto import tqdm
-from utils.GeoTiffDataset import GeoTiffDataset, GeoTiffWriter
+from dataset.GeoTiffDataset import GeoTiffDataset, GeoTiffWriter
 from torch.utils.data import DataLoader
 
 
@@ -19,9 +19,10 @@ def predict_tiff(model, img_path, dest_path, device, transform, crop_size=200, b
     Returns: str Path to classified GeoTiff segmentation
     """
     model.eval()
-    ds = GeoTiffDataset(img_path, transform)
+    ds = GeoTiffDataset(img_path, transform, crop_size=crop_size)
     writer = GeoTiffWriter(ds, dest_path)
-    dataloader = DataLoader(ds, batch_size, shuffle=False, num_workers=1, pin_memory=True, drop_last=True)
+
+    dataloader = DataLoader(ds, batch_size, shuffle=False, num_workers=1, pin_memory=True)
 
     for i, xs in enumerate(tqdm(iter(dataloader))):
         xs = xs.to(device)
@@ -56,8 +57,6 @@ if __name__ == '__main__':
     else:
         device = torch.device('cpu')
 
-    tiff = "../data/RPAS/NW_Calvert_2015/calvert_choked15_CSRS_mos_U0015.tif"
-
     model = deeplabv3.create_model(num_classes)
     checkpoint = torch.load("../checkpoints/deeplabv3/checkpoint.pt")
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -65,4 +64,4 @@ if __name__ == '__main__':
 
     transform = transforms.test_transforms
 
-    predict_tiff(model, tiff, "./test_out.tiff", device, transform, batch_size=8)
+    predict_tiff(model, "./mcnaughton.tif", "./mcnaughton_out.tif", device, transform, batch_size=8)

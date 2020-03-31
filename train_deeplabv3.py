@@ -25,10 +25,10 @@ prep_datasets = False
 torch_dataset_pickle = Path('checkpoints/datasets.pt')
 torch_dataset_pickle.parents[0].mkdir(parents=True, exist_ok=True)
 ds_paths = [
-    "data/datasets/RPAS/Calvert_2012",
-    "data/datasets/RPAS/Calvert_2015",
-    "data/datasets/RPAS/Calvert_ChokedNorthBeach_2016",
-    "data/datasets/RPAS/Calvert_WestBeach_2016"
+    "data/datasets/kelp/nw_calvert_2012",
+    "data/datasets/kelp/nw_calvert_2015",
+    "data/datasets/kelp/choked_pass_2016",
+    "data/datasets/kelp/west_beach_2016"
 ]
 dataloader_opts = {
     "batch_size": batch_size,

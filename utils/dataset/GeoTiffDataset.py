@@ -3,7 +3,19 @@ import rasterio
 import itertools
 import numpy as np
 from PIL import Image
-from utils.image import pad_out
+
+
+def _pad_out(crop, crop_size):
+    """Pads image crop, which is a numpy array of size (h, w, c), with zeros so that h and w equal crop_size."""
+    if crop.shape[0] != crop_size or crop.shape[1] != crop_size:
+        if len(crop.shape) == 2:
+            padding = ((0, crop_size - crop.shape[0]), (0, crop_size - crop.shape[1]))
+        else:
+            padding = ((0, crop_size - crop.shape[0]), (0, crop_size - crop.shape[1]), (0, 0))
+
+        return np.pad(crop, padding, mode='constant', constant_values=0)
+    else:
+        return crop
 
 
 class GeoTiffDataset(Dataset):
@@ -38,7 +50,7 @@ class GeoTiffDataset(Dataset):
         subset = self.raster.read(self.channels, window=window)
         subset = np.moveaxis(subset, 0, 2)  # (c, h, w) = (h, w, c)
         subset = np.clip(subset, 0, 255).astype(np.uint8)
-        subset = pad_out(subset, self.crop_size)
+        subset = _pad_out(subset, self.crop_size)
         img = Image.fromarray(subset, self.mode)
 
         if self.transform:
@@ -47,7 +59,8 @@ class GeoTiffDataset(Dataset):
         return img
 
     def __del__(self):
-        self.raster.close()
+        if hasattr(self, 'raster') and not self.raster.closed:
+            self.raster.close()
 
 
 class GeoTiffWriter(object):
@@ -69,7 +82,8 @@ class GeoTiffWriter(object):
         )
 
     def __del__(self):
-        self.out_raster.close()
+        if hasattr(self, 'raster') and not self.out_raster.closed:
+            self.out_raster.close()
 
     def write_index(self, idx, segmentation):
         y0, x0 = self.geotiff_ds.get_origin(idx)
@@ -78,6 +92,6 @@ class GeoTiffWriter(object):
 
         
 if __name__ == '__main__':
-    ds = GeoTiffDataset("../data/RPAS/NW_Calvert_2012/NWCalvert_2012.tif")
+    ds = GeoTiffDataset("../../data/RPAS/NW_Calvert_2012/NWCalvert_2012.tif")
     ds[len(ds) // 2].show()
     del ds
