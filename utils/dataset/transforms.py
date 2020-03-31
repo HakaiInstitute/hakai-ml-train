@@ -17,10 +17,10 @@ transforms = SimpleNamespace(
     normalize=_normalize,
     inv_normalize=_inv_normalize,
     train_transforms=T.Compose([
-        T.ColorJitter(brightness=0.1, contrast=0.1),
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
         T.RandomRotation(degrees=90),
+        T.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),
         T.ToTensor(),
         _normalize,
     ]),
