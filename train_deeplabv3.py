@@ -38,6 +38,10 @@ dataloader_opts = {
 }
 
 
+def alpha_blend(bg, fg, alpha=0.5):
+    return fg*alpha + bg*(1-alpha)
+
+
 def ds_pixel_stats(dataloader):
     pixel_counts = torch.zeros((num_classes)).to(device)
 
@@ -123,21 +127,21 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                     writers[phase].add_scalar('IoU/BG', sum_iou[0] / (i+1), global_step)
                     writers[phase].add_scalar('IoU/Kelp', sum_iou[1] / (i+1), global_step)
 
-                    if global_step % 100 == 0:
-                        # Show images
-                        grid = torchvision.utils.make_grid(x, nrow=8)
-                        grid = T.inv_normalize(grid)
-                        writers[phase].add_image('Input', grid, global_step)
+                    if global_step % 500 == 0:
+                        img_grid = torchvision.utils.make_grid(x, nrow=8)
+                        img_grid = T.inv_normalize(img_grid)
 
                         # Show labels and predictions
                         y = y.unsqueeze(dim=1)
-                        grid = torchvision.utils.make_grid(y, nrow=8)
-                        writers[phase].add_image('Labels/True', grid, global_step)
+                        label_grid = torchvision.utils.make_grid(y, nrow=8).cuda()
+                        label_grid = alpha_blend(img_grid, label_grid)
+                        writers[phase].add_image('Labels/True', label_grid, global_step)
 
                         # Show predictions
                         pred = pred.max(dim=1)[1].unsqueeze(dim=1)
-                        grid = torchvision.utils.make_grid(pred, nrow=8)
-                        writers[phase].add_image('Labels/Pred', grid, global_step)
+                        pred_grid = torchvision.utils.make_grid(pred, nrow=8).cuda()
+                        pred_grid = alpha_blend(img_grid, pred_grid)
+                        writers[phase].add_image('Labels/Pred', pred_grid, global_step)
 
         # Model checkpointing after eval stage
         if best_loss is None or info['mean_loss'] < best_loss:
