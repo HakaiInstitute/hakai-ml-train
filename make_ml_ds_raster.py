@@ -35,7 +35,7 @@ def make(img, kelp, out, crop_size=200):
     print("Creating image patches dataset...")
     # Slice the image into fixed width and height sections
     data_prep.check_same_extent(img, clipped_kelp)
-    # data_prep.slice_and_dice_image(img, dest_x, mode='RGB', crop_size=crop_size)
+    data_prep.slice_and_dice_image(img, dest_x, mode='RGB', crop_size=crop_size)
 
     print("Creating label patches dataset...")
     data_prep.slice_and_dice_image(clipped_kelp, dest_y, mode='L', crop_size=crop_size)
