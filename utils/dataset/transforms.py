@@ -20,7 +20,7 @@ transforms = SimpleNamespace(
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
         T.RandomRotation(degrees=90),
-        T.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),
+        T.ColorJitter(brightness=0.05, contrast=0.05, saturation=0.05),
         T.ToTensor(),
         _normalize,
     ]),
