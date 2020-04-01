@@ -15,7 +15,7 @@ from models import deeplabv3, half_precision
 from utils.loss import iou
 
 torch_dataset_pickle = 'checkpoints/datasets.pt'
-model_save_path = 'checkpoints/deeplabv3/deeplabv3_fine_labels_adam_200epochs_loss.pt'
+model_save_path = 'checkpoints/deeplabv3/deeplabv3_310320.pt'
 
 disable_cuda = False
 num_classes = 2

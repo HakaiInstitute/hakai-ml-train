@@ -1,8 +1,15 @@
 import torch
 import numpy as np
 from tqdm.auto import tqdm
-from dataset.GeoTiffDataset import GeoTiffDataset, GeoTiffWriter
 from torch.utils.data import DataLoader
+
+from models import deeplabv3
+from utils.dataset.GeoTiffDataset import GeoTiffDataset, GeoTiffWriter
+from utils.dataset.transforms import transforms
+
+model_checkpoint_path = "checkpoints/deeplabv3/deeplabv3_310320.pt"
+num_classes = 2
+batch_size = 16
 
 
 def predict_tiff(model, img_path, dest_path, device, transform, crop_size=200, batch_size=8):
@@ -42,26 +49,18 @@ def predict_tiff(model, img_path, dest_path, device, transform, crop_size=200, b
 
 
 if __name__ == '__main__':
-    import sys
-
-    sys.path.append("../")
-
-    from models import deeplabv3
-    from utils.dataset import transforms
-
-    num_classes = 2
-    batch_size = 4
-
     if torch.cuda.is_available():
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
 
-    model = deeplabv3.create_model(num_classes)
-    checkpoint = torch.load("../checkpoints/deeplabv3/checkpoint.pt")
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model = model.to(device)
+    model = deeplabv3.create_model(num_classes).to(device)
+    checkpoint = torch.load(model_checkpoint_path)
+    model.load_state_dict(checkpoint)
 
     transform = transforms.test_transforms
 
-    predict_tiff(model, "./mcnaughton.tif", "./mcnaughton_out.tif", device, transform, batch_size=8)
+    predict_tiff(model,
+                 "data/kelp/mcnaughton_2017/imagery/CentralCoast_McNaughtonGroup_MOS_U0168.tif",
+                 "data/kelp/mcnaughton_2017/imagery/CentralCoast_McNaughtonGroup_MOS_U0168_kelp.tif",
+                 device, transform, batch_size=batch_size)
