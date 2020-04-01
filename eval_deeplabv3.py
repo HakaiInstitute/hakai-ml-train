@@ -14,7 +14,7 @@ from utils.dataset import SegmentationDataset, TransformDataset, transforms as T
 from models import deeplabv3, half_precision
 from utils.loss import iou
 
-torch_dataset_pickle = 'checkpoints/datasets.pt'
+torch_dataset_pickle = 'checkpoints/datasets_010420.pt'
 model_save_path = 'checkpoints/deeplabv3/deeplabv3_310320.pt'
 
 disable_cuda = False
