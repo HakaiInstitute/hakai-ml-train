@@ -10,19 +10,20 @@ from collections import OrderedDict
 import numpy as np
 from pathlib import Path
 
-from utils.dataset import SegmentationDataset, TransformDataset, transforms as T
-from models import deeplabv3, half_precision
+from utils.dataset.SegmentationDataset import SegmentationDataset
+from utils.dataset.TransformDataset import TransformDataset
+from utils.dataset.transforms import transforms as T
+from models import deeplabv3
 from utils.loss import iou
 
-use_half_precision = False
 disable_cuda = False
 num_classes = 2
 num_epochs = 200
-batch_size = 64
+batch_size = 32
 ignore_index = 100  # Value of labels that we ignore in loss and other logic (e.g. kelp with unknown species)
 
 prep_datasets = False
-torch_dataset_pickle = Path('checkpoints/datasets.pt')
+torch_dataset_pickle = Path('checkpoints/datasets_010420.pt')
 torch_dataset_pickle.parents[0].mkdir(parents=True, exist_ok=True)
 ds_paths = [
     "data/datasets/kelp/nw_calvert_2012",
@@ -39,7 +40,7 @@ dataloader_opts = {
 
 
 def alpha_blend(bg, fg, alpha=0.5):
-    return fg*alpha + bg*(1-alpha)
+    return fg * alpha + bg * (1 - alpha)
 
 
 def ds_pixel_stats(dataloader):
@@ -70,14 +71,18 @@ def get_indices_of_kelp_images(dataset):
     return indices
 
 
-def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epochs, save_path, start_epoch=0):
+def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epochs, save_path, lr_scheduler=None,
+                start_epoch=0):
     writers = {
         'train': SummaryWriter(comment='_train', log_dir='checkpoints/runs'),
         'eval': SummaryWriter(comment='_eval', log_dir='checkpoints/runs')
     }
     info = OrderedDict()
 
-    best_loss = None
+    best_val_loss = None
+    best_val_iou_kelp = None
+    best_val_miou = None
+
     pbar_epoch = trange(num_epochs, desc="epoch")
     if start_epoch != 0:
         pbar_epoch.update(start_epoch)
@@ -92,8 +97,6 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                 for i, (x, y) in enumerate(pbar):
                     y = y.to(device)
                     x = x.to(device)
-                    if use_half_precision:
-                        x = x.half()
 
                     optimizer.zero_grad()
 
@@ -111,40 +114,60 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
 
                     # Compute metrics
                     sum_loss += loss.detach().cpu().item()
-                    info['mean_loss'] = sum_loss / (i + 1)
                     sum_iou += iou(y, pred.float()).detach().cpu().numpy()
-                    info['mIoUs'] = np.around(sum_iou / (i + 1), 4)
 
+                    mloss = sum_loss / (i + 1)
+                    ious = np.around(sum_iou / (i + 1), 4)
+                    miou = np.mean(ious)
+                    iou_bg = sum_iou[0] / (i + 1)
+                    iou_kelp = sum_iou[1] / (i + 1)
+
+                    info['mean_loss'] = mloss
+                    info['mIoUs'] = ious
                     pbar.set_postfix(info)
 
-                writers[phase].add_scalar('Loss', info['mean_loss'], epoch)
-                writers[phase].add_scalar('IoU/Mean', np.mean(info['mIoUs']), epoch)
-                writers[phase].add_scalar('IoU/BG', sum_iou[0] / (i + 1), epoch)
-                writers[phase].add_scalar('IoU/Kelp', sum_iou[1] / (i + 1), epoch)
+                writers[phase].add_scalar('Loss', mloss, epoch)
+                writers[phase].add_scalar('IoU/Mean', miou, epoch)
+                writers[phase].add_scalar('IoU/BG', iou_bg, epoch)
+                writers[phase].add_scalar('IoU/Kelp', iou_kelp, epoch)
 
+                # Show images
                 img_grid = torchvision.utils.make_grid(x, nrow=8)
                 img_grid = T.inv_normalize(img_grid)
 
-                # Show labels and predictions
                 y = y.unsqueeze(dim=1)
                 label_grid = torchvision.utils.make_grid(y, nrow=8).cuda()
                 label_grid = alpha_blend(img_grid, label_grid)
                 writers[phase].add_image('Labels/True', label_grid, epoch)
 
-                # Show predictions
                 pred = pred.max(dim=1)[1].unsqueeze(dim=1)
                 pred_grid = torchvision.utils.make_grid(pred, nrow=8).cuda()
                 pred_grid = alpha_blend(img_grid, pred_grid)
                 writers[phase].add_image('Labels/Pred', pred_grid, epoch)
 
-        # Model checkpointing after eval stage
-        if best_loss is None or info['mean_loss'] < best_loss:
+        if lr_scheduler is not None:
+            lr_scheduler.step()
+
+        # Save model checkpoints
+        if phase == 'train':
+            # Model checkpoint after every train phase every epoch
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'mean_eval_loss': info['mean_loss'],
-            }, save_path)
+            }, Path(save_path).joinpath('checkpoint.pt'))
+        else:
+            # Save best models for eval set
+            if best_val_loss is None or mloss < best_val_loss:
+                best_val_loss = mloss
+                torch.save(model.state_dict(), Path(save_path).joinpath('deeplabv3_best_val_loss.pt'))
+            if best_val_iou_kelp is None or iou_kelp < best_val_iou_kelp:
+                best_val_iou_kelp = iou_kelp
+                torch.save(model.state_dict(), Path(save_path).joinpath('deeplabv3_best_val_kelp_iou.pt'))
+            if best_val_miou is None or miou < best_val_miou:
+                best_val_miou = miou
+                torch.save(model.state_dict(), Path(save_path).joinpath('deeplabv3_best_val_miou.pt'))
 
     pbar_epoch.close()
     writers['train'].flush()
@@ -199,12 +222,6 @@ if __name__ == '__main__':
     # Net, opt, loss, dataloaders
     model = deeplabv3.create_model(num_classes)
     model = model.to(device)
-    if use_half_precision:
-        model = half_precision(model)
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
-
-    criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
 
     num_gpus = torch.cuda.device_count()
     if num_gpus > 1:
@@ -218,12 +235,19 @@ if __name__ == '__main__':
     }
 
     # Train the model
-    save_path = Path('checkpoints/deeplabv3/checkpoint.pt')
+    save_path = Path('checkpoints/deeplabv3/')
     save_path.parents[0].mkdir(parents=True, exist_ok=True)
+    checkpoint_path = save_path.joinpath('checkpoint.pt')
+
+    # Optimizer
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9, weight_decay=0.01)
+    poly_lambda = lambda i: (1 - i / num_epochs) ** 0.9
+    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, poly_lambda)
+    criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
 
     # Restart at checkpoint if it exists
-    if Path(save_path).exists():
-        checkpoint = torch.load(save_path)
+    if Path(checkpoint_path).exists():
+        checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         epoch = checkpoint['epoch']
@@ -231,7 +255,7 @@ if __name__ == '__main__':
         epoch = 0
 
     model = train_model(model, data_loaders, num_classes, optimizer, criterion, num_epochs, save_path,
-                        start_epoch=epoch)
+                        lr_scheduler, start_epoch=epoch)
 
     # Save the final model
     save_path = Path(f'checkpoints/deeplabv3/deeplabv3_epoch{num_epochs}.pt')
