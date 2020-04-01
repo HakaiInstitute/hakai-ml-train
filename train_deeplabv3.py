@@ -9,6 +9,8 @@ from tqdm import tqdm, trange
 from collections import OrderedDict
 import numpy as np
 from pathlib import Path
+import socket
+from datetime import datetime
 
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.TransformDataset import TransformDataset
@@ -73,9 +75,12 @@ def get_indices_of_kelp_images(dataset):
 
 def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epochs, save_path, lr_scheduler=None,
                 start_epoch=0):
+    current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+    log_dir = os.path.join('checkpoints/runs', current_time + '_' + socket.gethostname())
+
     writers = {
-        'train': SummaryWriter(comment='_train', log_dir='checkpoints/runs'),
-        'eval': SummaryWriter(comment='_eval', log_dir='checkpoints/runs')
+        'train': SummaryWriter(log_dir=log_dir + '_train'),
+        'eval': SummaryWriter(log_dir=log_dir + '_eval')
     }
     info = OrderedDict()
 

@@ -55,7 +55,7 @@ if [ $VOLUME_ID ]; then
 		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
 															 pip install tensorboard tqdm"
 		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
-															 tensorboard --logdir=runs --port=6008 &"
+															 tensorboard --logdir=checkpoints/runs --port=6008 &"
 		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
 															 python train_deeplabv3.py"
 fi
