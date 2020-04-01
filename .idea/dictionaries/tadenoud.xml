@@ -1,8 +1,11 @@
 <component name="ProjectDictionaryState">
   <dictionary name="tadenoud">
     <words>
+      <w>cuda</w>
+      <w>dataloader</w>
       <w>imgs</w>
       <w>pbar</w>
+      <w>rasterio</w>
       <w>rasters</w>
       <w>shapefile</w>
     </words>
