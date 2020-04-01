@@ -72,8 +72,8 @@ def get_indices_of_kelp_images(dataset):
 
 def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epochs, save_path, start_epoch=0):
     writers = {
-        'train': SummaryWriter(comment='_train'),
-        'eval': SummaryWriter(comment='_eval')
+        'train': SummaryWriter(comment='_train', log_dir='checkpoints/runs'),
+        'eval': SummaryWriter(comment='_eval', log_dir='checkpoints/runs')
     }
     info = OrderedDict()
 
