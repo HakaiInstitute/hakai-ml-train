@@ -131,24 +131,24 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                     info['mIoUs'] = ious
                     pbar.set_postfix(info)
 
-                writers[phase].add_scalar('Loss', mloss, epoch)
-                writers[phase].add_scalar('IoU/Mean', miou, epoch)
-                writers[phase].add_scalar('IoU/BG', iou_bg, epoch)
-                writers[phase].add_scalar('IoU/Kelp', iou_kelp, epoch)
+            writers[phase].add_scalar('Loss', mloss, epoch)
+            writers[phase].add_scalar('IoU/Mean', miou, epoch)
+            writers[phase].add_scalar('IoU/BG', iou_bg, epoch)
+            writers[phase].add_scalar('IoU/Kelp', iou_kelp, epoch)
 
-                # Show images
-                img_grid = torchvision.utils.make_grid(x, nrow=8)
-                img_grid = T.inv_normalize(img_grid)
+            # Show images
+            img_grid = torchvision.utils.make_grid(x, nrow=8)
+            img_grid = T.inv_normalize(img_grid)
 
-                y = y.unsqueeze(dim=1)
-                label_grid = torchvision.utils.make_grid(y, nrow=8).cuda()
-                label_grid = alpha_blend(img_grid, label_grid)
-                writers[phase].add_image('Labels/True', label_grid, epoch)
+            y = y.unsqueeze(dim=1)
+            label_grid = torchvision.utils.make_grid(y, nrow=8).cuda()
+            label_grid = alpha_blend(img_grid, label_grid)
+            writers[phase].add_image('Labels/True', label_grid, epoch)
 
-                pred = pred.max(dim=1)[1].unsqueeze(dim=1)
-                pred_grid = torchvision.utils.make_grid(pred, nrow=8).cuda()
-                pred_grid = alpha_blend(img_grid, pred_grid)
-                writers[phase].add_image('Labels/Pred', pred_grid, epoch)
+            pred = pred.max(dim=1)[1].unsqueeze(dim=1)
+            pred_grid = torchvision.utils.make_grid(pred, nrow=8).cuda()
+            pred_grid = alpha_blend(img_grid, pred_grid)
+            writers[phase].add_image('Labels/Pred', pred_grid, epoch)
 
         if lr_scheduler is not None:
             lr_scheduler.step()
