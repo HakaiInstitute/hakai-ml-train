@@ -1,4 +1,6 @@
 # From tutorial https://aws.amazon.com/blogs/machine-learning/train-deep-learning-models-on-gpus-using-amazon-ec2-spot-instances/
+# This file just details some commands that were used to set up the Spot instance training. It is not intended to be run but serve
+# As a reference for what was done to create the EBS block and how to run the spot instances using the json config.
 
 # Create a server
 aws ec2 run-instances \
@@ -39,8 +41,8 @@ aws iam attach-role-policy \
      --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole --role-name DL-Training-Spot-Fleet-Role
 
 # Turn train script to base64 and attach to spot-fleet request
-base64 user-data-script.sh -w0 | xclip
+base64 mount-ebs-train.sh -w0 | xclip
 
 # Request the spot instances
-aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config.json
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-2xlarge.json
 
