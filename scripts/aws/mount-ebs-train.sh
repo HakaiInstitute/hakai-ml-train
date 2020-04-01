@@ -53,7 +53,7 @@ if [ $VOLUME_ID ]; then
 
 		# Initiate training using the pytorch_36 conda environment
 		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
-															 pip install tensorboard tqdm rasterio"
+															 pip install tensorboard tqdm"
 		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
 															 tensorboard --logdir=runs --port=6008 &"
 		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
