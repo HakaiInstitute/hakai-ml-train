@@ -131,48 +131,48 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
                     info['mIoUs'] = ious
                     pbar.set_postfix(info)
 
-            writers[phase].add_scalar('Loss', mloss, epoch)
-            writers[phase].add_scalar('IoU/Mean', miou, epoch)
-            writers[phase].add_scalar('IoU/BG', iou_bg, epoch)
-            writers[phase].add_scalar('IoU/Kelp', iou_kelp, epoch)
+                writers[phase].add_scalar('Loss', mloss, epoch)
+                writers[phase].add_scalar('IoU/Mean', miou, epoch)
+                writers[phase].add_scalar('IoU/BG', iou_bg, epoch)
+                writers[phase].add_scalar('IoU/Kelp', iou_kelp, epoch)
 
-            # Show images
-            img_grid = torchvision.utils.make_grid(x, nrow=8)
-            img_grid = T.inv_normalize(img_grid)
+                # Show images
+                img_grid = torchvision.utils.make_grid(x, nrow=8)
+                img_grid = T.inv_normalize(img_grid)
 
-            y = y.unsqueeze(dim=1)
-            label_grid = torchvision.utils.make_grid(y, nrow=8).cuda()
-            label_grid = alpha_blend(img_grid, label_grid)
-            writers[phase].add_image('Labels/True', label_grid, epoch)
+                y = y.unsqueeze(dim=1)
+                label_grid = torchvision.utils.make_grid(y, nrow=8).cuda()
+                label_grid = alpha_blend(img_grid, label_grid)
+                writers[phase].add_image('Labels/True', label_grid, epoch)
 
-            pred = pred.max(dim=1)[1].unsqueeze(dim=1)
-            pred_grid = torchvision.utils.make_grid(pred, nrow=8).cuda()
-            pred_grid = alpha_blend(img_grid, pred_grid)
-            writers[phase].add_image('Labels/Pred', pred_grid, epoch)
+                pred = pred.max(dim=1)[1].unsqueeze(dim=1)
+                pred_grid = torchvision.utils.make_grid(pred, nrow=8).cuda()
+                pred_grid = alpha_blend(img_grid, pred_grid)
+                writers[phase].add_image('Labels/Pred', pred_grid, epoch)
+
+            # Save model checkpoints
+            if phase == 'train':
+                # Model checkpoint after every train phase every epoch
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'mean_eval_loss': info['mean_loss'],
+                }, Path(save_path).joinpath('checkpoint.pt'))
+            else:
+                # Save best models for eval set
+                if best_val_loss is None or mloss < best_val_loss:
+                    best_val_loss = mloss
+                    torch.save(model.state_dict(), Path(save_path).joinpath('deeplabv3_best_val_loss.pt'))
+                if best_val_iou_kelp is None or iou_kelp < best_val_iou_kelp:
+                    best_val_iou_kelp = iou_kelp
+                    torch.save(model.state_dict(), Path(save_path).joinpath('deeplabv3_best_val_kelp_iou.pt'))
+                if best_val_miou is None or miou < best_val_miou:
+                    best_val_miou = miou
+                    torch.save(model.state_dict(), Path(save_path).joinpath('deeplabv3_best_val_miou.pt'))
 
         if lr_scheduler is not None:
             lr_scheduler.step()
-
-        # Save model checkpoints
-        if phase == 'train':
-            # Model checkpoint after every train phase every epoch
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'mean_eval_loss': info['mean_loss'],
-            }, Path(save_path).joinpath('checkpoint.pt'))
-        else:
-            # Save best models for eval set
-            if best_val_loss is None or mloss < best_val_loss:
-                best_val_loss = mloss
-                torch.save(model.state_dict(), Path(save_path).joinpath('deeplabv3_best_val_loss.pt'))
-            if best_val_iou_kelp is None or iou_kelp < best_val_iou_kelp:
-                best_val_iou_kelp = iou_kelp
-                torch.save(model.state_dict(), Path(save_path).joinpath('deeplabv3_best_val_kelp_iou.pt'))
-            if best_val_miou is None or miou < best_val_miou:
-                best_val_miou = miou
-                torch.save(model.state_dict(), Path(save_path).joinpath('deeplabv3_best_val_miou.pt'))
 
     pbar_epoch.close()
     writers['train'].flush()
@@ -255,12 +255,12 @@ if __name__ == '__main__':
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        epoch = checkpoint['epoch']
+        cur_epoch = checkpoint['epoch']
     else:
-        epoch = 0
+        cur_epoch = 0
 
     model = train_model(model, data_loaders, num_classes, optimizer, criterion, num_epochs, save_path,
-                        lr_scheduler, start_epoch=epoch)
+                        lr_scheduler, start_epoch=cur_epoch)
 
     # Save the final model
     save_path = Path(f'checkpoints/deeplabv3/deeplabv3_epoch{num_epochs}.pt')

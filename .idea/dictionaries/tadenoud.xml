@@ -4,6 +4,7 @@
       <w>cuda</w>
       <w>dataloader</w>
       <w>imgs</w>
+      <w>miou</w>
       <w>pbar</w>
       <w>rasterio</w>
       <w>rasters</w>
