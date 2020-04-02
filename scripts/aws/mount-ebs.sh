@@ -50,4 +50,10 @@ if [ $VOLUME_ID ]; then
 		mkdir ./data
 		ln -s /dltraining/datasets ./data/
 		ln -s /dltraining/checkpoints ./
+
+				# Initiate training using the pytorch_36 conda environment
+		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
+															 pip install tensorboard"
+		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
+															 tensorboard --logdir=checkpoints/runs --port=6008 &"
 fi
