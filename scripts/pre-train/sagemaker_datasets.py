@@ -14,13 +14,13 @@ from utils.dataset.transforms import transforms as T
 disable_cuda = False
 train_ratio = 0.8
 
-out_dir = Path("data")
+out_dir = Path("train_input/data")
 s3_bucket_name = 'hakai-deep-learning-datasets'
 ds_paths = [
-    "../data/datasets/kelp/nw_calvert_2012",
-    "../data/datasets/kelp/nw_calvert_2015",
-    "../data/datasets/kelp/choked_pass_2016",
-    "../data/datasets/kelp/west_beach_2016"
+    "data/datasets/kelp/nw_calvert_2012",
+    "data/datasets/kelp/nw_calvert_2015",
+    "data/datasets/kelp/choked_pass_2016",
+    "data/datasets/kelp/west_beach_2016"
 ]
 
 

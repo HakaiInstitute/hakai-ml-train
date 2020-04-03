@@ -15,7 +15,7 @@ from models import deeplabv3, half_precision
 from utils.loss import iou
 
 torch_dataset_pickle = 'checkpoints/datasets_010420.pt'
-model_save_path = 'checkpoints/deeplabv3/deeplabv3_310320.pt'
+model_save_path = 'train_output/model/deeplabv3_final.pt'
 
 disable_cuda = False
 num_classes = 2
@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
     print("Using device:", device)
 
-    # Make results reproducable
+    # Make results reproducible
     torch.manual_seed(0)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
