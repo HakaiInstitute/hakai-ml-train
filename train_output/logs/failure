@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "/home/tadenoud/PycharmProjects/uav-classif/scripts/train_deeplabv3.py", line 174, in <module>
-    print("Using device:", device, file=open(info_file_path, 'a'))
-PermissionError: [Errno 13] Permission denied: 'train_output/checkpoints/info.txt'

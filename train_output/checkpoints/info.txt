@@ -1,2 +1,0 @@
-Using device: cuda
-1 GPUs detected

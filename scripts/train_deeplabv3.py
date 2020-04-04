@@ -86,12 +86,12 @@ def train_model(model, dataloaders, num_classes, optimizer, criterion, num_epoch
             y = y.unsqueeze(dim=1)
             label_grid = torchvision.utils.make_grid(y, nrow=8).cuda()
             label_grid = alpha_blend(img_grid, label_grid)
-            writers[phase].add_image('Labels/True', label_grid, epoch)
+            writers[phase].add_image('Labels/True', label_grid.detach().cpu(), epoch)
 
             pred = pred.max(dim=1)[1].unsqueeze(dim=1)
             pred_grid = torchvision.utils.make_grid(pred, nrow=8).cuda()
             pred_grid = alpha_blend(img_grid, pred_grid)
-            writers[phase].add_image('Labels/Pred', pred_grid, epoch)
+            writers[phase].add_image('Labels/Pred', pred_grid.detach().cpu(), epoch)
 
             # Save model checkpoints
             if phase == 'train':
@@ -145,7 +145,7 @@ if __name__ == '__main__':
         # For running script locally without Docker use these for e.g
         checkpoint_dir = Path('train_output/checkpoints')
         output_dir = Path('train_output/model_weights')
-        stderr_file_path = Path('train_output/output/failure')
+        stderr_file_path = Path('train_output/logs/failure')
         hparams_path = Path('train_input/config/hyperparameters.json')
         train_data_dir = "train_input/data/train"
         eval_data_dir = "train_input/data/eval"
