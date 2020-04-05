@@ -200,10 +200,7 @@ if __name__ == '__main__':
     }
 
     # Optimizer, Loss
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum,
-                                weight_decay=weight_decay)
-    poly_lambda = lambda i: (1 - i / num_epochs) ** 0.9
-    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, poly_lambda)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=0.01)
     criterion = nn.CrossEntropyLoss()
 
     # Train the model
@@ -219,8 +216,7 @@ if __name__ == '__main__':
         cur_epoch = 0
 
     train_model(model, data_loaders, num_classes, optimizer, criterion, num_epochs,
-                checkpoint_dir, output_dir,
-                lr_scheduler, start_epoch=cur_epoch)
+                checkpoint_dir, output_dir, start_epoch=cur_epoch)
 
     if DOCKERIZED:
         sys.stderr.close()
