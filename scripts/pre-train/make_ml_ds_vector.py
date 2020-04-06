@@ -1,4 +1,4 @@
-import fire
+#!/usr/bin/env python
 from pathlib import Path
 import geopandas as gpd
 import utils as ut

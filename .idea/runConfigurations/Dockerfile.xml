@@ -1,0 +1,45 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Dockerfile" type="docker-deploy" factoryName="dockerfile" server-name="Docker">
+    <deployment type="dockerfile">
+      <settings>
+        <option name="buildCliOptions" value="" />
+        <option name="command" value="" />
+        <option name="containerName" value="kelp-train" />
+        <option name="entrypoint" value="" />
+        <option name="imageTag" value="deeplabv3/kelp-train" />
+        <option name="portBindings">
+          <list>
+            <DockerPortBindingImpl>
+              <option name="containerPort" value="6006" />
+              <option name="hostIp" value="0.0.0.0" />
+              <option name="hostPort" value="6006" />
+            </DockerPortBindingImpl>
+          </list>
+        </option>
+        <option name="commandLineOptions" value="" />
+        <option name="sourceFilePath" value="Dockerfile" />
+        <option name="volumeBindings">
+          <list>
+            <DockerVolumeBindingImpl>
+              <option name="containerPath" value="/opt/ml/input" />
+              <option name="hostPath" value="$PROJECT_DIR$/train_input" />
+            </DockerVolumeBindingImpl>
+            <DockerVolumeBindingImpl>
+              <option name="containerPath" value="/opt/ml/output" />
+              <option name="hostPath" value="$PROJECT_DIR$/train_output/logs" />
+            </DockerVolumeBindingImpl>
+            <DockerVolumeBindingImpl>
+              <option name="containerPath" value="/opt/ml/checkpoints" />
+              <option name="hostPath" value="$PROJECT_DIR$/train_output/checkpoints" />
+            </DockerVolumeBindingImpl>
+            <DockerVolumeBindingImpl>
+              <option name="containerPath" value="/opt/ml/model" />
+              <option name="hostPath" value="$PROJECT_DIR$/train_output/model_weights" />
+            </DockerVolumeBindingImpl>
+          </list>
+        </option>
+      </settings>
+    </deployment>
+    <method v="2" />
+  </configuration>
+</component>

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import torch
 import numpy as np
 from tqdm.auto import tqdm
@@ -7,7 +8,7 @@ from models import deeplabv3
 from utils.dataset.GeoTiffDataset import GeoTiffDataset, GeoTiffWriter
 from utils.dataset.transforms import transforms
 
-model_checkpoint_path = "checkpoints/deeplabv3/deeplabv3_310320.pt"
+model_checkpoint_path = "train_output/model/deeplabv3_final.pt"
 num_classes = 2
 batch_size = 16
 

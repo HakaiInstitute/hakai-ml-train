@@ -5,7 +5,7 @@ from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 
 def create_model(num_classes=1):
     model = deeplabv3_resnet101(
-        pretrained=True, progress=True)
+        pretrained=True, progress=True, )
     model.requires_grad_(False)
 
     # Added a Sigmoid activation after the last convolution layer

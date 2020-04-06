@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from pathlib import Path
 from utils import data_prep
 from osgeo import gdal
