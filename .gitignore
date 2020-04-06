@@ -137,3 +137,5 @@ data
 
 *runs/
 *.pth
+
+*tar.gz
