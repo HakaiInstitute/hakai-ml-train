@@ -9,6 +9,9 @@ VOLUME_AZ=$(aws ec2 describe-volumes --region $AWS_REGION --filter "Name=tag:Nam
 
 # Proceed if Volume Id is not null or unset
 if [ $VOLUME_ID ]; then
+		# Wait until any previous instances shut down
+		aws ec2 wait volume-available --region $AWS_REGION --volume-id $VOLUME_ID
+
 		# Check if the Volume AZ and the instance AZ are same or different.
 		# If they are different, create a snapshot and then create a new volume in the instance's AZ.
 		if [ $VOLUME_AZ != $INSTANCE_AZ ]; then
