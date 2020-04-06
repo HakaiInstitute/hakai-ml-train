@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
         # Redirect stdout and stderr to files
         # sys.stdout = open(checkpoint_dir.joinpath('info.txt'), 'w')
-        # sys.stderr = open(stderr_file_path, 'w')
+        sys.stderr = open(stderr_file_path, 'w')
     else:
         # For running script locally without Docker use these for e.g
         checkpoint_dir = Path('train_output/checkpoints')
