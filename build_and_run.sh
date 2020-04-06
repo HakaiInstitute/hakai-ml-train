@@ -18,7 +18,7 @@ docker run -dit --rm \
 deeplabv3/kelp-train train
 
 # Can start tensorboard in running container as follows:
-docker exec -it kelp-train tensorboard --logdir=/opt/ml/checkpoints/runs --host=0.0.0.0 --port=6006
+docker exec -dit kelp-train tensorboard --logdir=/opt/ml/checkpoints/runs --host=0.0.0.0 --port=6006
 # Navigate to localhost:6006 to see train stats
 
 # Wait for process so AWS exits when it's done
