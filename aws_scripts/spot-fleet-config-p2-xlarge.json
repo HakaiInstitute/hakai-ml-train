@@ -2,16 +2,16 @@
   "IamFleetRole": "arn:aws:iam::612958249722:role/DL-Training-Spot-Fleet-Role",
   "AllocationStrategy": "lowestPrice",
   "TargetCapacity": 1,
-  "SpotPrice": "3.06",
+  "SpotPrice": "0.90",
   "ValidFrom": "2020-03-25T18:55:33Z",
   "ValidUntil": "2021-03-26T18:55:33Z",
   "TerminateInstancesWithExpiration": false,
   "LaunchSpecifications": [
     {
       "ImageId": "ami-0dbb717f493016a1a",
-      "InstanceType": "p3.2xlarge",
+      "InstanceType": "p2.xlarge",
       "KeyName": "dl-training",
-      "SpotPrice": "3.06",
+      "SpotPrice": "0.90",
       "IamInstanceProfile": {
         "Arn": "arn:aws:iam::612958249722:instance-profile/dl-training"
       },

@@ -47,17 +47,11 @@ if [ $VOLUME_ID ]; then
 		git clone https://github.com/tayden/uav-classif.git
 		chown -R ubuntu: uav-classif
 		cd uav-classif
-		mkdir ./data
-		ln -s /dltraining/datasets ./data/
-		ln -s /dltraining/checkpoints ./
+		ln -s /dltraining/data ./train_input/
+		ln -s /dltraining/train_output ./
 
 		# Initiate training using the pytorch_36 conda environment
-		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
-															 pip install tensorboard tqdm"
-		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
-															 tensorboard --logdir=checkpoints/runs --port=6008 &"
-		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate pytorch_p36;
-															 python train_deeplabv3.py"
+		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate python3; bash ./build_and_run.sh"
 fi
 
 # After training, clean up by cancelling spot requests and terminating itself
