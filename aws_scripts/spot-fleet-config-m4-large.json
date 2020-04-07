@@ -19,7 +19,7 @@
       "NetworkInterfaces": [
         {
           "DeviceIndex": 0,
-          "SubnetId": "subnet-25a3790e",
+          "SubnetId": "subnet-00926ee5fc42d2608",
           "DeleteOnTermination": true,
           "Groups": [
             "sg-0f0a49e25692b4784"

@@ -6,25 +6,25 @@
 aws ec2 run-instances \
     --image-id ami-0dbb717f493016a1a \
     --count 1 \
-    --instance-type m5.large \
+    --instance-type m4.large \
     --key-name 'dl-training' \
-    --subnet-id 'subnet-25a3790e' \
+    --subnet-id 'subnet-00926ee5fc42d2608' \
     --query "Instances[0].InstanceId" \
     --security-group-ids 'sg-0f0a49e25692b4784' \
-    --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=dl-config}]'
+    --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=DL-Config}]'
 
 # Create a volume
 aws ec2 create-volume \
-    --size 100 \
+    --size 32 \
     --region 'us-east-1' \
-    --availability-zone 'us-east-1d' \
+    --availability-zone 'us-east-1b' \
     --volume-type gp2 \
     --tag-specifications 'ResourceType=volume,Tags=[{Key=Name,Value=DL-datasets-checkpoints}]'
 
 # Attach volume to server
 aws ec2 attach-volume \
-    --volume-id vol-09112db86e6277922 \
-    --instance-id i-0f694c7b21737eb08 \
+    --volume-id vol-02bf6b2c73aa3a030 \
+    --instance-id i-0c1ebf6fea0b0aa09 \
     --device /dev/sdf
 
 # Upload data to the mounted EBS volume using scp
