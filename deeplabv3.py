@@ -128,7 +128,7 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
 if __name__ == '__main__':
     script_mode = sys.argv[1]
 
-    DOCKERIZED = False
+    DOCKERIZED = True
     DISABLE_CUDA = False
 
     if DOCKERIZED:
