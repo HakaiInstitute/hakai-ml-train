@@ -139,3 +139,7 @@ data
 *.pth
 
 *tar.gz
+
+*.tar
+
+*.tif
