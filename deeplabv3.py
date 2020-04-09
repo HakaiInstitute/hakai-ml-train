@@ -127,18 +127,17 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
 
 if __name__ == '__main__':
     script_mode = sys.argv[1]
-
-    DOCKERIZED = True
+    DOCKER = bool(os.environ.get('DOCKER', False))
     DISABLE_CUDA = False
 
-    if DOCKERIZED:
+    if DOCKER:
         # These locations are those required by Amazon Sagemaker
         checkpoint_dir = Path('/opt/ml/checkpoints')
         weights_dir = Path('/opt/ml/model')
         hparams_path = Path('/opt/ml/input/config/hyperparameters.json')
         train_data_dir = "/opt/ml/input/data/train"
         eval_data_dir = "/opt/ml/input/data/eval"
-        seg_in_dir = Path("/opt/ml/input/)segmentation")
+        seg_in_dir = Path("/opt/ml/input/data/segmentation")
         seg_out_dir = Path("/opt/ml/output/segmentation")
 
         # Redirect stderr to file
@@ -270,5 +269,5 @@ if __name__ == '__main__':
     else:
         raise RuntimeError("Must specify train|eval|pred as script arg")
 
-    if DOCKERIZED:
+    if DOCKER:
         sys.stderr.close()

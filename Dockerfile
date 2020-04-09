@@ -6,6 +6,7 @@ RUN pip install tensorboard tqdm rasterio
 ENV PYTHONUNBUFFERED=TRUE
 ENV PYTHONDONTWRITEBYTECODE=TRUE
 ENV PATH="/opt/code:${PATH}"
+ENV DOCKER=TRUE
 
 # Set up the program in the image
 COPY deeplabv3.py /opt/code/deeplabv3.py
