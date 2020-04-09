@@ -3,6 +3,10 @@
     <words>
       <w>cuda</w>
       <w>dataloader</w>
+      <w>datasets</w>
+      <w>dockerized</w>
+      <w>gpus</w>
+      <w>hparams</w>
       <w>imgs</w>
       <w>miou</w>
       <w>pbar</w>
