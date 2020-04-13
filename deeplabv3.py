@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
 from tqdm import tqdm
+import rasterio.shutil
 
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as T
@@ -264,7 +265,7 @@ if __name__ == '__main__':
             predict_tiff(model, device, img_path, out_path, T.test_transforms, crop_size=300, pad=150, batch_size=4)
 
             # Move input file to output directory
-            os.replace(str(img_path), str(seg_out_dir.joinpath(img_path.name)))
+            rasterio.shutil.copyfiles(str(img_path), str(seg_out_dir.joinpath(img_path.name)))
 
     else:
         raise RuntimeError("Must specify train|eval|pred as script arg")
