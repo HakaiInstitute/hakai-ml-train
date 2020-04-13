@@ -222,7 +222,7 @@ if __name__ == '__main__':
         else:
             cur_epoch = 0
 
-        train_model(model, None, data_loaders, num_classes, optimizer, criterion, num_epochs, checkpoint_dir,
+        train_model(model, device, data_loaders, num_classes, optimizer, criterion, num_epochs, checkpoint_dir,
                     weights_dir, lr_scheduler, start_epoch=cur_epoch)
 
     elif script_mode == "eval":
