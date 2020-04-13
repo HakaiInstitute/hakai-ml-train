@@ -64,7 +64,8 @@ def slice_and_dice_image(src_img, dest_d, mode='L', crop_size=200):
 
             if mode == 'L':
                 subset = dataset.read(1, window=window)
-                subset = np.squeeze(subset)
+                if len(subset.shape > 2):
+                    subset = np.squeeze(subset)
                 subset = np.clip(subset, 0, 255).astype(np.uint8)
                 subset = _pad_out(subset, crop_size)
                 Image.fromarray(subset, mode).save(dest)

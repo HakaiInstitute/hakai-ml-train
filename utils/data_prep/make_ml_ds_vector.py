@@ -1,17 +1,19 @@
 #!/usr/bin/env python
 from pathlib import Path
+
 import geopandas as gpd
-import utils.data_prep.utils as ut
 from osgeo import gdal
 
+import utils as ut
 
-def make(img, kelp, out, crop_size=513, mask=None):
+
+def make(img, shapefile, out, crop_size=513):
     """
-    Create tiled png images from drone imagery with kelp labels. Useful for creating a dataset for ML learning.
+    Create tiled png images from drone imagery with seagrass labels. Useful for creating a dataset for ML learning.
 
     Args:
         img: The drone imagery to make the tiled dataset from.
-        kelp: A shapefile delineating the kelp beds. Used to create tiled label rasters for ML algorithms.
+        shapefile: A shapefile delineating the seagrass beds. Used to create tiled label rasters for ML algorithms.
         out: The directory to save the output dataset and intermediate files.
         crop_size: The size of the tiled dataset images. Used for both length and width.
         mask: Optional shapefile to clip the drone imagery with. Useful for clipping out boundary artifacts.
@@ -31,80 +33,76 @@ def make(img, kelp, out, crop_size=513, mask=None):
 
     print("Adding label field to Kelp data..")
     # Create and populate a new label attribute for shapefile class
-    df = gpd.read_file(kelp)
-    # Species and density labels
-    # labels = [ut.kelp.get_species_density_label(row["Species"], row["Density"]) for _, row in df.iterrows()]
+    df = gpd.read_file(shapefile)
 
-    # Not kelp 0, macro 1, nereo 2, mixed 3
-    # labels = [ut.kelp.get_species_label(row["Species"]) for _, row in df.iterrows()]
-
-    # Kelp is 1, not kelp is 0
+    # Kelp is 1, not seagrass is 0
     labels = [1 for _, row in df.iterrows()]
 
     df['label'] = labels
-    kelp_s = str(Path(out).joinpath("kelp.shp"))
-    df.to_file(kelp_s)
+    seagrass_s = str(Path(out).joinpath("seagrass_labelled.shp"))
+    df.to_file(seagrass_s)
 
-    # Convert the kelp shapefile to a raster
-    print("Rasterizing kelp shapefile...")
-    kelp_r = str(Path(out).joinpath('./kelp.tif'))
-    ut.data_prep.shp2tiff(kelp_s, kelp_r, img, label_attr="label")
+    # Convert the seagrass shapefile to a raster
+    print("Rasterizing seagrass shapefile...")
+    seagrass_r = str(Path(out).joinpath('./seagrass.tif'))
+    ut.shp2tiff(seagrass_s, seagrass_r, img, label_attr="label")
 
-    # Crop the image using the mask if given
-    if mask is not None:
-        print("Clipping imagery raster to mask...")
-        clipped_img = str(Path(out).joinpath(f"{Path(img).stem}_clipped.tif"))
-        ut.data_prep.clip_raster_with_shp_mask(clipped_img, img, mask)
-    else:
-        clipped_img = img
-
-    # Crop kelp raster to img extent
-    print("Clipping kelp raster to image extent...")
-    clipped_kelp = str(Path(out).joinpath("kelp_clipped.tif"))
-    extent = ut.data_prep.get_raster_extent(clipped_img)
-    ut.data_prep.clip_raster_by_extent(clipped_kelp, kelp_r, extent=extent)
+    # Crop seagrass raster to img extent
+    print("Clipping seagrass raster to image extent...")
+    clipped_seagrass = str(Path(out).joinpath("seagrass_clipped.tif"))
+    extent = ut.get_raster_extent(img)
+    ut.clip_raster_by_extent(clipped_seagrass, seagrass_r, extent=extent)
 
     print("Creating image patches dataset...")
     # Slice the image into fixed width and height sections
-    ut.data_prep.check_same_extent(clipped_img, clipped_kelp)
-    ut.data_prep.slice_and_dice_image(clipped_img, dest_x, mode='RGB', crop_size=crop_size)
+    ut.check_same_extent(img, clipped_seagrass)
+    ut.slice_and_dice_image(img, dest_x, mode='RGB', crop_size=crop_size)
 
     print("Creating label patches dataset...")
-    ut.data_prep.slice_and_dice_image(clipped_kelp, dest_y, mode='L', crop_size=crop_size)
-
-    # Delete blank images
-    # print("Deleting completely black image crops")
-    # ut.data_prep.filter_blank_images(out)
+    ut.slice_and_dice_image(clipped_seagrass, dest_y, mode='L', crop_size=crop_size)
 
     print("Deleting extra labels")
-    ut.data_prep.del_extra_labels(out)
+    ut.del_extra_labels(out)
 
 
 def main():
-    make(
-        "data/RPAS/NW_Calvert_2012/NWCalvert_2012.tif",
-        "data/RPAS/NW_Calvert_2012/2012_Kelp_Extent_FINAL21072016.shp",
-        "data/datasets/RPAS/Calvert_2012",
-    )
-
-    make(
-        "data/RPAS/NW_Calvert_2015/calvert_choked15_CSRS_mos_U0015.tif",
-        "data/RPAS/NW_Calvert_2015/2015_Kelp_Extent_FINAL21072016.shp",
-        "data/datasets/RPAS/Calvert_2015",
-    )
-
-    make(
-        "data/RPAS/NW_Calvert_2016/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
-        "data/RPAS/NW_Calvert_2016/2016_Kelp_Extent_KH_May15_2017.shp",
-        "data/datasets/RPAS/Calvert_WestBeach_2016",
-    )
-
-    make(
-        "data/RPAS/NW_Calvert_2016/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069.tif",
-        "data/RPAS/NW_Calvert_2016/2016_Kelp_Extent_KH_May15_2017.shp",
-        "data/datasets/RPAS/Calvert_ChokedNorthBeach_2016",
-        mask="data/RPAS/NW_Calvert_2016/Calvert_ChokedNorthBeach_2016_Mask.shp",
-    )
+    # SEAGRASS DATA
+    dsets = [
+        "beaumont_2017",
+        "bennet_bay_2018",
+        "cabbage_2017",
+        "choked_pass_2016",
+        "choked_pass_2017",
+        "goose_se_2015",
+        "goose_sw_2015",
+        "james_bay_2018",
+        "koeye_2015",
+        "koeye_2017",
+        "koeye_2018",
+        "koeye_2019",
+        "lyall_harbour_2018",
+        "marna_2018",
+        "mcmullin_north_2015",
+        "mcmullin_south_2015",
+        "nalau_2019",
+        "narvaez_bay_2018",
+        "pruth_bay_2016",
+        "pruth_bay_2017",
+        "selby_cove_2017",
+        "stirling_bay_2019",
+        "triquet_bay_2016",
+        "triquet_north_2016",
+        "tumbo_2018",
+        "underhill_2019",
+        "west_bay_mcnaughton_2019",
+    ]
+    for d in dsets:
+        make(
+            f"data/seagrass/raw/{d}/image.tif",
+            f"data/seagrass/raw/{d}/seagrass.shp",
+            f"data/seagrass/processed/{d}",
+            crop_size=513
+        )
 
 
 class GdalErrorHandler(object):
@@ -130,4 +128,3 @@ if __name__ == '__main__':
 
     # fire.Fire(make)
     main()
-
