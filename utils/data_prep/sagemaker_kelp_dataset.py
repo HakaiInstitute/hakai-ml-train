@@ -14,9 +14,9 @@ from utils.dataset.transforms import transforms as T
 disable_cuda = False
 train_ratio = 0.8
 
-out_dir = Path("train_input/data")
+out_dir = Path("deeplabv3/kelp/train_input/data")
 s3_bucket_name = 'hakai-deep-learning-datasets'
-ds_paths = [x for x in Path("data/seagrass/raw").iterdir() if x.is_dir()]
+ds_paths = [x for x in Path("data/seagrass/processed").iterdir() if x.is_dir()]
 
 
 def get_indices_of_kelp_images(dataset):
