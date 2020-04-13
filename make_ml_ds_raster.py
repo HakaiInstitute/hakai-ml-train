@@ -3,7 +3,7 @@ from pathlib import Path
 
 from osgeo import gdal
 
-import utils as ut
+import utils.data_prep as ut
 
 
 def make(img, kelp, out, crop_size=513):

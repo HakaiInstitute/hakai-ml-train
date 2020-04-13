@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+import os
+from pathlib import Path
+
+import boto3
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
-import os
-import numpy as np
 from tqdm import tqdm
-from pathlib import Path
-import boto3
 
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.TransformDataset import TransformDataset
@@ -16,7 +17,7 @@ train_ratio = 0.8
 
 out_dir = Path("unet/seagrass/train_input/data")
 s3_bucket_name = 'hakai-deep-learning-datasets'
-ds_paths = [x for x in Path("data/seagrass/raw").iterdir() if x.is_dir()]
+ds_paths = [x for x in Path("data/seagrass/processed").iterdir() if x.is_dir()]
 
 
 def get_indices_of_seagrass_images(dataset):

@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+import os
+from pathlib import Path
+
+import boto3
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
-import os
-import numpy as np
 from tqdm import tqdm
-from pathlib import Path
-import boto3
 
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.TransformDataset import TransformDataset
