@@ -49,47 +49,23 @@ def make(img, kelp, out, crop_size=513):
 
 def main():
     # KELP DATA
-    # Calvert 2012
-    make(
-        "data/kelp/nw_calvert_2012/imagery/Calvert_ortho_2012_Web_NAD83.tif",
-        "data/kelp/nw_calvert_2012/raster/2012_Kelp_Water_RC_1_byte_clean.tif",
-        "data/datasets/kelp/nw_calvert_2012",
-        crop_size=513
-    )
-    # # Calvert 2014
-    # # make(
-    # #     "data/kelp/nw_calvert_2014/imagery/",
-    # #     "data/kelp/nw_calvert_2014/raster/",
-    # #     "data/datasets/nw_calvert_2014",
-    # # )
-    # Calvert 2015
-    make(
-        "data/kelp/nw_calvert_2015/imagery/calvert_nwcalvert15_CSRS_mos_U0015.tif",
-        "data/kelp/nw_calvert_2015/raster/2015_U0015_kelp_byte_clean.tif",
-        "data/datasets/kelp/nw_calvert_2015",
-        crop_size=513
-    )
-    # Choked Pass 2016
-    make(
-        "data/kelp/choked_pass_2016/imagery/20160803_Calvert_ChokedNorthBeach_georef_MOS_Cropped_U0069.tif",
-        "data/kelp/choked_pass_2016/raster/2016_U069_Kelp_RC_1_byte_clean.tif",
-        "data/datasets/kelp/choked_pass_2016",
-        crop_size=513
-    )
-    # West Beach 2016
-    make(
-        "data/kelp/west_beach_2016/imagery/20160804_Calvert_WestBeach_Georef_mos_U0070.tif",
-        "data/kelp/west_beach_2016/raster/2016_U070_Kelp_RC_1_byte_clean.tif",
-        "data/datasets/kelp/west_beach_2016",
-        crop_size=513
-    )
-    # McNaughton 2017
-    # make(
-    #     "data/kelp/mcnaughton_2017/imagery/CentralCoast_McNaughtonGroup_MOS_U0168.tif",
-    #     "data/kelp/mcnaughton_2017/raster/McNaughton_kelp_byte_clean.tif",
-    #     "data/datasets/kelp/mcnaughton_2017",
-    #     crop_size=513
-    # )
+    dsets = [
+        "nw_calvert_2012",
+        "nw_calvert_2014",
+        "nw_calvert_2015",
+        "choked_pass_2016",
+        "west_beach_2016",
+        "mcnaughton_2017",
+        "manley_kildidt_2016",
+        "manley_stirling_2016"
+    ]
+    for d in dsets:
+        make(
+            f"data/kelp/raw/{d}/image.tif",
+            f"data/kelp/raw/{d}/kelp.shp",
+            f"data/kelp/processed/{d}",
+            crop_size=513
+        )
 
 
 class GdalErrorHandler(object):
