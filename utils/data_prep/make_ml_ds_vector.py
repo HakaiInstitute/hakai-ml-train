@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 from pathlib import Path
 import geopandas as gpd
-import utils as ut
+import utils.data_prep.utils as ut
 from osgeo import gdal
 
 
-def make(img, kelp, out, crop_size=200, mask=None):
+def make(img, kelp, out, crop_size=513, mask=None):
     """
     Create tiled png images from drone imagery with kelp labels. Useful for creating a dataset for ML learning.
 

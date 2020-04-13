@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from models import deeplabv3
+from models.UNet import UNet
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as T
 from utils.eval import predict_tiff, eval_model
@@ -39,7 +39,7 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
     }
 
     best_val_loss = None
-    best_val_iou_kelp = None
+    best_val_iou_seagrass = None
     best_val_miou = None
 
     for epoch in range(start_epoch, num_epochs):
@@ -58,9 +58,10 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
                 else:
                     model.eval()
 
-                pred = F.softmax(model(x)['out'], dim=1)
+                # pred = model(x)
                 # loss = criterion(pred.float(), y)
-                loss = assymetric_tversky_loss(pred[:, 1], y, beta=1.5)
+                pred = F.softmax(model(x), dim=1)
+                loss = assymetric_tversky_loss(pred[:, 1], y, beta=1.)
 
                 if phase == 'train':
                     loss.backward()
@@ -74,14 +75,14 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
             ious = np.around(sum_iou / len(dataloaders[phase]), 4)
             miou = np.mean(ious)
             iou_bg = sum_iou[0] / len(dataloaders[phase])
-            iou_kelp = sum_iou[1] / len(dataloaders[phase])
+            iou_seagrass = sum_iou[1] / len(dataloaders[phase])
 
-            print(f'{phase}-loss={mloss}; {phase}-miou={miou}; {phase}-iou-bg={iou_bg}; {phase}-iou-kelp={iou_kelp};')
+            print(f'{phase}-loss={mloss}; {phase}-miou={miou}; {phase}-iou-bg={iou_bg}; {phase}-iou-seagrass-unet={iou_seagrass};')
 
             writers[phase].add_scalar('Loss', mloss, epoch)
             writers[phase].add_scalar('IoU/Mean', miou, epoch)
             writers[phase].add_scalar('IoU/BG', iou_bg, epoch)
-            writers[phase].add_scalar('IoU/Kelp', iou_kelp, epoch)
+            writers[phase].add_scalar('IoU/Kelp', iou_seagrass, epoch)
 
             # Show images
             img_grid = torchvision.utils.make_grid(x, nrow=8)
@@ -105,18 +106,18 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'mean_eval_loss': mloss,
-                }, Path(checkpoint_dir).joinpath('deeplabv3.pt'))
+                }, Path(checkpoint_dir).joinpath('unet.pt'))
             else:
                 # Save best models for eval set
                 if best_val_loss is None or mloss < best_val_loss:
                     best_val_loss = mloss
-                    torch.save(model.state_dict(), Path(output_dir).joinpath('deeplabv3_best_val_loss.pt'))
-                if best_val_iou_kelp is None or iou_kelp < best_val_iou_kelp:
-                    best_val_iou_kelp = iou_kelp
-                    torch.save(model.state_dict(), Path(output_dir).joinpath('deeplabv3_best_val_kelp_iou.pt'))
+                    torch.save(model.state_dict(), Path(output_dir).joinpath('unet_best_val_loss.pt'))
+                if best_val_iou_seagrass is None or iou_seagrass < best_val_iou_seagrass:
+                    best_val_iou_seagrass = iou_seagrass
+                    torch.save(model.state_dict(), Path(output_dir).joinpath('unet_best_val_seagrass_iou.pt'))
                 if best_val_miou is None or miou < best_val_miou:
                     best_val_miou = miou
-                    torch.save(model.state_dict(), Path(output_dir).joinpath('deeplabv3_best_val_miou.pt'))
+                    torch.save(model.state_dict(), Path(output_dir).joinpath('unet_best_val_miou.pt'))
 
         if lr_scheduler is not None:
             lr_scheduler.step()
@@ -126,7 +127,7 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
     writers['eval'].flush()
     writers['eval'].close()
 
-    torch.save(model.state_dict(), Path(output_dir).joinpath("deeplabv3_final.pt"))
+    torch.save(model.state_dict(), Path(output_dir).joinpath("unet_final.pt"))
 
 
 if __name__ == '__main__':
@@ -148,13 +149,13 @@ if __name__ == '__main__':
         sys.stderr = open('/opt/ml/output/failure', 'w')
     else:
         # For running script locally without Docker use these for e.g
-        checkpoint_dir = Path('kelp-deeplabv3/checkpoints')
-        weights_dir = Path('kelp-deeplabv3/model_weights')
-        hparams_path = Path('kelp-deeplabv3/train_input/config/hyperparameters.json')
-        train_data_dir = "kelp-deeplabv3/train_input/data/train"
-        eval_data_dir = "kelp-deeplabv3/train_input/data/eval"
-        seg_in_dir = Path("kelp-deeplabv3/train_input/data/segmentation")
-        seg_out_dir = Path("kelp-deeplabv3/train_output/segmentation")
+        checkpoint_dir = Path('seagrass/checkpoints')
+        weights_dir = Path('seagrass/model_weights')
+        hparams_path = Path('seagrass/train_input/config/hyperparameters.json')
+        train_data_dir = "seagrass/train_input/data/train"
+        eval_data_dir = "seagrass/train_input/data/eval"
+        seg_in_dir = Path("seagrass/train_input/data/segmentation")
+        seg_out_dir = Path("seagrass/train_output/segmentation")
 
     # Load hyper-parameters dictionary
     hparams = json.load(open(hparams_path))
@@ -180,7 +181,7 @@ if __name__ == '__main__':
 
     # Model
     os.environ['TORCH_HOME'] = str(checkpoint_dir.parents[0])
-    model = deeplabv3.create_model(num_classes)
+    model = UNet(n_channels=3, n_classes=num_classes, bilinear=True)
     model = model.to(device)
     model = nn.DataParallel(model)
 
@@ -208,14 +209,11 @@ if __name__ == '__main__':
         }
 
         # Optimizer, Loss
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum,
-                                    weight_decay=weight_decay)
-        poly_lambda = lambda i: (1 - i / num_epochs) ** 0.9
-        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, poly_lambda)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
         criterion = nn.CrossEntropyLoss()
 
         # Train the model
-        checkpoint_path = checkpoint_dir.joinpath('deeplabv3.pt')
+        checkpoint_path = checkpoint_dir.joinpath('unet.pt')
 
         # Restart at checkpoint if it exists
         if Path(checkpoint_path).exists() and restart_training:
@@ -227,11 +225,11 @@ if __name__ == '__main__':
             cur_epoch = 0
 
         train_model(model, device, data_loaders, num_classes, optimizer, criterion, num_epochs, checkpoint_dir,
-                    weights_dir, lr_scheduler, start_epoch=cur_epoch)
+                    weights_dir, start_epoch=cur_epoch)
 
     elif script_mode == "eval":
-        ds_train = SegmentationDataset(train_data_dir, transform=T.test_transforms,
-                                       target_transform=T.test_target_transforms)
+        ds_train = SegmentationDataset(train_data_dir, transform=T.train_transforms,
+                                       target_transform=T.train_target_transforms)
         ds_val = SegmentationDataset(eval_data_dir, transform=T.test_transforms,
                                      target_transform=T.test_target_transforms)
 
@@ -263,7 +261,7 @@ if __name__ == '__main__':
         # Process all .tif images in segmentation in directory
         for img_path in seg_in_dir.glob("*.tif"):
             print("Processing:", img_path)
-            out_path = str(seg_out_dir.joinpath(img_path.stem + "_kelp_seg" + img_path.suffix))
+            out_path = str(seg_out_dir.joinpath(img_path.stem + "_seagrass_seg" + img_path.suffix))
 
             predict_tiff(model, device, img_path, out_path, T.test_transforms, crop_size=300, pad=150, batch_size=4)
 

@@ -7,7 +7,7 @@ aws s3 sync s3://hakai-deep-learning-datasets/kelp/train ./train_input/data/trai
 aws s3 sync s3://hakai-deep-learning-datasets/kelp/eval ./train_input/data/eval
 
 # Example build and run command
-docker build -t deeplabv3/kelp-train ..
+docker build --file ../Dockerfile --compress --tag deeplabv3/kelp ../..
 
 docker run -dit --rm \
 -p 0.0.0.0:$PORT:$PORT \
@@ -19,7 +19,7 @@ docker run -dit --rm \
 --ipc host \
 --gpus all \
 --name kelp-train \
-deeplabv3/kelp-train train
+deeplabv3/kelp train
 
 # Can start tensorboard in running container as follows:
 docker exec -dit kelp-train tensorboard --logdir=/opt/ml/checkpoints/runs --host=0.0.0.0 --port=$PORT

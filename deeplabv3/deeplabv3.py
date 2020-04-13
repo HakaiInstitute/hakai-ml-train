@@ -16,11 +16,10 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from models.UNet import UNet
+from models import deeplabv3
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as T
 from utils.eval import predict_tiff, eval_model
-from utils.loss import assymetric_tversky_loss
 from utils.loss import iou
 
 
@@ -58,10 +57,8 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
                 else:
                     model.eval()
 
-                # pred = model(x)
-                # loss = criterion(pred.float(), y)
-                pred = F.softmax(model(x), dim=1)
-                loss = assymetric_tversky_loss(pred[:, 1], y, beta=1.)
+                pred = F.softmax(model(x)['out'], dim=1)
+                loss = criterion(pred.float(), y)
 
                 if phase == 'train':
                     loss.backward()
@@ -77,7 +74,7 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
             iou_bg = sum_iou[0] / len(dataloaders[phase])
             iou_kelp = sum_iou[1] / len(dataloaders[phase])
 
-            print(f'{phase}-loss={mloss}; {phase}-miou={miou}; {phase}-iou-bg={iou_bg}; {phase}-iou-kelp-deeplabv3={iou_kelp};')
+            print(f'{phase}-loss={mloss}; {phase}-miou={miou}; {phase}-iou-bg={iou_bg}; {phase}-iou-kelp={iou_kelp};')
 
             writers[phase].add_scalar('Loss', mloss, epoch)
             writers[phase].add_scalar('IoU/Mean', miou, epoch)
@@ -149,13 +146,13 @@ if __name__ == '__main__':
         sys.stderr = open('/opt/ml/output/failure', 'w')
     else:
         # For running script locally without Docker use these for e.g
-        checkpoint_dir = Path('kelp-deeplabv3/checkpoints')
-        weights_dir = Path('kelp-deeplabv3/model_weights')
-        hparams_path = Path('kelp-deeplabv3/train_input/config/hyperparameters.json')
-        train_data_dir = "deeplabv3/kelp/train_input/data/train"
-        eval_data_dir = "deeplabv3/kelp/train_input/data/eval"
-        seg_in_dir = Path("kelp-deeplabv3/train_input/data/segmentation")
-        seg_out_dir = Path("kelp-deeplabv3/train_output/segmentation")
+        checkpoint_dir = Path('kelp/checkpoints')
+        weights_dir = Path('kelp/model_weights')
+        hparams_path = Path('kelp/train_input/config/hyperparameters.json')
+        train_data_dir = "kelp/train_input/data/train"
+        eval_data_dir = "kelp/train_input/data/eval"
+        seg_in_dir = Path("kelp/train_input/data/segmentation")
+        seg_out_dir = Path("kelp/train_output/segmentation")
 
     # Load hyper-parameters dictionary
     hparams = json.load(open(hparams_path))
@@ -181,7 +178,7 @@ if __name__ == '__main__':
 
     # Model
     os.environ['TORCH_HOME'] = str(checkpoint_dir.parents[0])
-    model = UNet(n_channels=3, n_classes=num_classes, bilinear=True)
+    model = deeplabv3.create_model(num_classes)
     model = model.to(device)
     model = nn.DataParallel(model)
 
@@ -209,10 +206,7 @@ if __name__ == '__main__':
         }
 
         # Optimizer, Loss
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum,
-                                    weight_decay=weight_decay)
-        poly_lambda = lambda i: (1 - i / num_epochs) ** 0.9
-        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, poly_lambda)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
         criterion = nn.CrossEntropyLoss()
 
         # Train the model
@@ -228,7 +222,7 @@ if __name__ == '__main__':
             cur_epoch = 0
 
         train_model(model, device, data_loaders, num_classes, optimizer, criterion, num_epochs, checkpoint_dir,
-                    weights_dir, lr_scheduler, start_epoch=cur_epoch)
+                    weights_dir, start_epoch=cur_epoch)
 
     elif script_mode == "eval":
         ds_train = SegmentationDataset(train_data_dir, transform=T.test_transforms,

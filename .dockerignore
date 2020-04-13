@@ -1,5 +1,5 @@
 .git
 data
 aws_scripts
-kelp
-seagrass
+deeplabv3/kelp
+unet/seagrass

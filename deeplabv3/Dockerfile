@@ -9,7 +9,7 @@ ENV PATH="/opt/code:${PATH}"
 ENV DOCKER=TRUE
 
 # Set up the program in the image
-COPY deeplabv3.py /opt/code/deeplabv3.py
+COPY deeplabv3/deeplabv3.py /opt/code/deeplabv3.py
 COPY models /opt/code/models
 COPY utils /opt/code/utils
 WORKDIR /opt/code
