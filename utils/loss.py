@@ -48,6 +48,7 @@ class CBLoss(object):
     Returns:
       cb_loss: A float tensor representing class balanced loss
     """
+
     def __init__(self, samples_per_cls, no_of_classes, loss_type, beta, gamma=None):
         """
         Args:
@@ -134,13 +135,27 @@ def jaccard_loss(true, logits, eps=1e-7):
     return 1 - iou(true, logits, eps=eps).mean()
 
 
+def assymetric_tversky_loss(p, g, beta=1.):
+    """Loss function from the paper S. R. Hashemi, et al, 2018. "Asymmetric loss functions and deep densely-connected
+    networks for highly-imbalanced medical image segmentation: application to multiple sclerosis lesion detection"
+    https://ieeexplore.ieee.org/abstract/document/8573779.
+    Electronic ISSN: 2169-3536. DOI: 10.1109/ACCESS.2018.2886371.
+
+    p: predicted output from a sigmoid-like activation. (i.e. range is 0-1)
+    g: ground truth label of pixel (0 or 1)
+    beta: parameter that adjusts weight between FP and FN error importance. beta=1. simplifies to the Dice loss function
+    (F1 score) and weights both FP and FNs equally. B=0 is precicion, B=2 is the F_2 score
+
+    >>> np.around(assymetric_tversky_loss(torch.Tensor([0.9, 0.5, 0.2]), torch.Tensor([1., 0., 1.]), beta=1.).numpy(), 6)
+    0.611111
+    """
+    p = p.flatten().float()
+    g = g.flatten().float()
+    bsq = beta * beta
+    pg = torch.dot(p, g)
+    return ((1 + bsq) * pg) / (((1 + bsq) * pg) + (bsq * torch.dot((1 - p), g)) + (torch.dot(p, (1 - g))))
+
+
 if __name__ == '__main__':
-    no_of_classes = 5
-    logits = torch.rand(10, no_of_classes).float()
-    labels = torch.randint(0, no_of_classes, size=(10,))
-    beta = 0.9999
-    gamma = 2.0
-    samples_per_cls = [2, 3, 1, 2, 2]
-    loss_type = "focal"
-    cb_loss = CBLoss(samples_per_cls, no_of_classes, loss_type, beta, gamma)
-    print(cb_loss(logits, labels))
+    import doctest
+    doctest.testmod()
