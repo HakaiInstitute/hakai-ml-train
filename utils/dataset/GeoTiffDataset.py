@@ -1,8 +1,9 @@
-from torch.utils.data import Dataset
-import rasterio
 import itertools
+
 import numpy as np
+import rasterio
 from PIL import Image
+from torch.utils.data import Dataset
 
 
 def _pad_out(crop, crop_size):
@@ -32,12 +33,6 @@ class GeoTiffDataset(Dataset):
         self._y0s = range(0, self.raster.height, self.crop_size)
         self._x0s = range(0, self.raster.width, self.crop_size)
         self._y0x0s = list(itertools.product(self._y0s, self._x0s))
-
-    def height(self):
-        return self.raster.height
-
-    def width(self):
-        return self.raster.width
 
     def get_origin(self, item):
         return self._y0x0s[item]
@@ -81,38 +76,34 @@ class GeoTiffDataset(Dataset):
 
 
 class GeoTiffWriter(object):
-    def __init__(self, geotiff_ds, out_path):
+    def __init__(self, out_path, height, width, crs, transform, crop_size=200, pad=0):
         super().__init__()
-        self.geotiff_ds = geotiff_ds
         self.out_path = out_path
-        self.crop_size = geotiff_ds.crop_size
-        self.pad = geotiff_ds.pad
+        self.height = height
+        self.width = width
+        self.crs = crs
+        self.transform = transform
+        self.crop_size = crop_size
+        self.pad = pad
 
         self.out_raster = rasterio.open(
             self.out_path, 'w',
             driver='GTiff',
-            height=self.geotiff_ds.height(),
-            width=self.geotiff_ds.width(),
+            height=self.height,
+            width=self.width,
             count=1,
             dtype='uint8',
-            crs=self.geotiff_ds.raster.crs,
-            transform=self.geotiff_ds.raster.transform
+            crs=self.crs,
+            transform=self.transform
         )
-
-    def height(self):
-        return self.out_raster.height
-
-    def width(self):
-        return self.out_raster.width
 
     def __del__(self):
         if hasattr(self, 'raster') and not self.out_raster.closed:
             self.out_raster.close()
 
-    def write_index(self, idx, segmentation):
-        y0, x0 = self.geotiff_ds.get_origin(idx)
-        window = ((y0, np.min((y0 + self.crop_size, self.height()))),
-                  (x0, np.min((x0 + self.crop_size, self.width()))))
+    def write_index(self, y0, x0, segmentation):
+        window = ((y0, np.min((y0 + self.crop_size, self.height))),
+                  (x0, np.min((x0 + self.crop_size, self.width))))
         segmentation = segmentation[:, self.pad:-self.pad, self.pad:-self.pad]
         self.out_raster.write(segmentation, window=window)
 
