@@ -1,0 +1,10 @@
+{
+  "num_classes": "2",
+  "num_epochs": "200",
+  "batch_size": "1",
+  "lr": "1e-4",
+  "momentum": "0.9",
+  "weight_decay": "0.01",
+  "restart_training": "true",
+  "eval_weights": "200407/deeplabv3_final.pt"
+}

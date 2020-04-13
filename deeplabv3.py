@@ -148,13 +148,13 @@ if __name__ == '__main__':
         sys.stderr = open('/opt/ml/output/failure', 'w')
     else:
         # For running script locally without Docker use these for e.g
-        checkpoint_dir = Path('kelp/checkpoints')
-        weights_dir = Path('kelp/model_weights')
-        hparams_path = Path('kelp/train_input/config/hyperparameters.json')
-        train_data_dir = "kelp/train_input/data/train"
-        eval_data_dir = "kelp/train_input/data/eval"
-        seg_in_dir = Path("kelp/train_input/data/segmentation")
-        seg_out_dir = Path("kelp/train_output/segmentation")
+        checkpoint_dir = Path('kelp-deeplabv3/checkpoints')
+        weights_dir = Path('kelp-deeplabv3/model_weights')
+        hparams_path = Path('kelp-deeplabv3/train_input/config/hyperparameters.json')
+        train_data_dir = "kelp-deeplabv3/train_input/data/train"
+        eval_data_dir = "kelp-deeplabv3/train_input/data/eval"
+        seg_in_dir = Path("kelp-deeplabv3/train_input/data/segmentation")
+        seg_out_dir = Path("kelp-deeplabv3/train_output/segmentation")
 
     # Load hyper-parameters dictionary
     hparams = json.load(open(hparams_path))
