@@ -58,8 +58,9 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
                 else:
                     model.eval()
 
-                pred = model(x)['out']
-                loss = criterion(pred.float(), y)
+                pred = F.softmax(model(x)['out'], dim=1)
+                # loss = criterion(pred.float(), y)
+                loss = assymetric_tversky_loss(pred[:, 1], y, beta=1.5)
 
                 if phase == 'train':
                     loss.backward()
