@@ -38,9 +38,12 @@ if __name__ == '__main__':
     np.random.seed(0)
 
     # Filter non-seagrass images
-    full_ds = torch.utils.data.ConcatDataset([SegmentationDataset(path) for path in ds_paths])
-    seagrass_indices = get_indices_of_seagrass_images(full_ds)
-    seagrass_ds = torch.utils.data.Subset(full_ds, seagrass_indices)
+    # full_ds = torch.utils.data.ConcatDataset([SegmentationDataset(path) for path in ds_paths])
+    # seagrass_indices = get_indices_of_seagrass_images(full_ds)
+    # seagrass_ds = torch.utils.data.Subset(full_ds, seagrass_indices)
+
+    seagrass_ds = torch.utils.data.ConcatDataset([SegmentationDataset(path) for path in ds_paths])
+
 
     # Split into train and val
     train_num = int(len(seagrass_ds) * train_ratio)
