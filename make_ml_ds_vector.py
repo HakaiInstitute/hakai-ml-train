@@ -98,8 +98,8 @@ def main():
     ]
     for d in dsets:
         make(
-            f"data/seagrass/raw/{d}/image.tif",
-            f"data/seagrass/raw/{d}/seagrass.shp",
+            f"data/seagrass/raw/{d}/image_wgs.tif",
+            f"data/seagrass/raw/{d}/seagrass_wgs.shp",
             f"data/seagrass/processed/{d}",
             crop_size=513
         )
