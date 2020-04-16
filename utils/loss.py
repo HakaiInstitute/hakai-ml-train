@@ -147,13 +147,17 @@ def assymetric_tversky_loss(p, g, beta=1.):
     (F1 score) and weights both FP and FNs equally. B=0 is precicion, B=2 is the F_2 score
 
     >>> np.around(assymetric_tversky_loss(torch.Tensor([0.9, 0.5, 0.2]), torch.Tensor([1., 0., 1.]), beta=1.).numpy(), 6)
-    0.611111
+    2.4
     """
-    p = p.flatten().float()
-    g = g.flatten().float()
+    p = p.float()
+    g = g.float()
     bsq = beta * beta
-    pg = torch.dot(p, g)
-    return ((1 + bsq) * pg) / (((1 + bsq) * pg) + (bsq * torch.dot((1 - p), g)) + (torch.dot(p, (1 - g))))
+    pg = torch.sum(torch.mul(p, g))
+    return ((1 + bsq) * pg) / (
+        (1 + bsq) * pg) + \
+        (bsq * torch.sum(torch.mul((1 - p), g))) + \
+        (torch.sum(torch.mul(p, (1 - g)))
+    )
 
 
 if __name__ == '__main__':
