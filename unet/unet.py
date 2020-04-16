@@ -178,7 +178,6 @@ if __name__ == '__main__':
     num_epochs = int(hparams["num_epochs"])  # "200",
     batch_size = int(hparams["batch_size"])  # "8",
     lr = float(hparams["lr"])  # "0.001",
-    momentum = float(hparams["momentum"])  # "0.9",
     weight_decay = float(hparams["weight_decay"])  # "0.01",
     restart_training = hparams["restart_training"] == "true"  # "true
 
@@ -227,6 +226,7 @@ if __name__ == '__main__':
                     weights_dir, restart_training)
 
     elif script_mode == "eval":
+        pass
     # ds_train = SegmentationDataset(train_data_dir, transform=T.train_transforms,
     #                                target_transform=T.train_target_transforms)
     # ds_val = SegmentationDataset(eval_data_dir, transform=T.test_transforms,
@@ -252,6 +252,7 @@ if __name__ == '__main__':
     # eval_model(model, device, data_loaders, num_classes, criterion)
 
     elif script_mode == "pred":
+        pass
     # # Trained model
     # model_weights_path = weights_dir.joinpath(hparams['eval_weights'])
     # checkpoint = torch.load(model_weights_path, map_location=device)

@@ -60,11 +60,10 @@ def assymetric_tversky_loss(p, g, beta=1.):
     g = g.float()
     bsq = beta * beta
     pg = torch.sum(torch.mul(p, g))
-    return ((1 + bsq) * pg) / (
-        (1 + bsq) * pg) + \
-        (bsq * torch.sum(torch.mul((1 - p), g))) + \
-        (torch.sum(torch.mul(p, (1 - g)))
+    similarity_coeff = ((1 + bsq) * pg) / (
+            ((1 + bsq) * pg) + (bsq * torch.sum(torch.mul((1 - p), g))) + (torch.sum(torch.mul(p, (1 - g))))
     )
+    return 1 - similarity_coeff
 
 
 if __name__ == '__main__':
