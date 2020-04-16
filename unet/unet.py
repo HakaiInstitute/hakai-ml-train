@@ -59,21 +59,22 @@ def train_model(model, device, dataloaders, num_classes, num_epochs, lr, weight_
             sum_iou = np.zeros(num_classes)
 
             for x, y in tqdm(iter(dataloaders[phase]), desc=f"{phase} epoch {epoch}", file=sys.stdout):
-                y = y.to(device)
-                x = x.to(device)
+                with torch.set_grad_enabled(phase == 'train'):
+                    y = y.to(device)
+                    x = x.to(device)
 
-                x = add_veg_indices(x)
+                    x = add_veg_indices(x)
 
-                optimizer.zero_grad()
+                    optimizer.zero_grad()
 
-                if phase == 'train':
-                    model.train()
-                else:
-                    model.eval()
+                    if phase == 'train':
+                        model.train()
+                    else:
+                        model.eval()
 
-                pred = model(x)
-                sig = torch.sigmoid(pred[:, 1])
-                loss = assymetric_tversky_loss(sig, y, beta=1.5)
+                    pred = model(x)
+                    sig = torch.sigmoid(pred[:, 1])
+                    loss = assymetric_tversky_loss(sig, y, beta=1.5)
 
                 if phase == 'train':
                     loss.backward()
