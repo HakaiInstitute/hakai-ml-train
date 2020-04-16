@@ -7,9 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-import rasterio.shutil
 import torch
-import torch.nn.functional as F
 import torchvision
 from torch import nn
 from torch.utils.data import DataLoader
@@ -18,8 +16,7 @@ from tqdm import tqdm
 
 from models.UNet import UNet
 from utils.dataset.SegmentationDataset import SegmentationDataset
-from utils.dataset.transforms import transforms as T
-from utils.eval import predict_tiff, eval_model
+from utils.dataset.transforms import transforms as T, add_veg_indices
 from utils.loss import assymetric_tversky_loss
 from utils.loss import iou
 
@@ -28,8 +25,22 @@ def alpha_blend(bg, fg, alpha=0.5):
     return fg * alpha + bg * (1 - alpha)
 
 
-def train_model(model, device, dataloaders, num_classes, optimizer, criterion, num_epochs, checkpoint_dir, output_dir,
-                lr_scheduler=None, start_epoch=0):
+def train_model(model, device, dataloaders, num_classes, num_epochs, lr, weight_decay, checkpoint_dir, output_dir,
+                restart_training):
+    # Pass lr, weight_decay rate
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.9)
+
+    checkpoint_path = checkpoint_dir.joinpath('unet.pt')
+    # Restart at checkpoint if it exists
+    if Path(checkpoint_path).exists() and restart_training:
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch']
+    else:
+        start_epoch = 0
+
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
     log_dir = os.path.join(checkpoint_dir.joinpath('runs', current_time + '_' + socket.gethostname()))
 
@@ -51,6 +62,8 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
                 y = y.to(device)
                 x = x.to(device)
 
+                x = add_veg_indices(x)
+
                 optimizer.zero_grad()
 
                 if phase == 'train':
@@ -58,10 +71,9 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
                 else:
                     model.eval()
 
-                # pred = model(x)
-                # loss = criterion(pred.float(), y)
-                pred = F.softmax(model(x), dim=1)
-                loss = assymetric_tversky_loss(pred[:, 1], y, beta=1.)
+                pred = model(x)
+                sig = torch.sigmoid(pred[:, 1])
+                loss = assymetric_tversky_loss(sig, y, beta=1.5)
 
                 if phase == 'train':
                     loss.backward()
@@ -71,13 +83,15 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
                 sum_loss += loss.detach().cpu().item()
                 sum_iou += iou(y, pred.float()).detach().cpu().numpy()
 
+
             mloss = sum_loss / len(dataloaders[phase])
             ious = np.around(sum_iou / len(dataloaders[phase]), 4)
             miou = np.mean(ious)
             iou_bg = sum_iou[0] / len(dataloaders[phase])
             iou_seagrass = sum_iou[1] / len(dataloaders[phase])
 
-            print(f'{phase}-loss={mloss}; {phase}-miou={miou}; {phase}-iou-bg={iou_bg}; {phase}-iou-seagrass-unet={iou_seagrass};')
+            print(
+                f'{phase}-loss={mloss}; {phase}-miou={miou}; {phase}-iou-bg={iou_bg}; {phase}-iou-seagrass={iou_seagrass};')
 
             writers[phase].add_scalar('Loss', mloss, epoch)
             writers[phase].add_scalar('IoU/Mean', miou, epoch)
@@ -85,6 +99,7 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
             writers[phase].add_scalar('IoU/Kelp', iou_seagrass, epoch)
 
             # Show images
+            x = x[:, -3:, :, :]
             img_grid = torchvision.utils.make_grid(x, nrow=8)
             img_grid = T.inv_normalize(img_grid)
 
@@ -120,7 +135,7 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
                     torch.save(model.state_dict(), Path(output_dir).joinpath('unet_best_val_miou.pt'))
 
         if lr_scheduler is not None:
-            lr_scheduler.step()
+            lr_scheduler.step(epoch)
 
     writers['train'].flush()
     writers['train'].close()
@@ -181,7 +196,7 @@ if __name__ == '__main__':
 
     # Model
     os.environ['TORCH_HOME'] = str(checkpoint_dir.parents[0])
-    model = UNet(n_channels=3, n_classes=num_classes, bilinear=True)
+    model = UNet(n_channels=7, n_classes=num_classes, bilinear=True)
     model = model.to(device)
     model = nn.DataParallel(model)
 
@@ -192,11 +207,11 @@ if __name__ == '__main__':
         batch_size *= num_gpus
 
     if script_mode == "train":
+        # Create dataloaders
         ds_train = SegmentationDataset(train_data_dir, transform=T.train_transforms,
                                        target_transform=T.train_target_transforms)
         ds_val = SegmentationDataset(eval_data_dir, transform=T.test_transforms,
                                      target_transform=T.test_target_transforms)
-
         dataloader_opts = {
             "batch_size": batch_size,
             "pin_memory": True,
@@ -208,65 +223,49 @@ if __name__ == '__main__':
             'eval': DataLoader(ds_val, shuffle=False, **dataloader_opts),
         }
 
-        # Optimizer, Loss
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-        criterion = nn.CrossEntropyLoss()
-
-        # Train the model
-        checkpoint_path = checkpoint_dir.joinpath('unet.pt')
-
-        # Restart at checkpoint if it exists
-        if Path(checkpoint_path).exists() and restart_training:
-            checkpoint = torch.load(checkpoint_path)
-            model.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            cur_epoch = checkpoint['epoch']
-        else:
-            cur_epoch = 0
-
-        train_model(model, device, data_loaders, num_classes, optimizer, criterion, num_epochs, checkpoint_dir,
-                    weights_dir, start_epoch=cur_epoch)
+        train_model(model, device, data_loaders, num_classes, num_epochs, lr, weight_decay, checkpoint_dir,
+                    weights_dir, restart_training)
 
     elif script_mode == "eval":
-        ds_train = SegmentationDataset(train_data_dir, transform=T.train_transforms,
-                                       target_transform=T.train_target_transforms)
-        ds_val = SegmentationDataset(eval_data_dir, transform=T.test_transforms,
-                                     target_transform=T.test_target_transforms)
-
-        dataloader_opts = {
-            "batch_size": batch_size,
-            "pin_memory": True,
-            "num_workers": os.cpu_count()
-        }
-        data_loaders = {
-            'train': DataLoader(ds_train, shuffle=False, **dataloader_opts),
-            'eval': DataLoader(ds_val, shuffle=False, **dataloader_opts),
-        }
-
-        criterion = nn.CrossEntropyLoss()
-
-        # Trained model
-        model_weights_path = weights_dir.joinpath(hparams['eval_weights'])
-        checkpoint = torch.load(model_weights_path, map_location=device)
-        model.load_state_dict(checkpoint)
-
-        eval_model(model, device, data_loaders, num_classes, criterion)
+    # ds_train = SegmentationDataset(train_data_dir, transform=T.train_transforms,
+    #                                target_transform=T.train_target_transforms)
+    # ds_val = SegmentationDataset(eval_data_dir, transform=T.test_transforms,
+    #                              target_transform=T.test_target_transforms)
+    #
+    # dataloader_opts = {
+    #     "batch_size": batch_size,
+    #     "pin_memory": True,
+    #     "num_workers": os.cpu_count()
+    # }
+    # data_loaders = {
+    #     'train': DataLoader(ds_train, shuffle=False, **dataloader_opts),
+    #     'eval': DataLoader(ds_val, shuffle=False, **dataloader_opts),
+    # }
+    #
+    # criterion = nn.CrossEntropyLoss()
+    #
+    # # Trained model
+    # model_weights_path = weights_dir.joinpath(hparams['eval_weights'])
+    # checkpoint = torch.load(model_weights_path, map_location=device)
+    # model.load_state_dict(checkpoint)
+    #
+    # eval_model(model, device, data_loaders, num_classes, criterion)
 
     elif script_mode == "pred":
-        # Trained model
-        model_weights_path = weights_dir.joinpath(hparams['eval_weights'])
-        checkpoint = torch.load(model_weights_path, map_location=device)
-        model.load_state_dict(checkpoint)
-
-        # Process all .tif images in segmentation in directory
-        for img_path in seg_in_dir.glob("*.tif"):
-            print("Processing:", img_path)
-            out_path = str(seg_out_dir.joinpath(img_path.stem + "_seagrass_seg" + img_path.suffix))
-
-            predict_tiff(model, device, img_path, out_path, T.test_transforms, crop_size=300, pad=150, batch_size=4)
-
-            # Move input file to output directory
-            rasterio.shutil.copyfiles(str(img_path), str(seg_out_dir.joinpath(img_path.name)))
+    # # Trained model
+    # model_weights_path = weights_dir.joinpath(hparams['eval_weights'])
+    # checkpoint = torch.load(model_weights_path, map_location=device)
+    # model.load_state_dict(checkpoint)
+    #
+    # # Process all .tif images in segmentation in directory
+    # for img_path in seg_in_dir.glob("*.tif"):
+    #     print("Processing:", img_path)
+    #     out_path = str(seg_out_dir.joinpath(img_path.stem + "_seagrass_seg" + img_path.suffix))
+    #
+    #     predict_tiff(model, device, img_path, out_path, T.test_transforms, crop_size=300, pad=150, batch_size=4)
+    #
+    #     # Move input file to output directory
+    #     rasterio.shutil.copyfiles(str(img_path), str(seg_out_dir.joinpath(img_path.name)))
 
     else:
         raise RuntimeError("Must specify train|eval|pred as script arg")
