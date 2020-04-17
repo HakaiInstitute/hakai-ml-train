@@ -25,7 +25,7 @@ docker run -dit --rm \
 unet/seagrass train
 
 # Can start tensorboard in running container as follows:
-docker exec -dit seagrass-train tensorboard --logdir=/opt/ml/checkpoints/runs --host=0.0.0.0 --port=$PORT
+docker exec -dit seagrass-train tensorboard --logdir=/opt/ml/output/checkpoints/runs --host=0.0.0.0 --port=$PORT
 # Navigate to localhost:6006 to see train stats
 
 # Wait for process so AWS exits when it's done

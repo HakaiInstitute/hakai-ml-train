@@ -29,7 +29,7 @@ def update_tensorboard(writer, device, epoch, mloss, miou, iou_bg, iou_seagrass,
     writer.add_scalar('Loss', mloss, epoch)
     writer.add_scalar('IoU/Mean', miou, epoch)
     writer.add_scalar('IoU/BG', iou_bg, epoch)
-    writer.add_scalar('IoU/Kelp', iou_seagrass, epoch)
+    writer.add_scalar('IoU/Seagrass', iou_seagrass, epoch)
 
     # Show images
     x = x[:, -3:, :, :]
