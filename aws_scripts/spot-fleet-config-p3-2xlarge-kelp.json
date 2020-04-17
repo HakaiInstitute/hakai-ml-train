@@ -12,7 +12,7 @@
     {
       "LaunchTemplateSpecification": {
         "LaunchTemplateId": "lt-0657ba86300dca079",
-        "Version": "11"
+        "Version": "13"
       },
       "Overrides": [
         {

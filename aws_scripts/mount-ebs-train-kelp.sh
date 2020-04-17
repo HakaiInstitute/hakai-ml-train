@@ -4,8 +4,8 @@ INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 INSTANCE_AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
 AWS_REGION=us-east-1
 
-VOLUME_ID=$(aws ec2 describe-volumes --region $AWS_REGION --filter "Name=tag:Name,Values=DL-datasets-checkpoints" --query "Volumes[].VolumeId" --output text)
-VOLUME_AZ=$(aws ec2 describe-volumes --region $AWS_REGION --filter "Name=tag:Name,Values=DL-datasets-checkpoints" --query "Volumes[].AvailabilityZone" --output text)
+VOLUME_ID=$(aws ec2 describe-volumes --region $AWS_REGION --filter "Name=tag:Name,Values=DL-kelp-checkpoints" --query "Volumes[].VolumeId" --output text)
+VOLUME_AZ=$(aws ec2 describe-volumes --region $AWS_REGION --filter "Name=tag:Name,Values=DL-kelp-checkpoints" --query "Volumes[].AvailabilityZone" --output text)
 
 # Proceed if Volume Id is not null or unset
 if [ $VOLUME_ID ]; then
@@ -19,7 +19,7 @@ if [ $VOLUME_ID ]; then
 						--region $AWS_REGION \
 						--volume-id $VOLUME_ID \
 						--description "`date +"%D %T"`" \
-						--tag-specifications 'ResourceType=snapshot,Tags=[{Key=Name,Value=DL-datasets-checkpoints-snapshot}]' \
+						--tag-specifications 'ResourceType=snapshot,Tags=[{Key=Name,Value=DL-kelp-checkpoints-snapshot}]' \
 						--query SnapshotId --output text)
 
 				aws ec2 wait --region $AWS_REGION snapshot-completed --snapshot-ids $SNAPSHOT_ID
@@ -30,7 +30,7 @@ if [ $VOLUME_ID ]; then
 								--availability-zone $INSTANCE_AZ \
 								--snapshot-id $SNAPSHOT_ID \
 						--volume-type gp2 \
-						--tag-specifications 'ResourceType=volume,Tags=[{Key=Name,Value=DL-datasets-checkpoints}]' \
+						--tag-specifications 'ResourceType=volume,Tags=[{Key=Name,Value=DL-kelp-checkpoints}]' \
 						--query VolumeId --output text)
 				aws ec2 wait volume-available --region $AWS_REGION --volume-id $VOLUME_ID
 		fi
@@ -54,7 +54,7 @@ if [ $VOLUME_ID ]; then
 		ln -s /dltraining/train_output ./
 
 		# Initiate training using the pytorch_36 conda environment
-		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate python3; bash ./build_and_run.sh"
+		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate python3; bash ./deeplabv3/kelp/build_and_run.sh"
 fi
 
 # After training, clean up by cancelling spot requests and terminating itself

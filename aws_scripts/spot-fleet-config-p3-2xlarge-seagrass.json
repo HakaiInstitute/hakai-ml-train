@@ -6,32 +6,42 @@
   "ValidUntil": "2021-04-07T18:46:02Z",
   "TerminateInstancesWithExpiration": false,
   "LaunchSpecifications": [],
-  "SpotMaxTotalPrice": "12.24",
+  "SpotMaxTotalPrice": "3.06",
   "Type": "maintain",
   "LaunchTemplateConfigs": [
     {
       "LaunchTemplateSpecification": {
-        "LaunchTemplateId": "lt-0657ba86300dca079",
-        "Version": "11"
+        "LaunchTemplateId": "lt-079ef188aa1ea99ad",
+        "Version": "1"
       },
       "Overrides": [
         {
-          "InstanceType": "p3.8xlarge",
+          "InstanceType": "p3.2xlarge",
+          "WeightedCapacity": 1,
+          "SubnetId": "subnet-08b11310fa285c218"
+        },
+        {
+          "InstanceType": "p3.2xlarge",
           "WeightedCapacity": 1,
           "SubnetId": "subnet-00926ee5fc42d2608"
         },
         {
-          "InstanceType": "p3.8xlarge",
+          "InstanceType": "p3.2xlarge",
           "WeightedCapacity": 1,
           "SubnetId": "subnet-05b41e9f6abd45054"
         },
         {
-          "InstanceType": "p3.8xlarge",
+          "InstanceType": "p3.2xlarge",
           "WeightedCapacity": 1,
           "SubnetId": "subnet-02e89e3223878310a"
         },
         {
-          "InstanceType": "p3.8xlarge",
+          "InstanceType": "p3.2xlarge",
+          "WeightedCapacity": 1,
+          "SubnetId": "subnet-0aea1eca7ff4b281c"
+        },
+        {
+          "InstanceType": "p3.2xlarge",
           "WeightedCapacity": 1,
           "SubnetId": "subnet-0cd2207ba0cf35f6c"
         }
