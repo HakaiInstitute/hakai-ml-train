@@ -143,3 +143,5 @@ data
 *.tar
 
 *.tif
+/deeplabv3/kelp/train_output/
+/unet/seagrass/train_output/
