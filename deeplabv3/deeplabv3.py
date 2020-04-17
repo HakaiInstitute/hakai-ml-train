@@ -57,7 +57,7 @@ def train_model(model, device, dataloaders, num_classes, optimizer, criterion, n
                 else:
                     model.eval()
 
-                pred = F.softmax(model(x)['out'], dim=1)
+                pred = model(x)['out']
                 loss = criterion(pred.float(), y)
 
                 if phase == 'train':
