@@ -167,10 +167,10 @@ def train_model(model, device, dataloaders, num_epochs, lr, weight_decay, checkp
             best_val_miou = miou
             torch.save(model.state_dict(), Path(weights_dir).joinpath('unet_best_val_miou.pt'))
 
-    writers['train'].flush()
-    writers['train'].close()
-    writers['eval'].flush()
-    writers['eval'].close()
+    train_writer.flush()
+    train_writer.close()
+    eval_writer.flush()
+    eval_writer.close()
 
     torch.save(model.state_dict(), Path(weights_dir).joinpath("unet_final.pt"))
 
