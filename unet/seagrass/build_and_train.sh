@@ -3,8 +3,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 PORT=6006
 
 # Sync datasets
-#aws s3 sync s3://hakai-deep-learning-datasets/seagrass/train ./train_input/data/train
-#aws s3 sync s3://hakai-deep-learning-datasets/seagrass/eval ./train_input/data/eval
+aws s3 sync s3://hakai-deep-learning-datasets/seagrass/train ./train_input/data/train
+aws s3 sync s3://hakai-deep-learning-datasets/seagrass/eval ./train_input/data/eval
 
 # Make output dirs
 mkdir -p "./train_output/checkpoints"
@@ -32,6 +32,8 @@ docker exec -dit seagrass-train tensorboard --logdir=/opt/ml/checkpoints/runs --
 docker wait seagrass-train
 
 # Sync results to S3
-ARCHIVE="./train_output/$(date +'%Y-%m-%d-%H%M').tar.gz"
-tar -czvf "$ARCHIVE" ./train_output/model/
-#aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/seagrass/output/
+ARCHIVE="$(date +'%Y-%m-%d-%H%M').tar.gz"
+cd ./train_output/model/
+tar -czvf "../$ARCHIVE" ./*
+cd -
+aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/seagrass/output/

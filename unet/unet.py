@@ -237,8 +237,8 @@ if __name__ == '__main__':
 
     if script_mode == "train":
         # Create dataloaders
-        ds_train = SegmentationDataset(train_data_dir, transform=T.test_transforms,
-                                       target_transform=T.test_target_transforms)
+        ds_train = SegmentationDataset(train_data_dir, transform=T.train_transforms,
+                                       target_transform=T.train_target_transforms)
         ds_val = SegmentationDataset(eval_data_dir, transform=T.test_transforms,
                                      target_transform=T.test_target_transforms)
         dataloader_opts = {
