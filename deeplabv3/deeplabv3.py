@@ -140,14 +140,14 @@ if __name__ == '__main__':
         train_data_dir = "/opt/ml/input/data/train"
         eval_data_dir = "/opt/ml/input/data/eval"
         seg_in_dir = Path("/opt/ml/input/data/segmentation")
-        seg_out_dir = Path("/opt/ml/output/segmentation")
+        seg_out_dir = Path("/opt/ml/segmentation")
 
         # Redirect stderr to file
         sys.stderr = open('/opt/ml/output/failure', 'w')
     else:
         # For running script locally without Docker use these for e.g
-        checkpoint_dir = Path('kelp/checkpoints')
-        weights_dir = Path('kelp/model_weights')
+        checkpoint_dir = Path('kelp/train_output/checkpoints')
+        weights_dir = Path('kelp/train_output/model_weights')
         hparams_path = Path('kelp/train_input/config/hyperparameters.json')
         train_data_dir = "kelp/train_input/data/train"
         eval_data_dir = "kelp/train_input/data/eval"
