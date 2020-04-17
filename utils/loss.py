@@ -1,6 +1,9 @@
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
+import torch.utils.data
+from torch.autograd import Variable
 
 
 def iou(true, logits, eps=1e-7):
@@ -64,6 +67,63 @@ def assymetric_tversky_loss(p, g, beta=1.):
             ((1 + bsq) * pg) + (bsq * torch.sum(torch.mul((1 - p), g))) + (torch.sum(torch.mul(p, (1 - g))))
     )
     return 1 - similarity_coeff
+
+
+def dice_loss(pred, target):
+    smooth = 1.
+
+    p_flat = pred.view(-1)
+    t_flat = target.view(-1)
+    intersection = (p_flat * t_flat).sum()
+
+    return 1 - ((2. * intersection + smooth) /
+                (p_flat.sum() + t_flat.sum() + smooth))
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, gamma):
+        super().__init__()
+        self.gamma = gamma
+
+    def forward(self, input, target):
+        # Inspired by the implementation of binary_cross_entropy_with_logits
+        if not (target.size() == input.size()):
+            raise ValueError("Target size ({}) must be the same as input size ({})".format(target.size(), input.size()))
+
+        max_val = (-input).clamp(min=0)
+        loss = input - input * target + max_val + ((-max_val).exp() + (-input - max_val).exp()).log()
+
+        # This formula gives us the log sigmoid of 1-p if y is 0 and of p if y is 1
+        invprobs = F.logsigmoid(-input * (target * 2 - 1))
+        loss = (invprobs * self.gamma).exp() * loss
+
+        return loss.mean()
+
+
+def make_one_hot(labels, num_classes=2):
+    one_hot = torch.FloatTensor(labels.size(0), num_classes, labels.size(2), labels.size(3)).zero_()
+    target = one_hot.scatter_(1, labels.data, 1)
+
+    target = Variable(target)
+
+    return target
+
+
+class FocalLossMultiLabel(nn.Module):
+    def __init__(self, gamma, weight):
+        super().__init__()
+        self.gamma = gamma
+        self.nll = nn.NLLLoss(weight=weight, reduce=False)
+
+    def forward(self, input, target):
+        loss = self.nll(input, target)
+
+        one_hot = make_one_hot(target.unsqueeze(dim=1), input.size()[1])
+        inv_probs = 1 - input.exp()
+        focal_weights = (inv_probs * one_hot).sum(dim=1) ** self.gamma
+        loss = loss * focal_weights
+
+        return loss.mean()
 
 
 if __name__ == '__main__':
