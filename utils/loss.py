@@ -1,98 +1,9 @@
-"""Pytorch implementation of Class-Balanced-Loss
-   Reference: "Class-Balanced Loss Based on Effective Number of Samples"
-   Authors: Yin Cui and
-               Menglin Jia and
-               Tsung Yi Lin and
-               Yang Song and
-               Serge J. Belongie
-   https://arxiv.org/abs/1901.05555, CVPR'19.
-"""
-
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-
-
-def focal_loss(labels, logits, alpha, gamma):
-    """Compute the focal loss between `logits` and the ground truth `labels`.
-    Focal loss = -alpha_t * (1-pt)^gamma * log(pt)
-    where pt is the probability of being classified to the true class.
-    pt = p (if true class), otherwise pt = 1 - p. p = sigmoid(logit).
-    Args:
-      labels: A float tensor of size [batch, num_classes].
-      logits: A float tensor of size [batch, num_classes].
-      alpha: A float tensor of size [batch_size]
-        specifying per-example weight for balanced cross entropy.
-      gamma: A float scalar modulating loss from hard and easy examples.
-    Returns:
-      focal_loss: A float32 scalar representing normalized total loss.
-    """
-    bc_loss = F.binary_cross_entropy_with_logits(input=logits, target=labels, reduction="none")
-
-    if gamma == 0.0:
-        modulator = 1.0
-    else:
-        modulator = torch.exp(-gamma * labels * logits - gamma * torch.log(1 + torch.exp(-1.0 * logits)))
-
-    loss = modulator * bc_loss
-
-    weighted_loss = alpha * loss
-    return torch.sum(weighted_loss) / torch.sum(labels)
-
-
-class CBLoss(object):
-    """Compute the Class Balanced Loss between `logits` and the ground truth `labels`.
-    Class Balanced Loss: ((1-beta)/(1-beta^n))*Loss(labels, logits)
-    where Loss is one of the standard losses used for Neural Networks.
-
-    Returns:
-      cb_loss: A float tensor representing class balanced loss
-    """
-    def __init__(self, samples_per_cls, no_of_classes, loss_type, beta, gamma=None):
-        """
-        Args:
-          labels: A int tensor of size [batch].
-          logits: A float tensor of size [batch, no_of_classes].
-          samples_per_cls: A python list of size [no_of_classes].
-          no_of_classes: total number of classes. int
-          loss_type: string. One of "sigmoid", "focal", "softmax".
-          beta: float. Hyperparameter for Class balanced loss.
-          gamma: float. Hyperparameter for Focal loss.
-        """
-        super().__init__()
-        if loss_type == "focal" and gamma is None:
-            raise ValueError("Gamma must be defined for focal loss.")
-
-        self.no_of_classes = no_of_classes
-        self.loss_type = loss_type
-        self.gamma = gamma
-
-        effective_num = 1.0 - np.power(beta, samples_per_cls)
-        weights = (1.0 - beta) / np.array(effective_num)
-        weights = weights / np.sum(weights) * self.no_of_classes
-        weights = torch.tensor(weights).float()
-        self.weights = weights.unsqueeze(0)
-
-    def __call__(self, logits, labels):
-        """
-        Args:
-          labels: A int tensor of size [batch].
-          logits: A float tensor of size [batch, no_of_classes].
-        """
-        labels_one_hot = F.one_hot(labels, self.no_of_classes).float()
-
-        weights = self.weights.repeat(labels_one_hot.shape[0], 1) * labels_one_hot
-        weights = weights.sum(1)
-        weights = weights.unsqueeze(1)
-        weights = weights.repeat(1, self.no_of_classes)
-
-        if self.loss_type == "focal":
-            return focal_loss(labels_one_hot, logits, weights, self.gamma)
-        elif self.loss_type == "sigmoid":
-            return F.binary_cross_entropy_with_logits(input=logits, target=labels_one_hot, weights=weights)
-        elif self.loss_type == "softmax":
-            pred = logits.softmax(dim=1)
-            return F.binary_cross_entropy(input=pred, target=labels_one_hot, weight=weights)
+import torch.utils.data
+from torch.autograd import Variable
 
 
 def iou(true, logits, eps=1e-7):
@@ -134,13 +45,88 @@ def jaccard_loss(true, logits, eps=1e-7):
     return 1 - iou(true, logits, eps=eps).mean()
 
 
+def assymetric_tversky_loss(p, g, beta=1.):
+    """Loss function from the paper S. R. Hashemi, et al, 2018. "Asymmetric loss functions and deep densely-connected
+    networks for highly-imbalanced medical image segmentation: application to multiple sclerosis lesion detection"
+    https://ieeexplore.ieee.org/abstract/document/8573779.
+    Electronic ISSN: 2169-3536. DOI: 10.1109/ACCESS.2018.2886371.
+
+    p: predicted output from a sigmoid-like activation. (i.e. range is 0-1)
+    g: ground truth label of pixel (0 or 1)
+    beta: parameter that adjusts weight between FP and FN error importance. beta=1. simplifies to the Dice loss function
+    (F1 score) and weights both FP and FNs equally. B=0 is precicion, B=2 is the F_2 score
+
+    >>> np.around(assymetric_tversky_loss(torch.Tensor([0.9, 0.5, 0.2]), torch.Tensor([1., 0., 1.]), beta=1.).numpy(), 6)
+    2.4
+    """
+    p = p.float()
+    g = g.float()
+    bsq = beta * beta
+    pg = torch.sum(torch.mul(p, g))
+    similarity_coeff = ((1 + bsq) * pg) / (
+            ((1 + bsq) * pg) + (bsq * torch.sum(torch.mul((1 - p), g))) + (torch.sum(torch.mul(p, (1 - g))))
+    )
+    return 1 - similarity_coeff
+
+
+def dice_loss(pred, target):
+    smooth = 1.
+
+    p_flat = pred.view(-1)
+    t_flat = target.view(-1)
+    intersection = (p_flat * t_flat).sum()
+
+    return 1 - ((2. * intersection + smooth) /
+                (p_flat.sum() + t_flat.sum() + smooth))
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, gamma):
+        super().__init__()
+        self.gamma = gamma
+
+    def forward(self, input, target):
+        # Inspired by the implementation of binary_cross_entropy_with_logits
+        if not (target.size() == input.size()):
+            raise ValueError("Target size ({}) must be the same as input size ({})".format(target.size(), input.size()))
+
+        max_val = (-input).clamp(min=0)
+        loss = input - input * target + max_val + ((-max_val).exp() + (-input - max_val).exp()).log()
+
+        # This formula gives us the log sigmoid of 1-p if y is 0 and of p if y is 1
+        invprobs = F.logsigmoid(-input * (target * 2 - 1))
+        loss = (invprobs * self.gamma).exp() * loss
+
+        return loss.mean()
+
+
+def make_one_hot(labels, num_classes=2):
+    one_hot = torch.FloatTensor(labels.size(0), num_classes, labels.size(2), labels.size(3)).zero_()
+    target = one_hot.scatter_(1, labels.data, 1)
+
+    target = Variable(target)
+
+    return target
+
+
+class FocalLossMultiLabel(nn.Module):
+    def __init__(self, gamma, weight):
+        super().__init__()
+        self.gamma = gamma
+        self.nll = nn.NLLLoss(weight=weight, reduce=False)
+
+    def forward(self, input, target):
+        loss = self.nll(input, target)
+
+        one_hot = make_one_hot(target.unsqueeze(dim=1), input.size()[1])
+        inv_probs = 1 - input.exp()
+        focal_weights = (inv_probs * one_hot).sum(dim=1) ** self.gamma
+        loss = loss * focal_weights
+
+        return loss.mean()
+
+
 if __name__ == '__main__':
-    no_of_classes = 5
-    logits = torch.rand(10, no_of_classes).float()
-    labels = torch.randint(0, no_of_classes, size=(10,))
-    beta = 0.9999
-    gamma = 2.0
-    samples_per_cls = [2, 3, 1, 2, 2]
-    loss_type = "focal"
-    cb_loss = CBLoss(samples_per_cls, no_of_classes, loss_type, beta, gamma)
-    print(cb_loss(logits, labels))
+    import doctest
+
+    doctest.testmod()

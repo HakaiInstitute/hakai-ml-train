@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" serverName="hal9000">
+    <serverData>
+      <paths name="hal9000">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/Git/uav-classif" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath path="/Git/uav-classif/data" />
+            <excludedPath local="true" path="$PROJECT_DIR$/unet/seagrass/train_input/data" />
+            <excludedPath path="/Git/uav-classif/unet/seagrass/train_input/data" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>

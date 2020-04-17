@@ -11,7 +11,7 @@ aws ec2 run-instances \
     --subnet-id 'subnet-00926ee5fc42d2608' \
     --query "Instances[0].InstanceId" \
     --security-group-ids 'sg-0f0a49e25692b4784' \
-    --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=DL-Config}]'
+    --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=DL-Config-Kelp}]'
 
 # Create a volume
 aws ec2 create-volume \
@@ -19,18 +19,18 @@ aws ec2 create-volume \
     --region 'us-east-1' \
     --availability-zone 'us-east-1b' \
     --volume-type gp2 \
-    --tag-specifications 'ResourceType=volume,Tags=[{Key=Name,Value=DL-datasets-checkpoints}]'
+    --tag-specifications 'ResourceType=volume,Tags=[{Key=Name,Value=DL-seagrass-checkpoints}]'
 
 # Attach volume to server
 aws ec2 attach-volume \
-    --volume-id vol-02bf6b2c73aa3a030 \
-    --instance-id i-0c1ebf6fea0b0aa09 \
+    --volume-id vol-078256099328edf0b \
+    --instance-id i-0aed24eddbac99763 \
     --device /dev/sdf
 
 # Upload data to the mounted EBS volume using scp
 
 # SSH to server
-ssh ubuntu@ec2-3-83-3-245.compute-1.amazonaws.com
+ssh ubuntu@ec2-3-90-156-131.compute-1.amazonaws.com
 
 # Create Spot fleet role
 aws iam create-role \
@@ -44,7 +44,8 @@ aws iam attach-role-policy \
 base64 mount-ebs-train.sh -w0 | xclip
 
 # Request the spot instances
-aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-2xlarge.json
-
-aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-m4-large.json
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-2xlarge-kelp.json
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-m4-large-kelp.json
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-2xlarge-seagrass.json
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-m4-large-seagrass.json
 
