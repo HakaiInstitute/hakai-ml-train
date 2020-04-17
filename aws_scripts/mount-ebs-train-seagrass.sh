@@ -54,7 +54,7 @@ if [ $VOLUME_ID ]; then
 		ln -s /dltraining/train_output ./
 
 		# Initiate training using the pytorch_36 conda environment
-		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate python3; bash ./build_and_run.sh"
+		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate python3; bash ./build_and_train.sh"
 fi
 
 # After training, clean up by cancelling spot requests and terminating itself
