@@ -3,8 +3,13 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 PORT=6006
 
 # Sync datasets
-aws s3 sync s3://hakai-deep-learning-datasets/seagrass/train ./train_input/data/train
-aws s3 sync s3://hakai-deep-learning-datasets/seagrass/eval ./train_input/data/eval
+#aws s3 sync s3://hakai-deep-learning-datasets/seagrass/train ./train_input/data/train
+#aws s3 sync s3://hakai-deep-learning-datasets/seagrass/eval ./train_input/data/eval
+
+# Make output dirs
+mkdir -p "./train_output/checkpoints"
+mkdir -p "./train_output/model"
+mkdir -p "./train_output/segmentation"
 
 # Example build and run command
 docker build --file ../Dockerfile --compress --tag unet/seagrass ../..
@@ -28,5 +33,5 @@ docker wait seagrass-train
 
 # Sync results to S3
 ARCHIVE="./train_output/$(date +'%Y-%m-%d-%H%M').tar.gz"
-tar -czvf "$ARCHIVE" ./train_output/model_weights/
-aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/seagrass/output/
+tar -czvf "$ARCHIVE" ./train_output/model/
+#aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/seagrass/output/

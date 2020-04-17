@@ -6,6 +6,11 @@ PORT=6006
 aws s3 sync s3://hakai-deep-learning-datasets/kelp/train ./train_input/data/train
 aws s3 sync s3://hakai-deep-learning-datasets/kelp/eval ./train_input/data/eval
 
+# Make output dirs
+mkdir -p "./train_output/checkpoints"
+mkdir -p "./train_output/model"
+mkdir -p "./train_output/segmentation"
+
 # Example build and run command
 docker build --file ../Dockerfile --compress --tag deeplabv3/kelp ../..
 
@@ -28,5 +33,5 @@ docker wait kelp-train
 
 # Sync results to S3
 ARCHIVE="./train_output/$(date +'%Y-%m-%d-%H%M').tar.gz"
-tar -czvf "$ARCHIVE" ./train_output/model_weights/
+tar -czvf "$ARCHIVE" ./train_output/model/
 aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/kelp/output/

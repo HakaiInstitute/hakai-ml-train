@@ -199,13 +199,8 @@ if __name__ == '__main__':
         eval_data_dir = "seagrass/train_input/data/eval"
         seg_in_dir = Path("seagrass/train_input/data/segmentation")
         checkpoint_dir = Path('seagrass/train_output/checkpoints')
-        weights_dir = Path('seagrass/train_output/model_weights')
+        weights_dir = Path('seagrass/train_output/model')
         seg_out_dir = Path("seagrass/train_output/segmentation")
-
-    # Make output directories incase they don't exist
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    weights_dir.mkdir(parents=True, exist_ok=True)
-    seg_out_dir.mkdir(parents=True, exist_ok=True)
 
     # Load hyper-parameters dictionary
     hparams = json.load(open(hparams_path))

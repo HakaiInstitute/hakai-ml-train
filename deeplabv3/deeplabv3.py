@@ -151,7 +151,7 @@ if __name__ == '__main__':
         eval_data_dir = "kelp/train_input/data/eval"
         seg_in_dir = Path("kelp/train_input/data/segmentation")
         checkpoint_dir = Path('kelp/train_output/checkpoints')
-        weights_dir = Path('kelp/train_output/model_weights')
+        weights_dir = Path('kelp/train_output/model')
         seg_out_dir = Path("kelp/train_output/segmentation")
 
     # Load hyper-parameters dictionary

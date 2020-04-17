@@ -1,6 +1,11 @@
 # Get the path to this script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+# Make output dirs
+mkdir -p "./train_output/checkpoints"
+mkdir -p "./train_output/model"
+mkdir -p "./train_output/segmentation"
+
 # Example build and run command
 docker build --file ../Dockerfile --compress --tag deeplabv3/kelp ../..
 
