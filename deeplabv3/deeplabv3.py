@@ -16,7 +16,8 @@ from tqdm import tqdm
 
 from models import deeplabv3
 from utils.dataset.SegmentationDataset import SegmentationDataset
-from utils.dataset.transforms import transforms as T, add_vari_band
+from utils.dataset.transforms import transforms as T
+from utils.eval import eval_model
 from utils.loss import assymetric_tversky_loss
 from utils.loss import iou
 
@@ -87,7 +88,7 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'mean_eval_loss': mloss,
-    }, Path(checkpoint_dir).joinpath('unet.pt'))
+    }, Path(checkpoint_dir).joinpath('deeplabv3.pt'))
 
     return model
 
@@ -129,7 +130,7 @@ def train_model(model, device, dataloaders, num_epochs, lr, weight_decay, checkp
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.9)
 
-    checkpoint_path = checkpoint_dir.joinpath('unet.pt')
+    checkpoint_path = checkpoint_dir.joinpath('deeplabv3.pt')
     # Restart at checkpoint if it exists
     if Path(checkpoint_path).exists() and restart_training:
         checkpoint = torch.load(checkpoint_path)
@@ -159,20 +160,20 @@ def train_model(model, device, dataloaders, num_epochs, lr, weight_decay, checkp
         # Save best models
         if best_val_loss is None or mloss < best_val_loss:
             best_val_loss = mloss
-            torch.save(model.state_dict(), Path(weights_dir).joinpath('unet_best_val_loss.pt'))
+            torch.save(model.state_dict(), Path(weights_dir).joinpath('deeplabv3_best_val_loss.pt'))
         if best_val_iou_fg is None or iou_fg < best_val_iou_fg:
             best_val_iou_fg = iou_fg
-            torch.save(model.state_dict(), Path(weights_dir).joinpath('unet_best_val_fg_iou.pt'))
+            torch.save(model.state_dict(), Path(weights_dir).joinpath('deeplabv3_best_val_fg_iou.pt'))
         if best_val_miou is None or miou < best_val_miou:
             best_val_miou = miou
-            torch.save(model.state_dict(), Path(weights_dir).joinpath('unet_best_val_miou.pt'))
+            torch.save(model.state_dict(), Path(weights_dir).joinpath('deeplabv3_best_val_miou.pt'))
 
     train_writer.flush()
     train_writer.close()
     eval_writer.flush()
     eval_writer.close()
 
-    torch.save(model.state_dict(), Path(weights_dir).joinpath("unet_final.pt"))
+    torch.save(model.state_dict(), Path(weights_dir).joinpath("deeplabv3_final.pt"))
 
 
 if __name__ == '__main__':
@@ -256,30 +257,27 @@ if __name__ == '__main__':
                     weights_dir, restart_training)
 
     elif script_mode == "eval":
-        pass
-    # ds_train = SegmentationDataset(train_data_dir, transform=T.train_transforms,
-    #                                target_transform=T.train_target_transforms)
-    # ds_val = SegmentationDataset(eval_data_dir, transform=T.test_transforms,
-    #                              target_transform=T.test_target_transforms)
-    #
-    # dataloader_opts = {
-    #     "batch_size": batch_size,
-    #     "pin_memory": True,
-    #     "num_workers": os.cpu_count()
-    # }
-    # data_loaders = {
-    #     'train': DataLoader(ds_train, shuffle=False, **dataloader_opts),
-    #     'eval': DataLoader(ds_val, shuffle=False, **dataloader_opts),
-    # }
-    #
-    # criterion = nn.CrossEntropyLoss()
-    #
-    # # Trained model
-    # model_weights_path = weights_dir.joinpath(hparams['eval_weights'])
-    # checkpoint = torch.load(model_weights_path, map_location=device)
-    # model.load_state_dict(checkpoint)
-    #
-    # eval_model(model, device, data_loaders, num_classes, criterion)
+        ds_train = SegmentationDataset(train_data_dir, transform=T.train_transforms,
+                                       target_transform=T.train_target_transforms)
+        ds_val = SegmentationDataset(eval_data_dir, transform=T.test_transforms,
+                                     target_transform=T.test_target_transforms)
+
+        dataloader_opts = {
+            "batch_size": batch_size,
+            "pin_memory": True,
+            "num_workers": os.cpu_count()
+        }
+        data_loaders = {
+            'train': DataLoader(ds_train, shuffle=False, **dataloader_opts),
+            'eval': DataLoader(ds_val, shuffle=False, **dataloader_opts),
+        }
+
+        # Trained model
+        model_weights_path = weights_dir.joinpath(hparams['eval_weights'])
+        checkpoint = torch.load(model_weights_path, map_location=device)
+        model.load_state_dict(checkpoint)
+
+        eval_model(model, device, data_loaders, num_classes)
 
     elif script_mode == "pred":
         pass
