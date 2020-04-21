@@ -35,5 +35,5 @@ docker wait kelp-train
 ARCHIVE="$(date +'%Y-%m-%d-%H%M').tar.gz"
 cd ./train_output/model/
 tar -czvf "../$ARCHIVE" ./*
-cd -
-aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/seagrass/output/
+cd ../
+aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/kelp/output/
