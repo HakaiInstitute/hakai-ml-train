@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+import rasterio
 import torch
 import torchvision
 from torch import nn
@@ -17,7 +18,7 @@ from tqdm import tqdm
 from models import deeplabv3
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as T
-from utils.eval import eval_model
+from utils.eval import eval_model, predict_tiff
 from utils.loss import assymetric_tversky_loss
 from utils.loss import iou
 
@@ -280,21 +281,20 @@ if __name__ == '__main__':
         eval_model(model, device, data_loaders, num_classes)
 
     elif script_mode == "pred":
-        pass
-    # # Trained model
-    # model_weights_path = weights_dir.joinpath(hparams['eval_weights'])
-    # checkpoint = torch.load(model_weights_path, map_location=device)
-    # model.load_state_dict(checkpoint)
-    #
-    # # Process all .tif images in segmentation in directory
-    # for img_path in seg_in_dir.glob("*.tif"):
-    #     print("Processing:", img_path)
-    #     out_path = str(seg_out_dir.joinpath(img_path.stem + "_fg_seg" + img_path.suffix))
-    #
-    #     predict_tiff(model, device, img_path, out_path, T.test_transforms, crop_size=300, pad=150, batch_size=4)
-    #
-    #     # Move input file to output directory
-    #     rasterio.shutil.copyfiles(str(img_path), str(seg_out_dir.joinpath(img_path.name)))
+        # Trained model
+        model_weights_path = weights_dir.joinpath(hparams['eval_weights'])
+        checkpoint = torch.load(model_weights_path, map_location=device)
+        model.load_state_dict(checkpoint)
+
+        # Process all .tif images in segmentation in directory
+        for img_path in seg_in_dir.glob("*.tif"):
+            print("Processing:", img_path)
+            out_path = str(seg_out_dir.joinpath(img_path.stem + "_fg_seg" + img_path.suffix))
+
+            predict_tiff(model, device, img_path, out_path, T.test_transforms, crop_size=300, pad=150, batch_size=4)
+
+            # Move input file to output directory
+            rasterio.shutil.copyfiles(str(img_path), str(seg_out_dir.joinpath(img_path.name)))
 
     else:
         raise RuntimeError("Must specify train|eval|pred as script arg")
