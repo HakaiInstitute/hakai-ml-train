@@ -6,5 +6,5 @@
   "momentum": "0.9",
   "weight_decay": "0.01",
   "restart_training": "true",
-  "eval_weights": "200407/deeplabv3_final.pt"
+  "eval_weights": "200421/deeplabv3_final.pt"
 }
