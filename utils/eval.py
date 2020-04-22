@@ -2,6 +2,7 @@
 import sys
 
 import numpy as np
+import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -32,6 +33,11 @@ def eval_model(model, device, data_loaders, num_classes):
         print('IoU/Kelp', np.around(sum_iou[1] / len(data_loaders[phase]), 4))
 
 
+def _is_empty(tensor, epsilon=1e-5):
+    """Utility function to test if an image is blank."""
+    return tensor.sum() < epsilon
+
+
 def predict_tiff(model, device, img_path, dest_path, transform, crop_size=200, pad=0, batch_size=8):
     """
     Predict segmentation classes on a GeoTiff image.
@@ -60,6 +66,15 @@ def predict_tiff(model, device, img_path, dest_path, transform, crop_size=200, p
 
     for i, xs in enumerate(tqdm(dataloader, file=sys.stdout)):
         xs = xs.to(device)
+        batch_size = xs.shape[0]
+
+        # skip classification entirely if batch is all empty images
+        if all([_is_empty(x) for x in xs]):
+            continue
+
+        # Filter out empty images
+        batch_indices = [j for j in range(batch_size) if not _is_empty(xs[j])]
+        xs = torch.stack([x for x in xs if not _is_empty(x)])
 
         # Do segmentation
         segmentation = model(xs)['out']
@@ -68,11 +83,10 @@ def predict_tiff(model, device, img_path, dest_path, transform, crop_size=200, p
         segmentation = F.softmax(segmentation, dim=1)
         segmentation = segmentation[:, 1] * 255  # For likelihood output
         segmentation = segmentation.detach().cpu().numpy()
-        # segmentation = np.argmax(segmentation, axis=1)  # For discrete output
         segmentation = np.expand_dims(segmentation, axis=1)
         segmentation = segmentation.astype(np.uint8)
 
         # Save part of tiff wither rasterio TODO: Multi-process this
-        for j, seg in enumerate(segmentation):
+        for j, seg in zip(batch_indices, segmentation):
             y0, x0 = ds.get_origin(i * batch_size + j)
             writer.write_index(y0, x0, seg)
