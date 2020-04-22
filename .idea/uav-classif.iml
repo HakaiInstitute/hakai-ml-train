@@ -5,10 +5,8 @@
       <sourceFolder url="file://$MODULE_DIR$/models" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/notebooks" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/utils" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/deeplabv3" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/unet" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/aws_scripts" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/data" type="java-resource" />
+      <sourceFolder url="file://$MODULE_DIR$" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/data" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.7 (uav)" jdkType="Python SDK" />
