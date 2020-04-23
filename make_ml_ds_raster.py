@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from pathlib import Path
 
+import fire
 from osgeo import gdal
 
 import utils.data_prep as ut
@@ -33,7 +34,9 @@ def make(img, kelp, out, crop_size=513):
     print("Clipping kelp raster to image extent...")
     clipped_kelp = str(Path(out).joinpath("kelp_clipped.tif"))
     extent = ut.get_raster_extent(img)
-    ut.clip_raster_by_extent(clipped_kelp, kelp, extent=extent)
+    h = ut.get_raster_height(img)
+    w = ut.get_raster_width(img)
+    ut.clip_raster_by_extent(clipped_kelp, kelp, extent=extent, height=h, width=w)
 
     print("Creating image patches dataset...")
     # Slice the image into fixed width and height sections
@@ -45,27 +48,6 @@ def make(img, kelp, out, crop_size=513):
 
     print("Deleting extra labels")
     ut.del_extra_labels(out)
-
-
-def main():
-    # KELP DATA
-    dsets = [
-        "nw_calvert_2012",
-        "nw_calvert_2014",
-        "nw_calvert_2015",
-        "choked_pass_2016",
-        "west_beach_2016",
-        "mcnaughton_2017",
-        "manley_kildidt_2016",
-        "manley_stirling_2016"
-    ]
-    for d in dsets:
-        make(
-            f"data/kelp/raw/{d}/image.tif",
-            f"data/kelp/raw/{d}/kelp.shp",
-            f"data/kelp/processed/{d}",
-            crop_size=513
-        )
 
 
 class GdalErrorHandler(object):
@@ -89,5 +71,4 @@ if __name__ == '__main__':
     gdal.PushErrorHandler(handler)
     gdal.UseExceptions()  # Exceptions will get raised on anything >= gdal.CE_Failure
 
-    # fire.Fire(make)
-    main()
+    fire.Fire(make)

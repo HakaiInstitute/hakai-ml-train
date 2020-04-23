@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-import rasterio
+import rasterio.shutil
 import torch
 import torchvision
 from torch import nn

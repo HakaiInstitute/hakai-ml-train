@@ -94,17 +94,44 @@ def clip_raster_with_shp_mask(dest, src, mask):
     opts = None
 
 
-def clip_raster_by_extent(dest, src, extent):
+def get_raster_width(src):
+    """
+        Get the pixel width of a raster by path.
+        Args:
+            src: Path to the raster for which pixel width will be returned
+
+        Returns: int pixel width of raster
+        """
+    with rasterio.open(src) as dataset:
+        width = dataset.width
+    return width
+
+
+def get_raster_height(src):
+    """
+    Get the pixel height of a raster by path.
+    Args:
+        src: Path to the raster for which pixel height will be returned
+
+    Returns: int pixel height of raster
+    """
+    with rasterio.open(src) as dataset:
+        width = dataset.height
+    return width
+
+
+def clip_raster_by_extent(dest, src, extent, height, width):
     """
     Clips raster at location src to extent and saves at location dest.
     Args:
         dest: Path to save clipped raster
         src: Source raster to clip
         extent: Either an array of extent in format [ulx, uly, lrx, lry]
-
+        width: The width in pixels of the clipped raster
+        height: The height in pixels of the clipped raster
     Returns: None
     """
-    opts = gdal.TranslateOptions(format="GTiff", projWin=extent)
+    opts = gdal.TranslateOptions(format="GTiff", projWin=extent, outputBounds=extent, height=height, width=width)
     ds = gdal.Translate(dest, src, options=opts)
     ds = None
     opts = None
