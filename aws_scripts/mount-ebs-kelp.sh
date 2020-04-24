@@ -41,7 +41,7 @@ if [ $VOLUME_ID ]; then
 		sleep 10
 
 		# Mount volume and change ownership, since this script is run as root
-		mkdir /dltraining
+		mkdir -p /dltraining
 		mount /dev/xvdf /dltraining
 		chown -R ubuntu: /dltraining/
 		cd /home/ubuntu/
@@ -50,9 +50,9 @@ if [ $VOLUME_ID ]; then
 		git clone https://github.com/tayden/uav-classif.git
 		chown -R ubuntu: uav-classif
 		cd uav-classif/deeplabv3/kelp
-		mkdir ./train_input/data
+		mkdir -p ./train_input/data
 		mount --bind /dltraining/data ./train_input/data
-		mkdir ./train_output
+		mkdir -p ./train_output
 		mount --bind /dltraining/train_output ./train_output
 
 		# Initiate training using the pytorch_36 conda environment
