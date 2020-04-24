@@ -132,8 +132,7 @@ def clip_raster_by_extent(dest, src, extent, height, width):
         height: The height in pixels of the clipped raster
     Returns: None
     """
-    opts = gdal.TranslateOptions(format="GTiff", projWin=extent, outputBounds=extent, height=height, width=width,
-                                 noData=0)
+    opts = gdal.TranslateOptions(format="GTiff", projWin=extent, outputBounds=extent, height=height, width=width)
     ds = gdal.Translate(dest, src, options=opts)
     ds = None
     opts = None
