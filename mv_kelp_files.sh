@@ -33,7 +33,7 @@ cp -u -v "$2.tif.xml" "./$1/$fname.tif.xml"' sh
 conda activate uav
 for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016; do
   # Let any pixel > 0 be kelp and set to value 1
-  gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --calc="A>0"
+  gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --calc="A>0" --NoDataValue=0 --type="Byte"
   rm "./$DIR_NAME/kelp.tif"
 
   # Convert all CRS to EPSG:4326 WGS84
