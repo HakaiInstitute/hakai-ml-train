@@ -36,7 +36,7 @@ for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016
   gdal_edit.py "./$DIR_NAME/kelp.tif" -unsetnodata
 
   # Let any pixel > 0 be kelp and set to value 1
-  gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --calc="A>0" --type="Byte"
+  gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --calc="A==1" --type="Byte"
   rm "./$DIR_NAME/kelp.tif"
 
   # Convert all CRS to EPSG:4326 WGS84
