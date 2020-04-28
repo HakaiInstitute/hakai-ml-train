@@ -1,7 +1,7 @@
 ARG VERSION=1.4-cuda10.1-cudnn7-runtime
 FROM pytorch/pytorch:$VERSION
 
-RUN pip install tensorboard tqdm rasterio
+RUN pip install tensorboard tqdm rasterio fire
 
 ENV PYTHONUNBUFFERED=TRUE
 ENV PYTHONDONTWRITEBYTECODE=TRUE

@@ -1,5 +1,8 @@
 .git
 data
 aws_scripts
+deeplabv3/seagrass
 deeplabv3/kelp
 unet/seagrass
+unet/kelp
+*.ipynb

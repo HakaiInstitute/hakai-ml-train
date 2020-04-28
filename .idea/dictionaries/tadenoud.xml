@@ -3,7 +3,9 @@
     <words>
       <w>cuda</w>
       <w>dataloader</w>
+      <w>dataloaders</w>
       <w>datasets</w>
+      <w>deeplabv</w>
       <w>dockerized</w>
       <w>gpus</w>
       <w>hparams</w>

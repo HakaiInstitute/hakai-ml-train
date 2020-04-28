@@ -2,8 +2,16 @@
 #sudo mkdir -p /mnt/H
 #sudo mount -t cifs -o user=taylor.denouden,domain=victoria.hakai.org //10.10.1.50/Geospatial /mnt/H
 
-# Execute all following instructions in the uav-classif/data/kelp/raw directory
-mkdir -p nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016 mcnaughton_2017
+# Execute all following instructions in the uav-classif/deeolabv3/kelp directory
+mkdir -p raw_data
+cd raw_data || exit 1
+
+mkdir -p \
+  nw_calvert_2012 \
+  nw_calvert_2015 \
+  choked_pass_2016 \
+  west_beach_2016 \
+  mcnaughton_2017
 
 # Copy all the image tifs to local drive with multiprocessing
 echo "nw_calvert_2012	/mnt/H/Internal/RS/Airborne/Air_Photos/Orthophotos_Processed/Calvert_Island_2012/Calvert_ortho_2012_Web_NAD83 \
@@ -34,9 +42,10 @@ cp -u -v "$2.tif.xml" "./$1/$fname.tif.xml"' sh
 for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016; do
   # Remove any weird noData values
   gdal_edit.py "./$DIR_NAME/kelp.tif" -unsetnodata
+  gdal_edit.py "./$DIR_NAME/image.tif" -unsetnodata
 
   # Let any pixel > 0 be kelp and set to value 1
-  gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --calc="A==1" --type="Byte"
+  gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --calc="logicalnot(isnan(A)) && A==1" --type="Byte"
   rm "./$DIR_NAME/kelp.tif"
 
   # Convert all CRS to EPSG:4326 WGS84
@@ -46,16 +55,18 @@ for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016
   gdalwarp -t_srs EPSG:4326 -r near -of GTiff "./$DIR_NAME/kelp_scaled.tif" "./$DIR_NAME/kelp_wgs.tif"
   rm "./$DIR_NAME/kelp_scaled.tif"
 
-  python ../../../make_ml_ds_raster.py \
+  python ../dice_img_and_label.py \
     "./$DIR_NAME/image_wgs.tif" \
     "./$DIR_NAME/kelp_wgs.tif" \
-    "../processed/$DIR_NAME" \
+    "./$DIR_NAME" \
     --crop_size=513
 done
 
-python ../../../sagemaker_kelp_dataset.py \
-  ../processed/nw_calvert_2012 \
-  ../processed/nw_calvert_2015 \
-  ../processed/choked_pass_2016 \
-  ../processed/west_beach_2016 \
-  - --out_dir=../../../deeplabv3/kelp/train_input/data
+cd - || exit 1
+
+python ./combine_filter_upload_kelp_data.py \
+  ./nw_calvert_2012 \
+  ./nw_calvert_2015 \
+  ./choked_pass_2016 \
+  ./west_beach_2016 \
+  - --out_dir=./train_input/data

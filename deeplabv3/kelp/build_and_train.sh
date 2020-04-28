@@ -2,18 +2,19 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 PORT=6006
 
+# Build the docker image
+docker build --file ../Dockerfile --compress --tag tayden/deeplabv3-kelp ../..
+
 # Sync datasets
-aws s3 sync s3://hakai-deep-learning-datasets/kelp/train ./train_input/data/train
-aws s3 sync s3://hakai-deep-learning-datasets/kelp/eval ./train_input/data/eval
+aws s3 sync --exclude "*" --include "*/[0-9].png" s3://hakai-deep-learning-datasets/kelp/train ./train_input/data/train
+aws s3 sync --exclude "*" --include "*/[0-9].png" s3://hakai-deep-learning-datasets/kelp/eval ./train_input/data/eval
 
 # Make output dirs
 mkdir -p "./train_output/checkpoints"
 mkdir -p "./train_output/model"
 mkdir -p "./train_output/segmentation"
 
-# Example build and run command
-docker build --file ../Dockerfile --compress --tag deeplabv3/kelp ../..
-
+# Run the docker image
 docker run -dit --rm \
 -p 0.0.0.0:$PORT:$PORT \
 -v "$DIR/train_input":/opt/ml/input \
@@ -32,8 +33,8 @@ docker exec -dit kelp-train tensorboard --logdir=/opt/ml/output/checkpoints/runs
 docker wait kelp-train
 
 # Sync results to S3
-ARCHIVE="$(date +'%Y-%m-%d-%H%M').tar.gz"
-cd ./train_output/model/
-tar -czvf "../$ARCHIVE" ./*
-cd ../
-aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/kelp/output/
+#ARCHIVE="$(date +'%Y-%m-%d-%H%M').tar.gz"
+#cd ./train_output/model/
+#tar -czvf "../$ARCHIVE" ./*
+#cd ../
+#aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/kelp/output/
