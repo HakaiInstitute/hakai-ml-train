@@ -5,9 +5,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 docker build --file ../Dockerfile --compress --tag tayden/deeplabv3-kelp ../..
 
 # Get infile and outfile from first two args
-infile=$1
-outfile=$2
-weights=$3
+infile=$(realpath "$1)"
+outfile=$(realpath "$2")
+weights=$(realpath "$3")
 #infile="/home/tadenoud/PycharmProjects/uav-classif/deeplabv3/kelp/train_input/data/segmentation/mcnaughton_small.tif"
 #outfile="/home/tadenoud/PycharmProjects/uav-classif/deeplabv3/kelp/train_output/segmentation/test.tif"
 #weights="/home/tadenoud/PycharmProjects/uav-classif/deeplabv3/kelp/train_input/weights.pt"

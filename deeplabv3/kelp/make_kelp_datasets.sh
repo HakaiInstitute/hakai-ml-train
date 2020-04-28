@@ -1,3 +1,6 @@
+THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+PROJECT_DIR=$(realpath "$THIS_DIR/../..")
+
 # Mount the samba data server
 #sudo mkdir -p /mnt/H
 #sudo mount -t cifs -o user=taylor.denouden,domain=victoria.hakai.org //10.10.1.50/Geospatial /mnt/H
@@ -46,7 +49,7 @@ for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016
 
   # Let any pixel > 0 be kelp and set to value 1
   gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --overwrite \
-    --calc="logical_and(logical_not(isnan(A)), A==1)" --type="Byte"
+    --calc="nan_to_num(A==1)" --type="Byte"
   rm "./$DIR_NAME/kelp.tif"
 
   # Convert all CRS to EPSG:4326 WGS84
@@ -56,18 +59,18 @@ for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016
   gdalwarp -t_srs EPSG:4326 -r near -of GTiff -overwrite "./$DIR_NAME/kelp_scaled.tif" "./$DIR_NAME/kelp_wgs.tif"
   rm "./$DIR_NAME/kelp_scaled.tif"
 
-  python ../dice_img_and_label.py \
+  python "$PROJECT_DIR/utils/dice_kelp_img_and_label.py" \
     "./$DIR_NAME/image_wgs.tif" \
     "./$DIR_NAME/kelp_wgs.tif" \
     "./$DIR_NAME" \
     --crop_size=513
 done
 
-cd - || exit 1
-
-python ./combine_filter_upload_kelp_data.py \
+python "$PROJECT_DIR/utils/combine_filter_upload_kelp_data.py" \
   ./nw_calvert_2012 \
   ./nw_calvert_2015 \
   ./choked_pass_2016 \
   ./west_beach_2016 \
   - --out_dir=./train_input/data
+
+cd - || exit 1

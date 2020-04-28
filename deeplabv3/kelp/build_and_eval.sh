@@ -7,8 +7,8 @@ docker build --file ../Dockerfile --compress --tag tayden/deeplabv3-kelp ../..
 weights="/home/tadenoud/PycharmProjects/uav-classif/deeplabv3/kelp/train_output/model/200421/deeplabv3_final.pt"
 
 # Sync datasets
-aws s3 sync --exclude "*" --include "*/[0-9].png" s3://hakai-deep-learning-datasets/kelp/train ./train_input/data/train
-aws s3 sync --exclude "*" --include "*/[0-9].png" s3://hakai-deep-learning-datasets/kelp/eval ./train_input/data/eval
+aws s3 sync s3://hakai-deep-learning-datasets/kelp/train ./train_input/data/train
+aws s3 sync s3://hakai-deep-learning-datasets/kelp/eval ./train_input/data/eval
 
 # Make output dirs
 mkdir -p "./train_output/checkpoints"
