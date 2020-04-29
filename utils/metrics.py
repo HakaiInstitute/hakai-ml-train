@@ -10,7 +10,7 @@ class ConfusionMatrix(object):
 
     def update(self, actual, predicted):
         s = actual.flatten() * self.num_classes + predicted.flatten()
-        self.matrix = self.matrix.put_(s, torch.ones_like(s).float(), accumulate=True).T
+        self.matrix = self.matrix.put_(s, torch.ones_like(s).float(), accumulate=True).t
 
     def get_matrix(self):
         return self.matrix

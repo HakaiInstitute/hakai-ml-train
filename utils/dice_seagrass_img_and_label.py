@@ -4,7 +4,7 @@ from pathlib import Path
 import geopandas as gpd
 from osgeo import gdal
 
-import utils.data_prep as ut
+import data_prep as ut
 
 
 def make(img, shapefile, out, crop_size=513):

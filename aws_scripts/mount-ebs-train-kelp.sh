@@ -49,10 +49,10 @@ if [ $VOLUME_ID ]; then
 		# Get training code
 		git clone https://github.com/tayden/uav-classif.git
 		chown -R ubuntu: uav-classif
-		cd uav-classif/deeplabv3/kelp
+		cd uav-classif/kelp
 		mkdir -p ./train_input/data
 		mount --bind /dltraining/data ./train_input/data
-		mkdir -p./train_output
+		mkdir -p ./train_output
 		mount --bind /dltraining/train_output ./train_output
 
 		# Initiate training using the pytorch_36 conda environment

@@ -1,6 +1,6 @@
 # Build the docker image
 #docker pull tayden/deeplabv3-kelp:latest
-docker build --file deeplabv3/Dockerfile --compress --tag tayden/deeplabv3-kelp .
+docker build --file kelp/Dockerfile --compress --tag tayden/deeplabv3-kelp .
 
 # Get infile, outfile, weights from args
 in_file=$(realpath "$1")

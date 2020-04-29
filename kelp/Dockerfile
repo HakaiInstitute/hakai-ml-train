@@ -9,12 +9,10 @@ ENV PATH="/opt/code:${PATH}"
 ENV DOCKER=TRUE
 
 # Set up the program in the image
-COPY deeplabv3/deeplabv3.py /opt/code/deeplabv3.py
+COPY kelp/segment_kelp.py /opt/code/segment_kelp.py
 COPY models /opt/code/models
 COPY utils /opt/code/utils
 WORKDIR /opt/code
 
-# Note: During Docker run, data and output directories are bound via volumes
-
 # Run the train script
-ENTRYPOINT ["python", "deeplabv3.py"]
+ENTRYPOINT ["python", "segment_kelp.py"]

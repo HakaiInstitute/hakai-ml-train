@@ -1,1 +1,0 @@
-git tag,file,checkpoint,dataset,random_seed,optimizer,lr scheduler,crop size,batch size,aws instance,loss,miou,bg iou,kelp iou,val loss,val miou,val bg iou,val kelp iou
