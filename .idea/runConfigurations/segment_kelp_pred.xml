@@ -9,8 +9,8 @@
     <option name="SDK_HOME" value="" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/kelp" />
     <option name="IS_MODULE_SDK" value="true" />
-    <option name="ADD_CONTENT_ROOTS" value="false" />
-    <option name="ADD_SOURCE_ROOTS" value="false" />
+    <option name="ADD_CONTENT_ROOTS" value="true" />
+    <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/kelp/segment_kelp.py" />
     <option name="PARAMETERS" value="pred train_input/data/segmentation/mcnaughton_small.tif train_output/segmentation/mcnaughton_small_kelp.tif train_output/weights/deeplabv3_kelp_200421.pt" />
