@@ -1,21 +1,23 @@
 # Build the docker image
-docker pull tayden/deeplabv3-kelp:v1.0.0
+#docker pull tayden/deeplabv3-kelp:latest
+docker build --file deeplabv3/Dockerfile --compress --tag tayden/deeplabv3-kelp .
 
-# Get infile and outfile from first two args
-infile=$(realpath $1)
-outfile=$(realpath $2)
-weights=$(realpath $3)
+# Get infile, outfile, weights from args
+in_file=$(realpath "$1")
+out_file=$(realpath "$2")
+weight_file=$(realpath "$3")
 
-outdir=$(dirname "$outfile")
-outname=$(basename "$outfile")
+in_dir=$(dirname "$in_file")
+out_dir=$(dirname "$out_file")
+weight_dir=$(dirname "$weight_file")
 
 # Run the docker image and bind data
 docker run -it --rm \
--v "$outdir":/opt/segmentation/output \
---mount type=bind,source="$infile",target=/opt/segmentation/input/image.tif,readonly \
---mount type=bind,source="$weights",target=/opt/ml/input/weights.pt,readonly \
+-v "$in_dir":"$in_dir" \
+-v "$out_dir":"$out_dir" \
+-v "$weight_dir":"$weight_dir" \
 --user "$(id -u):$(id -g)" \
 --ipc host \
 --gpus all \
 --name kelp-pred \
-deeplabv3/kelp pred "$outname"
+tayden/deeplabv3-kelp:latest pred --seg_in="$in_file" --seg_out="$out_file" --weights="$weight_file"

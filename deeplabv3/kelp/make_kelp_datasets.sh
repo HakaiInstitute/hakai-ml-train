@@ -71,6 +71,6 @@ python "$PROJECT_DIR/utils/combine_filter_upload_kelp_data.py" \
   ./nw_calvert_2015 \
   ./choked_pass_2016 \
   ./west_beach_2016 \
-  - --out_dir=./train_input/data
+  --out_dir=../train_input/data
 
 cd - || exit 1

@@ -1,4 +1,4 @@
-ARG VERSION=1.4-cuda10.1-cudnn7-runtime
+ARG VERSION=1.5-cuda10.1-cudnn7-runtime
 FROM pytorch/pytorch:$VERSION
 
 RUN pip install tensorboard tqdm rasterio fire
