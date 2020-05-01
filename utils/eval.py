@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
 from utils.dataset.GeoTiffDataset import GeoTiffDataset, GeoTiffWriter
+from utils.dataset.transforms import transforms as T
 from utils.loss import iou
 
 
@@ -35,7 +36,7 @@ def eval_model(model, device, data_loaders, num_classes):
 
 def _is_empty(tensor, epsilon=1e-5):
     """Utility function to test if an image is blank."""
-    return tensor.sum() < epsilon
+    return T.inv_normalize(tensor).sum() < epsilon
 
 
 def predict_tiff(model, device, img_path, dest_path, transform, crop_size=200, pad=0, batch_size=8):

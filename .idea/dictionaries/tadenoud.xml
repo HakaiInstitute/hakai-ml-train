@@ -3,16 +3,22 @@
     <words>
       <w>cuda</w>
       <w>dataloader</w>
+      <w>dataloaders</w>
       <w>datasets</w>
+      <w>deeplabv</w>
       <w>dockerized</w>
       <w>gpus</w>
       <w>hparams</w>
       <w>imgs</w>
+      <w>ious</w>
+      <w>labv</w>
       <w>miou</w>
+      <w>mloss</w>
       <w>pbar</w>
       <w>rasterio</w>
       <w>rasters</w>
       <w>shapefile</w>
+      <w>tensorboard</w>
     </words>
   </dictionary>
 </component>

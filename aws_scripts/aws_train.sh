@@ -45,7 +45,9 @@ base64 mount-ebs-train.sh -w0 | xclip
 
 # Request the spot instances
 aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-2xlarge-kelp.json
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-8xlarge-kelp.json
 aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-m4-large-kelp.json
 aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-2xlarge-seagrass.json
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-8xlarge-seagrass.json
 aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-m4-large-seagrass.json
 

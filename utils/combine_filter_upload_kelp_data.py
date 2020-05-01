@@ -9,9 +9,9 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from utils.dataset.SegmentationDataset import SegmentationDataset
-from utils.dataset.TransformDataset import TransformDataset
-from utils.dataset.transforms import transforms as T
+from dataset.SegmentationDataset import SegmentationDataset
+from dataset.TransformDataset import TransformDataset
+from dataset.transforms import transforms as T
 
 
 def get_indices_of_kelp_images(dataset):

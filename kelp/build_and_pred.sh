@@ -1,14 +1,13 @@
 # Get the path to this script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+# Build the docker image
+docker build --file ./Dockerfile --compress --tag tayden/deeplabv3-kelp ..
+
 # Make output dirs
-mkdir -p "./train_output/checkpoints"
-mkdir -p "./train_output/model"
 mkdir -p "./train_output/segmentation"
 
-# Example build and run command
-docker build --file ../Dockerfile --compress --tag deeplabv3/kelp ../..
-
+# Run the docker image and bind data
 docker run -it --rm \
 -v "$DIR/train_input":/opt/ml/input \
 -v "$DIR/train_output":/opt/ml/output \
@@ -16,4 +15,5 @@ docker run -it --rm \
 --ipc host \
 --gpus all \
 --name kelp-pred \
-deeplabv3/kelp pred
+tayden/deeplabv3-kelp:latest pred "/opt/ml/input/data/segmentation/mcnaughton_small.tif" \
+  "/opt/ml/output/segmentation/mcnaughton_small_kelp.tif" "/opt/ml/output/weights/deeplabv3_kelp_200421.pt"

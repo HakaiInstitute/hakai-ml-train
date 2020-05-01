@@ -8,9 +8,9 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from utils.dataset.SegmentationDataset import SegmentationDataset
-from utils.dataset.TransformDataset import TransformDataset
-from utils.dataset.transforms import transforms as T
+from dataset.SegmentationDataset import SegmentationDataset
+from dataset.TransformDataset import TransformDataset
+from dataset.transforms import transforms as t
 
 disable_cuda = False
 train_ratio = 0.8
@@ -21,7 +21,7 @@ ds_paths = [x for x in Path("data/seagrass/processed").iterdir() if x.is_dir()]
 
 
 def get_indices_of_seagrass_images(dataset):
-    ds = TransformDataset(dataset, transform=T.test_transforms, target_transform=T.test_target_transforms)
+    ds = TransformDataset(dataset, transform=t.test_transforms, target_transform=t.test_target_transforms)
     dl = DataLoader(ds, batch_size=1, shuffle=False, pin_memory=True, num_workers=os.cpu_count())
     indices = []
     for i, (_, y) in enumerate(tqdm(iter(dl))):

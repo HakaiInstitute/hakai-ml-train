@@ -4,7 +4,7 @@ from pathlib import Path
 import fire
 from osgeo import gdal
 
-import utils.data_prep as ut
+import data_prep as dp
 
 
 def make(img, kelp, out, crop_size=513):
@@ -33,21 +33,21 @@ def make(img, kelp, out, crop_size=513):
     # Crop kelp raster to img extent
     print("Clipping kelp raster to image extent...")
     clipped_kelp = str(Path(out).joinpath("kelp_clipped.tif"))
-    extent = ut.get_raster_extent(img)
-    h = ut.get_raster_height(img)
-    w = ut.get_raster_width(img)
-    ut.clip_raster_by_extent(clipped_kelp, kelp, extent=extent, height=h, width=w)
+    extent = dp.get_raster_extent(img)
+    h = dp.get_raster_height(img)
+    w = dp.get_raster_width(img)
+    dp.clip_raster_by_extent(clipped_kelp, kelp, extent=extent, height=h, width=w)
 
     print("Creating image patches dataset...")
     # Slice the image into fixed width and height sections
-    ut.check_same_extent(img, clipped_kelp)
-    ut.slice_and_dice_image(img, dest_x, mode='RGB', crop_size=crop_size)
+    dp.check_same_extent(img, clipped_kelp)
+    dp.slice_and_dice_image(img, dest_x, mode='RGB', crop_size=crop_size)
 
     print("Creating label patches dataset...")
-    ut.slice_and_dice_image(clipped_kelp, dest_y, mode='L', crop_size=crop_size)
+    dp.slice_and_dice_image(clipped_kelp, dest_y, mode='L', crop_size=crop_size)
 
     print("Deleting extra labels")
-    ut.del_extra_labels(out)
+    dp.del_extra_labels(out)
 
 
 class GdalErrorHandler(object):

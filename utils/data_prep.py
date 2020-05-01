@@ -1,10 +1,12 @@
-from osgeo import gdal, osr, ogr
-import rasterio
 from pathlib import Path
+
 import numpy as np
+import rasterio
+from PIL import Image
+from osgeo import gdal, osr, ogr
+from rasterio.windows import Window
 from tqdm.auto import tqdm
 from tqdm.contrib.itertools import product as tproduct
-from PIL import Image
 
 
 def check_same_extent(src_a, src_b):
@@ -60,10 +62,12 @@ def slice_and_dice_image(src_img, dest_d, mode='L', crop_size=200):
         dest_d = Path(dest_d)
         for i, (x0, y0) in enumerate(tproduct(x0s, y0s)):
             dest = str(dest_d.joinpath(f"{i}.png"))
-            window = ((y0, y0+crop_size), (x0, x0+crop_size))
+            window = Window(x0, y0, crop_size, crop_size)
 
             if mode == 'L':
-                subset = dataset.read(1, window=window)
+                subset = dataset.read(1, window=window, masked=True)
+                subset = subset.filled(0)  # Fill nodata areas with 0
+
                 if len(subset.shape) > 2:
                     subset = np.squeeze(subset)
                 subset = np.clip(subset, 0, 255).astype(np.uint8)
@@ -281,4 +285,5 @@ def del_extra_labels(dataset):
 
 if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

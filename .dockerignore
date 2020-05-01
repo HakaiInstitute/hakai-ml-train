@@ -1,5 +1,12 @@
 .git
 data
 aws_scripts
-deeplabv3/kelp
-unet/seagrass
+*/train_input
+*/train_output
+*.png
+*.pth
+*.pt
+*.tif
+*.ipynb
+*.tar
+*.gz
