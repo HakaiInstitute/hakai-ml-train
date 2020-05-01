@@ -21,7 +21,7 @@ from utils.eval import eval_model, predict_tiff
 from utils.loss import assymetric_tversky_loss
 from utils.loss import iou
 
-# Hyper-parameters
+# Hyper-parameter defaults
 NUM_CLASSES = 2
 NUM_EPOCHS = 200
 BATCH_SIZE = 4
@@ -40,14 +40,6 @@ if not DISABLE_CUDA and torch.cuda.is_available():
 else:
     DEVICE = torch.device('cpu')
 
-# TRAIN_DATA_DIR = Path("/opt/ml/input/data/train")
-# EVAL_DATA_DIR = Path("/opt/ml/input/data/eval")
-# TRAINED_WEIGHTS = Path("/opt/ml/input/weights.pt")
-# SEGMENTATION_INPUT_IMG = Path("/opt/segmentation/input/image.tif")
-# SEGMENTATION_OUT_DIR = Path("/opt/segmentation/output")
-# CHECKPOINT_DIR = Path('/opt/ml/output/checkpoints')
-# WEIGHTS_OUT_DIR = Path('/opt/ml/output/model')
-
 # Make results reproducible
 torch.manual_seed(0)
 # noinspection PyUnresolvedReferences
@@ -61,7 +53,7 @@ def alpha_blend(bg, fg, alpha=0.5):
     return fg * alpha + bg * (1 - alpha)
 
 
-def get_dataloaders(mode, train_data_dir, eval_data_dir):
+def get_dataloaders(mode, train_data_dir, eval_data_dir, batch_size=BATCH_SIZE):
     if mode == "train":
         transforms = t.train_transforms
         target_transforms = t.train_target_transforms
@@ -77,7 +69,7 @@ def get_dataloaders(mode, train_data_dir, eval_data_dir):
                                  target_transform=t.test_target_transforms)
 
     dataloader_opts = {
-        "batch_size": BATCH_SIZE * max(torch.cuda.device_count(), 1),
+        "batch_size": batch_size * max(torch.cuda.device_count(), 1),
         "pin_memory": True,
         "drop_last": mode == "train",
         "num_workers": os.cpu_count()
@@ -215,16 +207,21 @@ def validate_one_epoch(model, device, dataloader, epoch, writers):
     return mloss, miou, iou_bg, iou_fg
 
 
-def train(train_data_dir, eval_data_dir, checkpoint_dir):
+def train(train_data_dir, eval_data_dir, checkpoint_dir,
+          epochs=NUM_EPOCHS, batch_size=BATCH_SIZE, lr=LR, weight_decay=WEIGHT_DECAY):
     """
     Train the DeepLabv3 Segmentation model.
     Args:
         train_data_dir: Path to the training data directory that contains subdirectories x/ and y/ with all .png
-            training images. Required for train and eval mode.
+            training images.
         eval_data_dir: Path to the training data directory that contains subdirectories x/ and y/ with all .png
-            eval images. Required for train and eval mode.
+            eval images.
         checkpoint_dir: Path to save model checkpoints so training can be resumed. Training will automatically search
-            this directory for checkpoints on start. Required for train mode.
+            this directory for checkpoints on start.
+        epochs: Number of training epochs to do. Defaults to 200.
+        batch_size: The batch size for each GPU. Defaults to 4.
+        lr: The learning rate. Defaults to 1e-4.
+        weight_decay: The amount of L2 regularization. Defaults to 0.01.
 
     Returns: None.
     """
@@ -235,9 +232,9 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir):
     model = model.to(DEVICE)
     model = nn.DataParallel(model)
 
-    dataloaders = get_dataloaders("train", train_data_dir, eval_data_dir)
+    dataloaders = get_dataloaders("train", train_data_dir, eval_data_dir, batch_size=batch_size)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.9)
 
     checkpoint_path = checkpoint_dir.joinpath(f'{MODEL_NAME}.pt')
@@ -256,7 +253,7 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir):
     best_val_miou = None
 
     with TensorboardWriters(DEVICE, log_dir=checkpoint_dir.joinpath('runs')) as writers:
-        for epoch in range(start_epoch, NUM_EPOCHS):
+        for epoch in range(start_epoch, epochs):
             model = train_one_epoch(model, DEVICE, optimizer, lr_scheduler, dataloaders['train'], epoch, writers,
                                     checkpoint_dir)
             mloss, miou, iou_bg, iou_fg = validate_one_epoch(model, DEVICE, dataloaders['eval'], epoch, writers)
@@ -275,7 +272,7 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir):
     torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f"{MODEL_NAME}_final.pt"))
 
 
-def evaluate(train_data_dir, eval_data_dir, weights):
+def evaluate(train_data_dir, eval_data_dir, weights, batch_size=BATCH_SIZE):
     """
     Evaluate DeepLabv3 Segmentation model performance.
     Args:
@@ -284,6 +281,7 @@ def evaluate(train_data_dir, eval_data_dir, weights):
         eval_data_dir: Path to the training data directory that contains subdirectories x/ and y/ with all .png
             eval images. Required for train and eval mode.
         weights: Path to a model weights file (*.pt). Required for eval and pred mode.
+        batch_size: The data batch size per GPU. Defaults to 4.
 
     Returns: None.
     """
@@ -296,17 +294,26 @@ def evaluate(train_data_dir, eval_data_dir, weights):
     checkpoint = torch.load(weights, map_location=DEVICE)
     model.load_state_dict(checkpoint)
 
-    dataloaders = get_dataloaders("eval", train_data_dir, eval_data_dir)
+    dataloaders = get_dataloaders("eval", train_data_dir, eval_data_dir, batch_size=batch_size)
     eval_model(model, DEVICE, dataloaders, NUM_CLASSES)
 
 
-def predict(seg_in, seg_out, weights):
+def predict(seg_in, seg_out, weights, batch_size=BATCH_SIZE, crop_size=PRED_CROP_SIZE, crop_pad=PRED_CROP_PAD):
     """
-    Segment the FG class using DeepLabv3 Segmentation model.
+    Segment the FG class using DeepLabv3 Segmentation model of an input .tif image.
     Args:
         weights: Path to a model weights file (*.pt). Required for eval and pred mode.
         seg_in: Path to a *.tif image to do segmentation on in pred mode.
         seg_out: Path to desired output *.tif created by the model in pred mode.
+        batch_size: The batch size per GPU. Defaults to 4.
+        crop_size: The crop size in pixels for processing the image. Defines the length and width of the individual
+            sections the input .tif image is cropped to for processing. Defaults to 300.
+        crop_pad: The amount of padding added for classification context to each image crop. The output classification
+            on this crop area is not output by the model but will influence the classification of the area in the
+            (crop_size x crop_size) window. Defaults to 150.
+
+    Note: Changing the crop_size and crop_pad parameters may require adjusting the batch_size such that the image
+        batches fit into the GPU memory.
 
     Returns: None. Outputs various files as a side effect depending on the script mode.
     """
@@ -321,10 +328,10 @@ def predict(seg_in, seg_out, weights):
     model.load_state_dict(checkpoint)
 
     print("Processing:", seg_in)
-    batch_size = BATCH_SIZE * max(torch.cuda.device_count(), 1)
+    batch_size = batch_size * max(torch.cuda.device_count(), 1)
     predict_tiff(model, DEVICE, seg_in, seg_out,
                  transform=t.test_transforms,
-                 crop_size=PRED_CROP_SIZE, pad=PRED_CROP_PAD,
+                 crop_size=crop_size, pad=crop_pad,
                  batch_size=batch_size)
 
 
