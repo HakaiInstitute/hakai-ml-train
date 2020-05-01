@@ -128,8 +128,9 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
     model.train()
     sum_loss = 0.
     sum_iou = np.zeros(NUM_CLASSES)
+    iters = len(dataloader)
 
-    for x, y in tqdm(iter(dataloader), desc=f"train epoch {epoch}", file=sys.stdout):
+    for i, (x, y) in enumerate(tqdm(iter(dataloader), desc=f"train epoch {epoch}", file=sys.stdout)):
         y = y.to(device)
         x = x.to(device)
 
@@ -146,8 +147,8 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
         sum_loss += loss.detach().cpu().item()
         sum_iou += iou(y, pred.float()).detach().cpu().numpy()
 
-    if lr_scheduler is not None:
-        lr_scheduler.step()
+        if lr_scheduler is not None:
+            lr_scheduler.step(epoch + i / iters)
 
     mloss = sum_loss / len(dataloader)
     ious = np.around(sum_iou / len(dataloader), 4)
