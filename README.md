@@ -5,20 +5,24 @@
 ### Log in to Hal9000
 - Open a terminal and ssh into Hal9000
     - e.g. `ssh username@10.10.1.13`. Enter you password
+    - To ssh from Windows, use the [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10)
+- To get an account on Hal9000, ask one of the Hakai Tech team, who can create an account for you.
+    - Ask for TeamViewer access as well for GUI access to the server. TeamViewer may be required to set a new password and is also useful for checking processing outputs.
 
 ### First-time setup
 - Install cifs-utils so you can later access NAS files `sudo apt-get install cifs-utils`
 - Make mount point for H drive if it doesn’t exist: `sudo mkdir -p /mnt/H`
 - Add yourself to the Docker user group: `sudo usermod -aG docker $USER`
+    - Log out and log back in for the change to take effect.
     - `docker run hello-world` should print a “Hello World” message to the terminal if everything is working. See https://docs.docker.com/engine/install/linux-postinstall/ if you have any issues.
 
 #### Download the Kelp model weights
-- `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200421.pt` will download the weights to your current directory
+- `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200421.pt > deeplabv3_kelp_200421.pt` will download the weights to your current directory
     - Later, you’ll need to pass the path to the weights to the classification script, so you may want to move them with `mv /from/location /to/location`
 
 #### Clone the GitHub repo
 - Install Git if necessary: `sudo apt-get install git`
-- Pull the repo: `git pull https://github.com/tayden/uav-classif`
+- Pull the repo: `git clone https://github.com/tayden/uav-classif`
 
 #### Mount the NAS via samba 
 - You’ll have to do this after each computer restart. It may be possible for Chris to edit /etc/fstab so this happens automatically for all users.
@@ -38,6 +42,11 @@
         - After installing packages, run `conda activate uav`
         - Now, run `PYTHONPATH=. python segment_kelp.py pred /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3-kelp_200421.pt`
 - Move the output back to the samba server if desired, e.g. `mv /path/to/desired/output.tif /mnt/H/location/of/choice`
+
+### Interpreting model output
+- The model outputs a raster image with integer values (0-255). This value should be thresholded to obtain a kelp/not-kelp classification output.
+- In most case, setting the threshold such that a pixel being >=128 means kelp should be adequate. 
+- If you want to increase kelp recall at the cost of precision, you can lower this threshold (e.g. to 100).
 
 ### Tips
 #### Killing a job
