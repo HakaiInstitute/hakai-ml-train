@@ -96,7 +96,7 @@ class TensorboardWriters(object):
         }
         return self
 
-    def __exit__(self):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         for phase in ['train', 'eval']:
             self.writers[phase].flush()
             self.writers[phase].close()
@@ -147,7 +147,7 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
         sum_iou += iou(y, pred.float()).detach().cpu().numpy()
 
     if lr_scheduler is not None:
-        lr_scheduler.step(epoch)
+        lr_scheduler.step()
 
     mloss = sum_loss / len(dataloader)
     ious = np.around(sum_iou / len(dataloader), 4)
