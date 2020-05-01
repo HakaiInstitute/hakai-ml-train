@@ -8,11 +8,6 @@ docker build --file ./Dockerfile --compress --tag tayden/deeplabv3-kelp ..
 aws s3 sync s3://hakai-deep-learning-datasets/kelp/train ./train_input/data/train
 aws s3 sync s3://hakai-deep-learning-datasets/kelp/eval ./train_input/data/eval
 
-# Make output dirs
-mkdir -p "./train_output/checkpoints"
-mkdir -p "./train_output/model"
-mkdir -p "./train_output/segmentation"
-
 docker run -it --rm \
 -v "$DIR/train_input":/opt/ml/input \
 -v "$DIR/train_output":/opt/ml/output \
