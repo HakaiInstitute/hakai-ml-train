@@ -4,9 +4,6 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # Build the docker image
 docker build --file ./Dockerfile --compress --tag tayden/deeplabv3-kelp ..
 
-# Make output dirs
-mkdir -p "./train_output/segmentation"
-
 # Run the docker image and bind data
 docker run -it --rm \
 -v "$DIR/train_input":/opt/ml/input \
