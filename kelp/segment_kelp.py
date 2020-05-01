@@ -91,7 +91,7 @@ def get_dataloaders(mode, train_data_dir, eval_data_dir):
 class TensorboardWriters(object):
     def __init__(self, device, log_dir):
         super().__init__()
-        self.log_dir = log_dir
+        self.log_dir = Path(log_dir)
         self.device = device
 
     def __enter__(self):
