@@ -44,7 +44,7 @@
 Press CTRL+C to kill the classification script after it starts if you don’t want to continue.
 
 #### Long running jobs
-The easiest way to keep long running jobs active after you log out and start doing other things is to use the screen utility. Before running the segment-kelp.sh script, enter `screen` to start a screen session (press enter at the “welcome” message). Start the command as before, everything will look the same. You can now detach the command so it continues to run in case your ssh session is interrupted. To detach, press (CTL+A+D). The screen is now detached and running in the background. You can resume the session by entering `screen -r`. When the screen session is detached, you can close the terminal or log out of the hal9000 terminal session and not worry about the classification job stopping. Just ssh back into hal9000 and run screen -r to check progress, etc.
+The easiest way to keep long running jobs active after you log out and start doing other things is to use the screen utility. Before running the segment-kelp.sh script, enter `screen` to start a screen session (press enter at the “welcome” message). Start the command as before, everything will look the same. You can now detach the command so it continues to run in case your ssh session is interrupted. To detach, press (CTL+A+D). The screen is now detached and running in the background. You can resume the session by entering `screen -r`. When the screen session is detached, you can close the terminal or log out of the hal9000 terminal session and not worry about the classification job stopping. Just ssh back into hal9000 and run `screen -r` to check progress, etc.
 
 TLDR;
 ```
@@ -66,7 +66,7 @@ screen -r
 ```
 
 #### Docker
-Docker simply creates a lightweight virtual Linux machine and then executes the script in it. This ensures consisency across environments.
+Docker simply creates a lightweight virtual Linux machine and then executes the script in it. This ensures consistency across environments.
 You can inspect the `segment_kelp.sh` file to see exactly what Docker image is being pulled and what volumes are mounted to it.
 To access from Hal9000 in the running Docker environment, the data drives must be mapped with the `-v from_location:to_location` flags.
 This is all taken care of for you in this script.
