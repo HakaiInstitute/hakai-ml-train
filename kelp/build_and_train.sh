@@ -3,7 +3,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 PORT=6006
 
 # Build the docker image
-docker build --file ./Dockerfile --compress --tag tayden/deeplabv3-kelp ../..
+docker build --file ./Dockerfile --compress --tag tayden/deeplabv3-kelp ..
 
 # Sync datasets
 aws s3 sync s3://hakai-deep-learning-datasets/kelp/train ./train_input/data/train

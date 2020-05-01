@@ -1,14 +1,12 @@
 .git
 data
 aws_scripts
+*/train_input
+*/train_output
 *.png
 *.pth
 *.pt
 *.tif
 *.ipynb
-*/*/runs/
 *.tar
 *.gz
-kelp/train_input/
-kelp/train_output/
-seagrass/

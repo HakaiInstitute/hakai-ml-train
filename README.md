@@ -6,34 +6,29 @@
 - Open a terminal and enter `ssh will@10.10.1.13`. Enter you password
 
 ### First-time setup
-####Prepare to mount Samba server (e.g. H drive)
-- Install cifs-utils with `sudo apt-get install cifs-utils`
-
-#### Make mount point for H drive if it doesn’t exist
-- Make the mountpoint directory `sudo mkdir -p /mnt/H`
+- Install cifs-utils so you can later access NAS files `sudo apt-get install cifs-utils`
+- Make mount point for H drive if it doesn’t exist: `sudo mkdir -p /mnt/H`
 - Add yourself to the Docker user group: `sudo usermod -aG docker $USER`
-
-#### Test docker permissions
-- `docker run hello-world` should print a “Hello World” message to the terminal if everything is working. See https://docs.docker.com/engine/install/linux-postinstall/ if you have any issues.
+    - `docker run hello-world` should print a “Hello World” message to the terminal if everything is working. See https://docs.docker.com/engine/install/linux-postinstall/ if you have any issues.
 
 #### Download the Kelp model weights
 - `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200421.pt` will download the weights to your current directory
-    - Later, you’ll need to pass the path to the weights to the classification script, so move them wherever you want with `mv /from/location /to/location`
+    - Later, you’ll need to pass the path to the weights to the classification script, so you may want to move them with `mv /from/location /to/location`
 
-#### Download the GitHub repo
+#### Clone the GitHub repo
 - Install Git if necessary: `sudo apt-get install git`
 - Pull the repo: `git pull https://github.com/tayden/uav-classif`
 
-#### Mount samba server 
-- You’ll have to do this after each computer restart. It may be possible for Chris to edit /etc/stab so this happens automatically for all users.
+#### Mount the NAS via samba 
+- You’ll have to do this after each computer restart. It may be possible for Chris to edit /etc/fstab so this happens automatically for all users.
 - Mount the NAS to /mnt/H: `sudo mount -t cifs -o user=will.mcinnes,domain=victoria.hakai.org //10.10.1.50/Geospatial /mnt/H`
     - Follow the password prompts to log in
-    - You may need to use `sudo` to copy files to/from this directory.
+    - Note: You will probably have to use `sudo` to copy files to/from this directory.
 
 ### Classify an image
-- Download the image to the local hard drive. It’ll run waaay faster this way.
+- Download the image to the local hard drive. It’ll run way faster this way. It's possible to read the file from the NAS, but there will be a network bottleneck.
     - e.g. `cp /mnt/H/path/to/image.* ./local/drive/location/`
-- Navigate to the Github repo: e.g. `cd path/to/repo/uav-classif`
+- Navigate to the cloned Github repo: e.g. `cd path/to/repo/uav-classif`
 - Run the classification script:
     - Using Docker: `bash segment_kelp.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3-kelp_200421.pt`
     - Or, using local Python environment:
