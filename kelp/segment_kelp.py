@@ -168,7 +168,7 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'mean_eval_loss': mloss,
-    }, Path(checkpoint_dir).joinpath(f'{MODEL_NAME}.pt'))
+    }, Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_checkpoint.pt'))
 
     return model
 
@@ -237,7 +237,7 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.9)
 
-    checkpoint_path = checkpoint_dir.joinpath(f'{MODEL_NAME}.pt')
+    checkpoint_path = checkpoint_dir.joinpath(f'{MODEL_NAME}_checkpoint.pt')
 
     # Restart at checkpoint if it exists
     if Path(checkpoint_path).exists() and RESTART_TRAINING:
