@@ -96,7 +96,7 @@ class TensorboardWriters(object):
 
     def __enter__(self):
         current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-        log_dir = os.path.join(self.log_dir.joinpath('runs', current_time + '_' + socket.gethostname()))
+        log_dir = os.path.join(self.log_dir, current_time + '_' + socket.gethostname())
 
         self.writers = {
             'train': SummaryWriter(log_dir=log_dir + '_train'),
@@ -250,14 +250,11 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir):
     else:
         start_epoch = 0
 
-    current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-    tensorboard_log_dir = os.path.join(checkpoint_dir.joinpath('runs', current_time + '_' + socket.gethostname()))
-
     best_val_loss = None
     best_val_iou_fg = None
     best_val_miou = None
 
-    with TensorboardWriters(DEVICE, tensorboard_log_dir) as writers:
+    with TensorboardWriters(DEVICE, log_dir=checkpoint_dir.joinpath('runs')) as writers:
         for epoch in range(start_epoch, NUM_EPOCHS):
             model = train_one_epoch(model, DEVICE, optimizer, lr_scheduler, dataloaders['train'], epoch, writers,
                                     checkpoint_dir)
