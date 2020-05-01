@@ -3,7 +3,8 @@
 ## Kelp segmentation instructions
 
 ### Log in to Hal9000
-- Open a terminal and enter `ssh will@10.10.1.13`. Enter you password
+- Open a terminal and ssh into Hal9000
+    - e.g. `ssh username@10.10.1.13`. Enter you password
 
 ### First-time setup
 - Install cifs-utils so you can later access NAS files `sudo apt-get install cifs-utils`
@@ -21,7 +22,8 @@
 
 #### Mount the NAS via samba 
 - You’ll have to do this after each computer restart. It may be possible for Chris to edit /etc/fstab so this happens automatically for all users.
-- Mount the NAS to /mnt/H: `sudo mount -t cifs -o user=will.mcinnes,domain=victoria.hakai.org //10.10.1.50/Geospatial /mnt/H`
+- Mount the NAS to /mnt/H 
+    - e.g. (edit user): `sudo mount -t cifs -o user=firstname.lastname,domain=victoria.hakai.org //10.10.1.50/Geospatial /mnt/H`
     - Follow the password prompts to log in
     - Note: You will probably have to use `sudo` to copy files to/from this directory.
 
