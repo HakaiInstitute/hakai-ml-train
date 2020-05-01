@@ -207,7 +207,8 @@ def validate_one_epoch(model, device, dataloader, epoch, writers):
 
     print(f'eval-loss={mloss}; eval-miou={miou}; eval-iou-bg={iou_bg}; eval-iou-fg={iou_fg};')
     if len(dataloader):
-        writers.update('train', epoch, mloss, miou, iou_bg, iou_fg, x, y, pred)
+        # noinspection PyUnboundLocalVariable
+        writers.update('eval', epoch, mloss, miou, iou_bg, iou_fg, x, y, pred)
     else:
         raise RuntimeWarning("No data in eval dataloader")
     # Save best models for eval set
