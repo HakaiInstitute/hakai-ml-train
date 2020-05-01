@@ -18,4 +18,4 @@ docker run -it --rm \
 --ipc host \
 --gpus all \
 --name kelp-pred \
-tayden/deeplabv3-kelp:v1.0.0 pred --seg_in="$in_file" --seg_out="$out_file" --weights="$weight_file"
+tayden/deeplabv3-kelp:v1.0.3 pred --seg_in="$in_file" --seg_out="$out_file" --weights="$weight_file"
