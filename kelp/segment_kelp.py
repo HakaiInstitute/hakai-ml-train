@@ -235,19 +235,20 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
     """
     train_data_dir, eval_data_dir, checkpoint_dir = Path(train_data_dir), Path(eval_data_dir), Path(checkpoint_dir)
 
+    # Load model
     os.environ['TORCH_HOME'] = str(checkpoint_dir.parents[0])
     model = deeplabv3.create_model(num_classes=NUM_CLASSES)
     model = model.to(DEVICE)
     model = nn.DataParallel(model)
 
+    # Get dataset loaders, optimizer, lr_scheduler
     dataloaders = get_dataloaders("train", train_data_dir, eval_data_dir, batch_size=batch_size)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
 
-    checkpoint_path = checkpoint_dir.joinpath(f'{MODEL_NAME}_checkpoint.pt')
-
     # Restart at checkpoint if it exists
+    checkpoint_path = checkpoint_dir.joinpath(f'{MODEL_NAME}_checkpoint.pt')
     if Path(checkpoint_path).exists() and RESTART_TRAINING:
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -256,6 +257,7 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
     else:
         start_epoch = 0
 
+    # Train loop
     best_val_loss = None
     best_val_miou = None
     best_train_loss = None
