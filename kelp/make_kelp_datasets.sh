@@ -1,5 +1,5 @@
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-PROJECT_DIR=$(realpath "$THIS_DIR/../..")
+PROJECT_DIR=$(realpath "$THIS_DIR/..")
 
 # Mount the samba data server
 #sudo mkdir -p /mnt/H
