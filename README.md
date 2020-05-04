@@ -17,7 +17,7 @@
     - `docker run hello-world` should print a “Hello World” message to the terminal if everything is working. See https://docs.docker.com/engine/install/linux-postinstall/ if you have any issues.
 
 #### Download the Kelp model weights
-- `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200421.pt > deeplabv3_kelp_200421.pt` will download the weights to your current directory
+- `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200501.pt > deeplabv3_kelp_200501.pt` will download the weights to your current directory
     - Later, you’ll need to pass the path to the weights to the classification script, so you may want to move them with `mv /from/location /to/location`
 
 #### Clone the GitHub repo
