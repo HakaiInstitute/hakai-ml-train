@@ -42,7 +42,7 @@ cp -u -v "$2.tif.xml" "./$1/$fname.tif.xml"' sh
 
 # Convert dataset to the cropped format NOTE: McNaughton 2017 retained for qualitative validation
 # conda activate uav
-for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016; do
+for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016 mcnaughton_2017; do
   # Remove any weird noData values
   gdal_edit.py "./$DIR_NAME/kelp.tif" -unsetnodata
   gdal_edit.py "./$DIR_NAME/image.tif" -unsetnodata
@@ -71,6 +71,7 @@ python "$PROJECT_DIR/utils/combine_filter_upload_kelp_data.py" \
   ./nw_calvert_2015 \
   ./choked_pass_2016 \
   ./west_beach_2016 \
+  ./mcnaughton_2017 \
   --out_dir=../train_input/data
 
 cd - || exit 1
