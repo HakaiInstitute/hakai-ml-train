@@ -11,7 +11,9 @@
       <w>hparams</w>
       <w>imgs</w>
       <w>ious</w>
+      <w>iters</w>
       <w>labv</w>
+      <w>logits</w>
       <w>miou</w>
       <w>mloss</w>
       <w>pbar</w>
