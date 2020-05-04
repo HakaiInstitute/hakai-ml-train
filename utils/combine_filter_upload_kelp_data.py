@@ -36,6 +36,7 @@ def main(*ds_paths, out_dir="deeplabv3/kelp/train_input/data", s3_bucket="hakai-
     np.random.seed(0)
 
     # Filter non-kelp images
+    print("Filtering images containing no kelp whatsoever.")
     full_ds = torch.utils.data.ConcatDataset([SegmentationDataset(path) for path in ds_paths])
     kelp_indices = get_indices_of_kelp_images(full_ds)
     kelp_ds = torch.utils.data.Subset(full_ds, kelp_indices)
@@ -50,6 +51,7 @@ def main(*ds_paths, out_dir="deeplabv3/kelp/train_input/data", s3_bucket="hakai-
     s3_bucket = s3.Bucket(s3_bucket)
 
     for ds, phase_name in zip(splits, ['train', 'eval']):
+        print(f"Uploading {phase_name} dataset to Amazon S3")
         for i, (x, y) in enumerate(tqdm(ds)):
             out_x_path = out_dir.joinpath(phase_name, 'x', f'{i}.png')
             out_y_path = out_dir.joinpath(phase_name, 'y', f'{i}.png')
