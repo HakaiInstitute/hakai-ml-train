@@ -50,6 +50,7 @@ if [ $VOLUME_ID ]; then
 		git clone https://github.com/tayden/uav-classif.git
 		chown -R ubuntu: uav-classif
 		cd uav-classif/kelp
+		git checkout feature/train-optim
 		mkdir -p ./train_input/data
 		mount --bind /dltraining/data ./train_input/data
 		mkdir -p ./train_output
