@@ -30,6 +30,7 @@ WEIGHT_DECAY = 0.01
 PRED_CROP_SIZE = 300
 PRED_CROP_PAD = 150
 RESTART_TRAINING = True
+AUX_LOSS_FACTOR = 0.3
 
 DOCKER = bool(os.environ.get('DOCKER', False))
 DISABLE_CUDA = False
@@ -136,16 +137,22 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
 
         optimizer.zero_grad()
 
-        pred = model(x)['out']
-        scores = torch.softmax(pred, dim=1)
+        pred = model(x)
+        logits = pred['out']
+        aux_logits = pred['aux']
+        scores = torch.softmax(logits, dim=1)
         loss = assymetric_tversky_loss(scores[:, 1], y, beta=1.)
+
+        aux_scores = torch.softmax(aux_logits, dim=1)
+        aux_loss = assymetric_tversky_loss(aux_scores[:, 1], y, beta=1.)
+        loss = loss + AUX_LOSS_FACTOR * aux_loss
 
         loss.backward()
         optimizer.step()
 
         # Compute metrics
         sum_loss += loss.detach().cpu().item()
-        sum_iou += iou(y, pred.float()).detach().cpu().numpy()
+        sum_iou += iou(y, logits.float()).detach().cpu().numpy()
 
         if lr_scheduler is not None:
             lr_scheduler.step(epoch + i / iters)
@@ -159,7 +166,7 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
     print(f'train-loss={mloss}; train-miou={miou}; train-iou-bg={iou_bg}; train-iou-fg={iou_fg};')
     if len(dataloader):
         # noinspection PyUnboundLocalVariable
-        writers.update('train', epoch, mloss, miou, iou_bg, iou_fg, x, y, pred)
+        writers.update('train', epoch, mloss, miou, iou_bg, iou_fg, x, y, scores)
     else:
         raise RuntimeWarning("No data in train dataloader")
 
