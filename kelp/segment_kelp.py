@@ -184,13 +184,13 @@ def validate_one_epoch(model, device, dataloader, epoch, writers):
             y = y.to(device)
             x = x.to(device)
 
-            pred = model(x)['out']
-            sig = torch.sigmoid(pred[:, 1])
-            loss = assymetric_tversky_loss(sig, y, beta=1.)
+            logits = model(x)['out']
+            scores = torch.softmax(logits, dim=1)
+            loss = assymetric_tversky_loss(scores[:, 1], y, beta=1.)
 
         # Compute metrics
         sum_loss += loss.detach().cpu().item()
-        sum_iou += iou(y, pred.float()).detach().cpu().numpy()
+        sum_iou += iou(y, logits.float()).detach().cpu().numpy()
 
     mloss = sum_loss / len(dataloader)
     ious = np.around(sum_iou / len(dataloader), 4)
@@ -201,7 +201,7 @@ def validate_one_epoch(model, device, dataloader, epoch, writers):
     print(f'eval-loss={mloss}; eval-miou={miou}; eval-iou-bg={iou_bg}; eval-iou-fg={iou_fg};')
     if len(dataloader):
         # noinspection PyUnboundLocalVariable
-        writers.update('eval', epoch, mloss, miou, iou_bg, iou_fg, x, y, pred)
+        writers.update('eval', epoch, mloss, miou, iou_bg, iou_fg, x, y, scores)
     else:
         raise RuntimeWarning("No data in eval dataloader")
     # Save best models for eval set
