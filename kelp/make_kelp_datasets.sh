@@ -40,7 +40,10 @@ cp -u -v "$2.tif" "./$1/$fname.tif"; \
 cp -u -v "$2.tif.aux.xml" "./$1/$fname.tif.aux.xml"; \
 cp -u -v "$2.tif.xml" "./$1/$fname.tif.xml"' sh
 
-# Convert dataset to the cropped format NOTE: McNaughton 2017 retained for qualitative validation
+# Convert dataset to the cropped format
+# shellcheck disable=SC1090
+source "$HOME/anaconda3/bin/activate uav"
+
 # conda activate uav
 for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016 mcnaughton_2017; do
   # Remove any weird noData values
