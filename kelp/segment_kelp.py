@@ -178,7 +178,7 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
         'mean_eval_loss': mloss,
     }, Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_checkpoint.pt'))
 
-    return model
+    return mloss, miou, iou_bg, iou_fg
 
 
 def validate_one_epoch(model, device, dataloader, epoch, writers):
@@ -257,26 +257,32 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
         start_epoch = 0
 
     best_val_loss = None
-    best_val_iou_fg = None
     best_val_miou = None
+    best_train_loss = None
+    best_train_miou = None
 
     with TensorboardWriters(DEVICE, log_dir=checkpoint_dir.joinpath('runs')) as writers:
         for epoch in range(start_epoch, epochs):
-            model = train_one_epoch(model, DEVICE, optimizer, lr_scheduler, dataloaders['train'], epoch, writers,
-                                    checkpoint_dir)
-            mloss, miou, iou_bg, iou_fg = validate_one_epoch(model, DEVICE, dataloaders['eval'], epoch, writers)
+            mloss, miou, iou_bg, iou_fg = train_one_epoch(model, DEVICE, optimizer, lr_scheduler, dataloaders['train'],
+                                                          epoch, writers, checkpoint_dir)
+            # Save best models
+            if best_train_loss is None or mloss < best_train_loss:
+                best_train_loss = mloss
+                torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_train_loss.pt'))
+            if best_train_miou is None or miou < best_train_miou:
+                best_train_miou = miou
+                torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_train_miou.pt'))
 
+            mloss, miou, iou_bg, iou_fg = validate_one_epoch(model, DEVICE, dataloaders['eval'], epoch, writers)
             # Save best models
             if best_val_loss is None or mloss < best_val_loss:
                 best_val_loss = mloss
                 torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_val_loss.pt'))
-            if best_val_iou_fg is None or iou_fg < best_val_iou_fg:
-                best_val_iou_fg = iou_fg
-                torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_val_fg_iou.pt'))
             if best_val_miou is None or miou < best_val_miou:
                 best_val_miou = miou
                 torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_val_miou.pt'))
 
+    # Save final model params
     torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f"{MODEL_NAME}_final.pt"))
 
 
