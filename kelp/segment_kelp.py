@@ -31,6 +31,7 @@ PRED_CROP_SIZE = 300
 PRED_CROP_PAD = 150
 RESTART_TRAINING = True
 AUX_LOSS_FACTOR = 0.3
+TVERSKY_BETA = 1.5
 
 DOCKER = bool(os.environ.get('DOCKER', False))
 DISABLE_CUDA = False
@@ -146,10 +147,10 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
         logits = pred['out']
         aux_logits = pred['aux']
         scores = torch.softmax(logits, dim=1)
-        loss = assymetric_tversky_loss(scores[:, 1], y, beta=1.)
+        loss = assymetric_tversky_loss(scores[:, 1], y, beta=TVERSKY_BETA)
 
         aux_scores = torch.softmax(aux_logits, dim=1)
-        aux_loss = assymetric_tversky_loss(aux_scores[:, 1], y, beta=1.)
+        aux_loss = assymetric_tversky_loss(aux_scores[:, 1], y, beta=TVERSKY_BETA)
         loss = loss + AUX_LOSS_FACTOR * aux_loss
 
         loss.backward()
@@ -198,7 +199,7 @@ def validate_one_epoch(model, device, dataloader, epoch, writers):
 
             logits = model(x)['out']
             scores = torch.softmax(logits, dim=1)
-            loss = assymetric_tversky_loss(scores[:, 1], y, beta=1.)
+            loss = assymetric_tversky_loss(scores[:, 1], y, beta=TVERSKY_BETA)
 
         # Compute metrics
         sum_loss += loss.detach().cpu().item()
