@@ -272,8 +272,8 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
         for epoch in range(start_epoch, epochs):
             # Fine Tune backbone after 150 epochs
             if epoch >= 150:
-                model.backbone.layer3.requires_grad_(True)
-                model.backbone.layer4.requires_grad_(True)
+                model.module.backbone.layer3.requires_grad_(True)
+                model.module.backbone.layer4.requires_grad_(True)
 
             mloss, miou, iou_bg, iou_fg = train_one_epoch(model, DEVICE, optimizer, lr_scheduler, dataloaders['train'],
                                                           epoch, writers, checkpoint_dir)
