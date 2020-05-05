@@ -86,6 +86,7 @@ class TensorboardWriters(object):
         super().__init__()
         self.log_dir = Path(log_dir)
         self.device = device
+        self.best_miou = {'train': 0, 'eval': 0}
 
     def __enter__(self):
         current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -109,20 +110,24 @@ class TensorboardWriters(object):
         writer.add_scalar('IoU/BG', iou_bg, epoch)
         writer.add_scalar('IoU/FG', iou_fg, epoch)
 
-        # Show images
-        x = x[:, -3:, :, :]
-        img_grid = torchvision.utils.make_grid(x, nrow=8)
-        img_grid = t.inv_normalize(img_grid)
+        # Show images for best miou models
+        if miou > self.best_miou[phase]:
+            self.best_miou[phase] = miou
 
-        y = y.unsqueeze(dim=1)
-        label_grid = torchvision.utils.make_grid(y, nrow=8).to(self.device)
-        label_grid = alpha_blend(img_grid, label_grid)
-        writer.add_image('Labels/True', label_grid.detach().cpu(), epoch)
+            x = x[:, -3:, :, :]
+            img_grid = torchvision.utils.make_grid(x, nrow=8)
+            img_grid = t.inv_normalize(img_grid)
 
-        pred = pred.max(dim=1)[1].unsqueeze(dim=1)
-        pred_grid = torchvision.utils.make_grid(pred, nrow=8).to(self.device)
-        pred_grid = alpha_blend(img_grid, pred_grid)
-        writer.add_image('Labels/Pred', pred_grid.detach().cpu(), epoch)
+            y = y.unsqueeze(dim=1)
+            label_grid = torchvision.utils.make_grid(y, nrow=8).to(self.device)
+            label_grid = alpha_blend(img_grid, label_grid)
+            writer.add_image('Labels/True', label_grid.detach().cpu(), 0)
+
+            pred = pred.max(dim=1)[1].unsqueeze(dim=1)
+            pred_grid = torchvision.utils.make_grid(pred, nrow=8).to(self.device)
+            pred_grid = alpha_blend(img_grid, pred_grid)
+            # Always store image as epoch 0 to stop consumption of a lot of disk space
+            writer.add_image('Labels/Pred', pred_grid.detach().cpu(), 0)
 
 
 def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, writers, checkpoint_dir):
