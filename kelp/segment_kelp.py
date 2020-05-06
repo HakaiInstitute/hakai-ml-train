@@ -264,9 +264,9 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
 
     # Train loop
     best_val_loss = None
-    best_val_miou = None
+    best_val_miou = 0
     best_train_loss = None
-    best_train_miou = None
+    best_train_miou = 0
 
     with TensorboardWriters(DEVICE, log_dir=checkpoint_dir.joinpath('runs')) as writers:
         for epoch in range(start_epoch, epochs):
@@ -281,7 +281,7 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
             if best_train_loss is None or mloss < best_train_loss:
                 best_train_loss = mloss
                 torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_train_loss.pt'))
-            if best_train_miou is None or miou < best_train_miou:
+            if miou > best_train_miou:
                 best_train_miou = miou
                 torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_train_miou.pt'))
 
@@ -290,7 +290,7 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
             if best_val_loss is None or mloss < best_val_loss:
                 best_val_loss = mloss
                 torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_val_loss.pt'))
-            if best_val_miou is None or miou < best_val_miou:
+            if miou > best_val_miou:
                 best_val_miou = miou
                 torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_val_miou.pt'))
 
