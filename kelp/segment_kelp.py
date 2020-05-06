@@ -30,6 +30,8 @@ WEIGHT_DECAY = 0.01
 PRED_CROP_SIZE = 300
 PRED_CROP_PAD = 150
 RESTART_TRAINING = True
+AUX_LOSS_FACTOR = 0.3
+TVERSKY_BETA = 1.0
 
 DOCKER = bool(os.environ.get('DOCKER', False))
 DISABLE_CUDA = False
@@ -85,6 +87,7 @@ class TensorboardWriters(object):
         super().__init__()
         self.log_dir = Path(log_dir)
         self.device = device
+        self.best_miou = {'train': 0, 'eval': 0}
 
     def __enter__(self):
         current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -108,46 +111,56 @@ class TensorboardWriters(object):
         writer.add_scalar('IoU/BG', iou_bg, epoch)
         writer.add_scalar('IoU/FG', iou_fg, epoch)
 
-        # Show images
-        x = x[:, -3:, :, :]
-        img_grid = torchvision.utils.make_grid(x, nrow=8)
-        img_grid = t.inv_normalize(img_grid)
+        # Show images for best miou models only to save space
+        if miou > self.best_miou[phase]:
+            self.best_miou[phase] = miou
 
-        y = y.unsqueeze(dim=1)
-        label_grid = torchvision.utils.make_grid(y, nrow=8).to(self.device)
-        label_grid = alpha_blend(img_grid, label_grid)
-        writer.add_image('Labels/True', label_grid.detach().cpu(), epoch)
+            x = x[:, -3:, :, :]
+            img_grid = torchvision.utils.make_grid(x, nrow=8)
+            img_grid = t.inv_normalize(img_grid)
 
-        pred = pred.max(dim=1)[1].unsqueeze(dim=1)
-        pred_grid = torchvision.utils.make_grid(pred, nrow=8).to(self.device)
-        pred_grid = alpha_blend(img_grid, pred_grid)
-        writer.add_image('Labels/Pred', pred_grid.detach().cpu(), epoch)
+            y = y.unsqueeze(dim=1)
+            label_grid = torchvision.utils.make_grid(y, nrow=8).to(self.device)
+            label_grid = alpha_blend(img_grid, label_grid)
+            writer.add_image('Labels/True', label_grid.detach().cpu(), epoch)
+
+            pred = pred.max(dim=1)[1].unsqueeze(dim=1)
+            pred_grid = torchvision.utils.make_grid(pred, nrow=8).to(self.device)
+            pred_grid = alpha_blend(img_grid, pred_grid)
+            writer.add_image('Labels/Pred', pred_grid.detach().cpu(), epoch)
 
 
 def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, writers, checkpoint_dir):
     model.train()
     sum_loss = 0.
     sum_iou = np.zeros(NUM_CLASSES)
+    iters = len(dataloader)
 
-    for x, y in tqdm(iter(dataloader), desc=f"train epoch {epoch}", file=sys.stdout):
+    for i, (x, y) in enumerate(tqdm(iter(dataloader), desc=f"train epoch {epoch}", file=sys.stdout)):
         y = y.to(device)
         x = x.to(device)
 
         optimizer.zero_grad()
 
-        pred = model(x)['out']
-        scores = torch.softmax(pred, dim=1)
-        loss = assymetric_tversky_loss(scores[:, 1], y, beta=1.)
+        pred = model(x)
+        logits = pred['out']
+        aux_logits = pred['aux']
+        scores = torch.softmax(logits, dim=1)
+        loss = assymetric_tversky_loss(scores[:, 1], y, beta=TVERSKY_BETA)
+
+        aux_scores = torch.softmax(aux_logits, dim=1)
+        aux_loss = assymetric_tversky_loss(aux_scores[:, 1], y, beta=TVERSKY_BETA)
+        loss = loss + AUX_LOSS_FACTOR * aux_loss
 
         loss.backward()
         optimizer.step()
 
         # Compute metrics
         sum_loss += loss.detach().cpu().item()
-        sum_iou += iou(y, pred.float()).detach().cpu().numpy()
+        sum_iou += iou(y, logits.float()).detach().cpu().numpy()
 
-    if lr_scheduler is not None:
-        lr_scheduler.step()
+        if lr_scheduler is not None:
+            lr_scheduler.step(epoch + i / iters)
 
     mloss = sum_loss / len(dataloader)
     ious = np.around(sum_iou / len(dataloader), 4)
@@ -158,7 +171,7 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
     print(f'train-loss={mloss}; train-miou={miou}; train-iou-bg={iou_bg}; train-iou-fg={iou_fg};')
     if len(dataloader):
         # noinspection PyUnboundLocalVariable
-        writers.update('train', epoch, mloss, miou, iou_bg, iou_fg, x, y, pred)
+        writers.update('train', epoch, mloss, miou, iou_bg, iou_fg, x, y, scores)
     else:
         raise RuntimeWarning("No data in train dataloader")
 
@@ -170,7 +183,7 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
         'mean_eval_loss': mloss,
     }, Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_checkpoint.pt'))
 
-    return model
+    return mloss, miou, iou_bg, iou_fg
 
 
 def validate_one_epoch(model, device, dataloader, epoch, writers=None):
@@ -183,13 +196,13 @@ def validate_one_epoch(model, device, dataloader, epoch, writers=None):
             y = y.to(device)
             x = x.to(device)
 
-            pred = model(x)['out']
-            sig = torch.sigmoid(pred[:, 1])
-            loss = assymetric_tversky_loss(sig, y, beta=1.)
+            logits = model(x)['out']
+            scores = torch.softmax(logits, dim=1)
+            loss = assymetric_tversky_loss(scores[:, 1], y, beta=TVERSKY_BETA)
 
         # Compute metrics
         sum_loss += loss.detach().cpu().item()
-        sum_iou += iou(y, pred.float()).detach().cpu().numpy()
+        sum_iou += iou(y, logits.float()).detach().cpu().numpy()
 
     mloss = sum_loss / len(dataloader)
     ious = np.around(sum_iou / len(dataloader), 4)
@@ -227,19 +240,20 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
     """
     train_data_dir, eval_data_dir, checkpoint_dir = Path(train_data_dir), Path(eval_data_dir), Path(checkpoint_dir)
 
+    # Load model
     os.environ['TORCH_HOME'] = str(checkpoint_dir.parents[0])
     model = deeplabv3.create_model(num_classes=NUM_CLASSES)
     model = model.to(DEVICE)
     model = nn.DataParallel(model)
 
+    # Get dataset loaders, optimizer, lr_scheduler
     dataloaders = get_dataloaders("train", train_data_dir, eval_data_dir, batch_size=batch_size)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.9)
-
-    checkpoint_path = checkpoint_dir.joinpath(f'{MODEL_NAME}_checkpoint.pt')
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
 
     # Restart at checkpoint if it exists
+    checkpoint_path = checkpoint_dir.joinpath(f'{MODEL_NAME}_checkpoint.pt')
     if Path(checkpoint_path).exists() and RESTART_TRAINING:
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -248,27 +262,39 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
     else:
         start_epoch = 0
 
+    # Train loop
     best_val_loss = None
-    best_val_iou_fg = None
-    best_val_miou = None
+    best_val_miou = 0
+    best_train_loss = None
+    best_train_miou = 0
 
     with TensorboardWriters(DEVICE, log_dir=checkpoint_dir.joinpath('runs')) as writers:
         for epoch in range(start_epoch, epochs):
-            model = train_one_epoch(model, DEVICE, optimizer, lr_scheduler, dataloaders['train'], epoch, writers,
-                                    checkpoint_dir)
-            mloss, miou, iou_bg, iou_fg = validate_one_epoch(model, DEVICE, dataloaders['eval'], epoch, writers)
+            # Fine Tune backbone after 150 epochs
+            if epoch >= 150:
+                model.module.backbone.layer3.requires_grad_(True)
+                model.module.backbone.layer4.requires_grad_(True)
 
+            mloss, miou, iou_bg, iou_fg = train_one_epoch(model, DEVICE, optimizer, lr_scheduler, dataloaders['train'],
+                                                          epoch, writers, checkpoint_dir)
+            # Save best models
+            if best_train_loss is None or mloss < best_train_loss:
+                best_train_loss = mloss
+                torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_train_loss.pt'))
+            if miou > best_train_miou:
+                best_train_miou = miou
+                torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_train_miou.pt'))
+
+            mloss, miou, iou_bg, iou_fg = validate_one_epoch(model, DEVICE, dataloaders['eval'], epoch, writers)
             # Save best models
             if best_val_loss is None or mloss < best_val_loss:
                 best_val_loss = mloss
                 torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_val_loss.pt'))
-            if best_val_iou_fg is None or iou_fg < best_val_iou_fg:
-                best_val_iou_fg = iou_fg
-                torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_val_fg_iou.pt'))
-            if best_val_miou is None or miou < best_val_miou:
+            if miou > best_val_miou:
                 best_val_miou = miou
                 torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_val_miou.pt'))
 
+    # Save final model params
     torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f"{MODEL_NAME}_final.pt"))
 
 
