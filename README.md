@@ -22,7 +22,7 @@
 
 #### Clone the GitHub repo
 - Install Git if necessary: `sudo apt-get install git`
-- Pull the repo: `git clone https://github.com/tayden/uav-classif`
+- Clone the repo: `git clone https://github.com/tayden/uav-classif`
 
 #### Mount the NAS via samba 
 - You’ll have to do this after each computer restart. It may be possible for Chris to edit /etc/fstab so this happens automatically for all users.
@@ -35,6 +35,8 @@
 - Download the image to the local hard drive. It’ll run way faster this way. It's possible to read the file from the NAS, but there will be a network bottleneck.
     - e.g. `cp /mnt/H/path/to/image.* ./local/drive/location/`
 - Navigate to the cloned Github repo: e.g. `cd path/to/repo/uav-classif`
+- Update the GitHub repo if you haven't lately. This ensures you have the latest version of the code.
+    - Run `git pull`
 - Run the classification script:
     - Using Docker: `bash segment_kelp.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3-kelp_2000506.pt`
     - Or, using local Python environment:
