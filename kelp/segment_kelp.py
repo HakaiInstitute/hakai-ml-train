@@ -111,7 +111,7 @@ class TensorboardWriters(object):
         writer.add_scalar('IoU/BG', iou_bg, epoch)
         writer.add_scalar('IoU/FG', iou_fg, epoch)
 
-        # Show images for best miou models
+        # Show images for best miou models only to save space
         if miou > self.best_miou[phase]:
             self.best_miou[phase] = miou
 
@@ -122,13 +122,12 @@ class TensorboardWriters(object):
             y = y.unsqueeze(dim=1)
             label_grid = torchvision.utils.make_grid(y, nrow=8).to(self.device)
             label_grid = alpha_blend(img_grid, label_grid)
-            writer.add_image('Labels/True', label_grid.detach().cpu(), 0)
+            writer.add_image('Labels/True', label_grid.detach().cpu(), epoch)
 
             pred = pred.max(dim=1)[1].unsqueeze(dim=1)
             pred_grid = torchvision.utils.make_grid(pred, nrow=8).to(self.device)
             pred_grid = alpha_blend(img_grid, pred_grid)
-            # Always store image as epoch 0 to stop consumption of a lot of disk space
-            writer.add_image('Labels/Pred', pred_grid.detach().cpu(), 0)
+            writer.add_image('Labels/Pred', pred_grid.detach().cpu(), epoch)
 
 
 def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, writers, checkpoint_dir):
