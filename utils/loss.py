@@ -56,28 +56,35 @@ def assymetric_tversky_loss(p, g, beta=1.):
     beta: parameter that adjusts weight between FP and FN error importance. beta=1. simplifies to the Dice loss function
     (F1 score) and weights both FP and FNs equally. B=0 is precicion, B=2 is the F_2 score
 
-    >>> np.around(assymetric_tversky_loss(torch.Tensor([0.9, 0.5, 0.2]), torch.Tensor([1., 0., 1.]), beta=1.).numpy(), 6)
-    2.4
+    >>> np.around(assymetric_tversky_loss(torch.Tensor([0.9, 0.5, 0.2]), torch.Tensor([1., 0., 1.]), beta=1.5).numpy(), 6)
+    0.413934
     """
     p = p.float()
     g = g.float()
     bsq = beta * beta
-    pg = torch.sum(torch.mul(p, g))
-    similarity_coeff = ((1 + bsq) * pg) / (
+    pg = torch.sum(torch.mul(p, g))  # 1.1
+    similarity_coeff = ((1 + bsq) * pg) / (  # (3.25*1.1) / ((3.25*1.1)+(2.25*0.9)+(0.5))
             ((1 + bsq) * pg) + (bsq * torch.sum(torch.mul((1 - p), g))) + (torch.sum(torch.mul(p, (1 - g))))
     )
     return 1 - similarity_coeff
 
 
-def dice_loss(pred, target):
-    smooth = 1.
+def dice_loss(p, g):
+    """
+    Loss function from the paper S. R. Hashemi, et al, 2018. "Asymmetric loss functions and deep densely-connected
+    networks for highly-imbalanced medical image segmentation: application to multiple sclerosis lesion detection"
+    https://ieeexplore.ieee.org/abstract/document/8573779.
+    Electronic ISSN: 2169-3536. DOI: 10.1109/ACCESS.2018.2886371.
 
-    p_flat = pred.view(-1)
-    t_flat = target.view(-1)
-    intersection = (p_flat * t_flat).sum()
+    p: predicted output from a sigmoid-like activation. (i.e. range is 0-1)
+    g: ground truth label of pixel (0 or 1)
+    beta: parameter that adjusts weight between FP and FN error importance. beta=1. simplifies to the Dice loss function
+    (F1 score) and weights both FP and FNs equally. B=0 is precicion, B=2 is the F_2 score
 
-    return 1 - ((2. * intersection + smooth) /
-                (p_flat.sum() + t_flat.sum() + smooth))
+    >>> np.around(dice_loss(torch.Tensor([0.9, 0.5, 0.2]), torch.Tensor([1., 0., 1.])).numpy(), 6)
+    0.388889
+    """
+    return assymetric_tversky_loss(p, g, beta=1.)
 
 
 class FocalLoss(nn.Module):
