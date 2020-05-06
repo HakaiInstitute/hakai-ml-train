@@ -3,6 +3,7 @@ data
 aws_scripts
 */train_input
 */train_output
+*/raw_data
 *.png
 *.pth
 *.pt
