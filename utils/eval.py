@@ -9,29 +9,6 @@ from tqdm.auto import tqdm
 
 from utils.dataset.GeoTiffDataset import GeoTiffDataset, GeoTiffWriter
 from utils.dataset.transforms import transforms as T
-from utils.loss import iou
-
-
-def eval_model(model, device, data_loaders, num_classes):
-    model.eval()
-
-    for phase in ['train', 'eval']:
-        sum_loss = 0.
-        sum_iou = np.zeros(num_classes)
-
-        for x, y in tqdm(iter(data_loaders[phase]), desc=phase, file=sys.stdout):
-            y = y.to(device)
-            x = x.to(device)
-
-            pred = model(x)['out']
-
-            # Compute metrics
-            sum_iou += iou(y, pred.float()).detach().cpu().numpy()
-
-        print(phase.capitalize())
-        print('IoU/Mean', np.around(np.mean(sum_iou / len(data_loaders[phase])), 4))
-        print('IoU/BG', np.around(sum_iou[0] / len(data_loaders[phase]), 4))
-        print('IoU/Kelp', np.around(sum_iou[1] / len(data_loaders[phase]), 4))
 
 
 def _is_empty(tensor, epsilon=1e-5):

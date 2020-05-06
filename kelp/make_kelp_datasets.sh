@@ -1,5 +1,5 @@
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-PROJECT_DIR=$(realpath "$THIS_DIR/../..")
+PROJECT_DIR=$(realpath "$THIS_DIR/..")
 
 # Mount the samba data server
 #sudo mkdir -p /mnt/H
@@ -40,9 +40,12 @@ cp -u -v "$2.tif" "./$1/$fname.tif"; \
 cp -u -v "$2.tif.aux.xml" "./$1/$fname.tif.aux.xml"; \
 cp -u -v "$2.tif.xml" "./$1/$fname.tif.xml"' sh
 
-# Convert dataset to the cropped format NOTE: McNaughton 2017 retained for qualitative validation
+# Convert dataset to the cropped format
+# shellcheck disable=SC1090
+source "$HOME/anaconda3/bin/activate uav"
+
 # conda activate uav
-for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016; do
+for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016 mcnaughton_2017; do
   # Remove any weird noData values
   gdal_edit.py "./$DIR_NAME/kelp.tif" -unsetnodata
   gdal_edit.py "./$DIR_NAME/image.tif" -unsetnodata
@@ -71,6 +74,7 @@ python "$PROJECT_DIR/utils/combine_filter_upload_kelp_data.py" \
   ./nw_calvert_2015 \
   ./choked_pass_2016 \
   ./west_beach_2016 \
+  ./mcnaughton_2017 \
   --out_dir=../train_input/data
 
 cd - || exit 1

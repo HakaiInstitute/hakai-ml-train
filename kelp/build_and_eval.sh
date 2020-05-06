@@ -16,7 +16,7 @@ docker run -it --rm \
 --gpus all \
 --name kelp-eval \
 tayden/deeplabv3-kelp eval "/opt/ml/input/data/train" \
-  "/opt/ml/input/data/eval" "/opt/ml/output/weights/deeplabv3_kelp_200421.pt"
+  "/opt/ml/input/data/eval" "/opt/ml/output/weights/deeplabv3_kelp_200506.pt"
 
 # Wait for process so AWS exits when it's done
 docker wait kelp-eval
