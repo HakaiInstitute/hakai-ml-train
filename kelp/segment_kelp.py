@@ -18,7 +18,7 @@ from models import deeplabv3
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
 from utils.eval import predict_tiff
-from utils.loss import assymetric_tversky_loss
+from utils.loss import dice_loss
 from utils.loss import iou
 
 # Hyper-parameter defaults
@@ -31,7 +31,6 @@ PRED_CROP_SIZE = 300
 PRED_CROP_PAD = 150
 RESTART_TRAINING = True
 AUX_LOSS_FACTOR = 0.3
-TVERSKY_BETA = 1.0
 
 DOCKER = bool(os.environ.get('DOCKER', False))
 DISABLE_CUDA = False
@@ -146,10 +145,10 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
         logits = pred['out']
         aux_logits = pred['aux']
         scores = torch.softmax(logits, dim=1)
-        loss = assymetric_tversky_loss(scores[:, 1], y, beta=TVERSKY_BETA)
+        loss = dice_loss(scores[:, 1], y)
 
         aux_scores = torch.softmax(aux_logits, dim=1)
-        aux_loss = assymetric_tversky_loss(aux_scores[:, 1], y, beta=TVERSKY_BETA)
+        aux_loss = dice_loss(aux_scores[:, 1], y)
         loss = loss + AUX_LOSS_FACTOR * aux_loss
 
         loss.backward()
@@ -198,7 +197,7 @@ def validate_one_epoch(model, device, dataloader, epoch, writers=None):
 
             logits = model(x)['out']
             scores = torch.softmax(logits, dim=1)
-            loss = assymetric_tversky_loss(scores[:, 1], y, beta=TVERSKY_BETA)
+            loss = dice_loss(scores[:, 1], y)
 
         # Compute metrics
         sum_loss += loss.detach().cpu().item()
