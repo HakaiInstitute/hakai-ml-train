@@ -17,7 +17,7 @@ from tqdm import tqdm
 from models import deeplabv3
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
-from utils.eval import eval_model, predict_tiff
+from utils.eval import predict_tiff
 from utils.loss import assymetric_tversky_loss
 from utils.loss import iou
 
@@ -173,7 +173,7 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
     return model
 
 
-def validate_one_epoch(model, device, dataloader, epoch, writers):
+def validate_one_epoch(model, device, dataloader, epoch, writers=None):
     model.eval()
     sum_loss = 0.
     sum_iou = np.zeros(NUM_CLASSES)
@@ -198,12 +198,12 @@ def validate_one_epoch(model, device, dataloader, epoch, writers):
     iou_fg = sum_iou[1] / len(dataloader)
 
     print(f'eval-loss={mloss}; eval-miou={miou}; eval-iou-bg={iou_bg}; eval-iou-fg={iou_fg};')
-    if len(dataloader):
-        # noinspection PyUnboundLocalVariable
-        writers.update('eval', epoch, mloss, miou, iou_bg, iou_fg, x, y, pred)
-    else:
+    if not len(dataloader):
         raise RuntimeWarning("No data in eval dataloader")
-    # Save best models for eval set
+    elif writers is not None:
+        # noinspection PyUnboundLocalVariable
+        writers.update('eval', epoch, mloss, miou, iou_bg, iou_fg, x, y, scores)
+
     return mloss, miou, iou_bg, iou_fg
 
 
@@ -295,7 +295,9 @@ def evaluate(train_data_dir, eval_data_dir, weights, batch_size=BATCH_SIZE):
     model.load_state_dict(checkpoint)
 
     dataloaders = get_dataloaders("eval", train_data_dir, eval_data_dir, batch_size=batch_size)
-    eval_model(model, DEVICE, dataloaders, NUM_CLASSES)
+    for phase in ['train', 'eval']:
+        print(phase.capitalize())
+        validate_one_epoch(model, DEVICE, dataloaders[phase], 0)
 
 
 def predict(seg_in, seg_out, weights, batch_size=BATCH_SIZE, crop_size=PRED_CROP_SIZE, crop_pad=PRED_CROP_PAD):
