@@ -17,7 +17,7 @@
     - `docker run hello-world` should print a “Hello World” message to the terminal if everything is working. See https://docs.docker.com/engine/install/linux-postinstall/ if you have any issues.
 
 #### Download the Kelp model weights
-- `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200506.pt > deeplabv3_kelp_200501.pt` will download the weights to your current directory
+- `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200506.pt > deeplabv3_kelp_200506.pt` will download the weights to your current directory
     - Later, you’ll need to pass the path to the weights to the classification script, so you may want to move them with `mv /from/location /to/location`
 
 #### Clone the GitHub repo
@@ -36,11 +36,11 @@
     - e.g. `cp /mnt/H/path/to/image.* ./local/drive/location/`
 - Navigate to the cloned Github repo: e.g. `cd path/to/repo/uav-classif`
 - Run the classification script:
-    - Using Docker: `bash segment_kelp.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3-kelp_200421.pt`
+    - Using Docker: `bash segment_kelp.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3-kelp_2000506.pt`
     - Or, using local Python environment:
         - Using the local environment requires installing packages. The easiest way to do this is with conda. In the git repo, run `conda env create`.
         - After installing packages, run `conda activate uav`
-        - Now, run `PYTHONPATH=. python segment_kelp.py pred /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3-kelp_200421.pt`
+        - Now, run `PYTHONPATH=. python segment_kelp.py pred /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3-kelp_200506.pt`
 - Move the output back to the samba server if desired, e.g. `mv /path/to/desired/output.tif /mnt/H/location/of/choice`
 
 ### Interpreting model output
