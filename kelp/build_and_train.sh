@@ -34,8 +34,8 @@ docker exec -dit kelp-train tensorboard --logdir=/opt/ml/output/checkpoints/runs
 docker wait kelp-train
 
 # Sync results to S3
-#ARCHIVE="$(date +'%Y-%m-%d-%H%M').tar.gz"
-#cd ./train_output/checkpoints/
-#tar -czvf "../$ARCHIVE" ./*.pt
-#cd ../
-#aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/kelp/output/
+ARCHIVE="$(date +'%Y-%m-%d-%H%M').tar.gz"
+cd ./train_output/checkpoints/
+tar -czvf "../$ARCHIVE" ./*.pt
+cd ../
+aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/kelp/output/

@@ -180,12 +180,12 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
         raise RuntimeWarning("No data in train dataloader")
 
     # Save model checkpoints
-    # torch.save({
-    #     'epoch': epoch,
-    #     'model_state_dict': model.state_dict(),
-    #     'optimizer_state_dict': optimizer.state_dict(),
-    #     'mean_eval_loss': mloss,
-    # }, Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_checkpoint.pt'))
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'mean_eval_loss': mloss,
+    }, Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_checkpoint.pt'))
 
     return mloss, miou, iou_bg, iou_fg
 
