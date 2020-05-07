@@ -130,6 +130,9 @@ class TensorboardWriters(object):
             pred_grid = alpha_blend(img_grid, pred_grid)
             writer.add_image('Labels/Pred', pred_grid.detach().cpu(), epoch)
 
+    def log_hparams(self, phase, hparams_dict, metrics_dict):
+        self.writers[phase].add_hparams(hparams_dict, metrics_dict)
+
 
 def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, writers, checkpoint_dir):
     model.train()
@@ -307,6 +310,14 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
             if miou > best_val_miou:
                 best_val_miou = miou
                 torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_val_miou.pt'))
+
+        # Log best results in Tensorboard with hyper-parameter configs
+        writers.log_hparams('train',
+                            {"lr_init": lr, "weight_decay": weight_decay, "batch_size": batch_size, "epochs": epochs},
+                            {"best_loss": best_train_loss, "best_miou": best_train_miou})
+        writers.log_hparams('eval',
+                            {"lr_init": lr, "weight_decay": weight_decay, "batch_size": batch_size, "epochs": epochs},
+                            {"best_loss": best_val_loss, "best_miou": best_val_miou})
 
     # Save final model params
     torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f"{MODEL_NAME}_final.pt"))
