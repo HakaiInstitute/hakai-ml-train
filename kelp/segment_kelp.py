@@ -31,6 +31,8 @@ PRED_CROP_SIZE = 300
 PRED_CROP_PAD = 150
 RESTART_TRAINING = True
 AUX_LOSS_FACTOR = 0.3
+SGD_MOMENTUM = 0.9
+SGD_NESTEROV = True
 
 DOCKER = bool(os.environ.get('DOCKER', False))
 DISABLE_CUDA = False
@@ -248,7 +250,8 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
     # Get dataset loaders, optimizer, lr_scheduler
     dataloaders = get_dataloaders("train", train_data_dir, eval_data_dir, batch_size=batch_size)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
+                                nesterov=SGD_NESTEROV, momentum=SGD_MOMENTUM)
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
 
     # Restart at checkpoint if it exists
