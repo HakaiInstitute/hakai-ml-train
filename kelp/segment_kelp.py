@@ -177,12 +177,12 @@ def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, w
         raise RuntimeWarning("No data in train dataloader")
 
     # Save model checkpoints
-    torch.save({
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'mean_eval_loss': mloss,
-    }, Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_checkpoint.pt'))
+    # torch.save({
+    #     'epoch': epoch,
+    #     'model_state_dict': model.state_dict(),
+    #     'optimizer_state_dict': optimizer.state_dict(),
+    #     'mean_eval_loss': mloss,
+    # }, Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_checkpoint.pt'))
 
     return mloss, miou, iou_bg, iou_fg
 
@@ -239,6 +239,18 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
 
     Returns: None.
     """
+    if isinstance(weight_decay, list):
+        while len(weight_decay) > 0:
+            train(train_data_dir, eval_data_dir, checkpoint_dir,
+                  epochs=epochs, batch_size=batch_size, lr=lr, weight_decay=weight_decay.pop(0))
+        return
+
+    if isinstance(lr, list):
+        while len(lr) > 0:
+            train(train_data_dir, eval_data_dir, checkpoint_dir,
+                  epochs=epochs, batch_size=batch_size, lr=lr.pop(0), weight_decay=weight_decay)
+        return
+
     train_data_dir, eval_data_dir, checkpoint_dir = Path(train_data_dir), Path(eval_data_dir), Path(checkpoint_dir)
 
     # Load model

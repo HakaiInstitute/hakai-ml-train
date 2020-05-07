@@ -24,7 +24,7 @@ docker run -dit --rm \
 --gpus all \
 --name kelp-train \
 tayden/deeplabv3-kelp train "/opt/ml/input/data/train" "/opt/ml/input/data/eval" "/opt/ml/output/checkpoints" \
-  --batch_size=4 --epochs=500
+  --batch_size=4 --epochs=30 --lr="[0.1,0.01,0.001,0.0001,0.00001]"# --weight_decay="[0.001,0.0001,0.00001,0.]"
 
 # Can start tensorboard in running container as follows:
 docker exec -dit kelp-train tensorboard --logdir=/opt/ml/output/checkpoints/runs --host=0.0.0.0 --port=$PORT
@@ -34,8 +34,8 @@ docker exec -dit kelp-train tensorboard --logdir=/opt/ml/output/checkpoints/runs
 docker wait kelp-train
 
 # Sync results to S3
-ARCHIVE="$(date +'%Y-%m-%d-%H%M').tar.gz"
-cd ./train_output/checkpoints/
-tar -czvf "../$ARCHIVE" ./*.pt
-cd ../
-aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/kelp/output/
+#ARCHIVE="$(date +'%Y-%m-%d-%H%M').tar.gz"
+#cd ./train_output/checkpoints/
+#tar -czvf "../$ARCHIVE" ./*.pt
+#cd ../
+#aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/kelp/output/
