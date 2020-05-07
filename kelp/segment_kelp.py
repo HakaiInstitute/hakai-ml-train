@@ -270,14 +270,14 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
 
     # Restart at checkpoint if it exists
-    # checkpoint_path = checkpoint_dir.joinpath(f'{MODEL_NAME}_checkpoint.pt')
-    # if Path(checkpoint_path).exists() and RESTART_TRAINING:
-    #     checkpoint = torch.load(checkpoint_path)
-    #     model.load_state_dict(checkpoint['model_state_dict'])
-    #     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    #     start_epoch = checkpoint['epoch']
-    # else:
-    start_epoch = 0
+    checkpoint_path = checkpoint_dir.joinpath(f'{MODEL_NAME}_checkpoint.pt')
+    if Path(checkpoint_path).exists() and RESTART_TRAINING:
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch']
+    else:
+        start_epoch = 0
 
     # Train loop
     best_val_loss = None
