@@ -25,8 +25,8 @@ from utils.loss import iou
 NUM_CLASSES = 2
 NUM_EPOCHS = 200
 BATCH_SIZE = 4
-LR = 1e-4
-WEIGHT_DECAY = 0.01
+LR = 0.1
+WEIGHT_DECAY = 1e-5
 PRED_CROP_SIZE = 300
 PRED_CROP_PAD = 150
 RESTART_TRAINING = True
@@ -265,8 +265,7 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
     # Get dataset loaders, optimizer, lr_scheduler
     dataloaders = get_dataloaders("train", train_data_dir, eval_data_dir, batch_size=batch_size)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
-                                nesterov=SGD_NESTEROV, momentum=SGD_MOMENTUM)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
 
     # Restart at checkpoint if it exists
