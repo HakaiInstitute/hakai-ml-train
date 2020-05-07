@@ -25,12 +25,14 @@ from utils.loss import iou
 NUM_CLASSES = 2
 NUM_EPOCHS = 200
 BATCH_SIZE = 4
-LR = 1e-4
-WEIGHT_DECAY = 0.01
+LR = 0.1
+WEIGHT_DECAY = 1e-5
 PRED_CROP_SIZE = 300
 PRED_CROP_PAD = 150
 RESTART_TRAINING = True
 AUX_LOSS_FACTOR = 0.3
+SGD_MOMENTUM = 0.9
+SGD_NESTEROV = True
 
 DOCKER = bool(os.environ.get('DOCKER', False))
 DISABLE_CUDA = False
@@ -127,6 +129,9 @@ class TensorboardWriters(object):
             pred_grid = torchvision.utils.make_grid(pred, nrow=8).to(self.device)
             pred_grid = alpha_blend(img_grid, pred_grid)
             writer.add_image('Labels/Pred', pred_grid.detach().cpu(), epoch)
+
+    def log_hparams(self, phase, hparams_dict, metrics_dict):
+        self.writers[phase].add_hparams(hparams_dict, metrics_dict)
 
 
 def train_one_epoch(model, device, optimizer, lr_scheduler, dataloader, epoch, writers, checkpoint_dir):
@@ -237,6 +242,18 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
 
     Returns: None.
     """
+    if isinstance(weight_decay, list):
+        while len(weight_decay) > 0:
+            train(train_data_dir, eval_data_dir, checkpoint_dir,
+                  epochs=epochs, batch_size=batch_size, lr=lr, weight_decay=weight_decay.pop(0))
+        return
+
+    if isinstance(lr, list):
+        while len(lr) > 0:
+            train(train_data_dir, eval_data_dir, checkpoint_dir,
+                  epochs=epochs, batch_size=batch_size, lr=lr.pop(0), weight_decay=weight_decay)
+        return
+
     train_data_dir, eval_data_dir, checkpoint_dir = Path(train_data_dir), Path(eval_data_dir), Path(checkpoint_dir)
 
     # Load model
@@ -248,7 +265,7 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
     # Get dataset loaders, optimizer, lr_scheduler
     dataloaders = get_dataloaders("train", train_data_dir, eval_data_dir, batch_size=batch_size)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
 
     # Restart at checkpoint if it exists
@@ -292,6 +309,14 @@ def train(train_data_dir, eval_data_dir, checkpoint_dir,
             if miou > best_val_miou:
                 best_val_miou = miou
                 torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f'{MODEL_NAME}_best_val_miou.pt'))
+
+        # Log best results in Tensorboard with hyper-parameter configs
+        writers.log_hparams('train',
+                            {"lr_init": lr, "weight_decay": weight_decay, "batch_size": batch_size, "epochs": epochs},
+                            {"best_loss": best_train_loss, "best_miou": best_train_miou})
+        writers.log_hparams('eval',
+                            {"lr_init": lr, "weight_decay": weight_decay, "batch_size": batch_size, "epochs": epochs},
+                            {"best_loss": best_val_loss, "best_miou": best_val_miou})
 
     # Save final model params
     torch.save(model.state_dict(), Path(checkpoint_dir).joinpath(f"{MODEL_NAME}_final.pt"))
