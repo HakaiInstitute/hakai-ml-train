@@ -63,5 +63,5 @@ def job_loop(db):
 
 
 if __name__ == '__main__':
-    with SQLite("kelp.sqlite") as db:
+    with SQLite("jobs.sqlite") as db:
         job_loop(db)

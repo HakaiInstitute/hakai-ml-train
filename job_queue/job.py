@@ -18,7 +18,7 @@ def add_job(in_file, out_file, weight_file):
     # Make output dir if doesn't exist
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with SQLite("kelp.sqlite") as db:
+    with SQLite("jobs.sqlite") as db:
         db.execute(
             f"INSERT INTO jobs (infile,outfile,weightfile) "
             f"VALUES('{str(in_file)}','{str(out_file)}','{str(weight_file)}');")
@@ -26,14 +26,14 @@ def add_job(in_file, out_file, weight_file):
 
 
 def rm_job(*pks):
-    with SQLite("kelp.sqlite") as db:
+    with SQLite("jobs.sqlite") as db:
         for pk in pks:
             db.execute(f"DELETE FROM jobs WHERE pk={pk}")
         return db.commit()
 
 
 def ls_jobs():
-    with SQLite("kelp.sqlite") as db:
+    with SQLite("jobs.sqlite") as db:
         curs = db.cursor()
         curs.execute(f"SELECT pk, status, created_dt, infile, outfile, weightfile FROM jobs")
         return [{
@@ -47,7 +47,7 @@ def ls_jobs():
 
 
 def retry_job(*pks):
-    with SQLite("kelp.sqlite") as db:
+    with SQLite("jobs.sqlite") as db:
         for pk in pks:
             db.execute(f"UPDATE jobs SET status='scheduled' WHERE pk={pk}")
         return db.commit()
