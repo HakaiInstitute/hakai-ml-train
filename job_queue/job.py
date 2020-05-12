@@ -10,9 +10,13 @@ def add_job(in_file, out_file, weight_file):
     out_file = Path(out_file).expanduser().resolve()
     weight_file = Path(weight_file).expanduser().resolve()
 
-    for f in [in_file, out_file, weight_file]:
-        if not f.is_file():
-            print(f"file {f} does not exist")
+    if not all([in_file.is_file(), weight_file.is_file()]):
+        in_file.is_file() or print(f"file {in_file} does not exist")
+        weight_file.is_file() or print(f"file {weight_file} does not exist")
+        exit(1)
+
+    # Make output dir if doesn't exist
+    out_file.parent.mkdir(parents=True, exist_ok=True)
 
     with SQLite("kelp.sqlite") as db:
         db.execute(
