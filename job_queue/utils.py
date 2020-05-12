@@ -17,5 +17,5 @@ class SQLite(object):
         self.db.close()
 
     @staticmethod
-    def _make_db(dbname):
-        subprocess.run("sqlite3 jobs.sqlite < create_jobs_db.sql", shell=True, check=True)
+    def _make_db(db_name):
+        subprocess.run(f"sqlite3 {db_name} < create_jobs_db.sql", shell=True, check=True)
