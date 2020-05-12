@@ -37,10 +37,13 @@ def job_loop(db):
             pk, in_file, out_file, weight_file = q.popleft()
             print(f"Running job: {pk}")
 
-            if not all([Path(f).is_file() for f in [in_file, out_file, weight_file]]):
+            if not all([Path(f).is_file() for f in [in_file, weight_file]]):
                 print(f"Invalid path specified for job {pk}")
                 mark_job_complete(db, pk, success=False)
                 continue
+                
+            if not Path(out_file).parent.is_dir():
+                Path(out_file).parent.mkdir(parents=True, exist_ok=True)
 
             subprocess.run([
                 "docker", "run", "--rm",
