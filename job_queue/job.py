@@ -46,9 +46,17 @@ def ls_jobs():
         } for j in curs.fetchall()]
 
 
+def retry_job(*pks):
+    with SQLite("kelp.sqlite") as db:
+        for pk in pks:
+            db.execute(f"UPDATE jobs SET status='scheduled' WHERE pk={pk}")
+        return db.commit()
+
+
 if __name__ == '__main__':
     fire.Fire({
         'add': add_job,
         'rm': rm_job,
-        'ls': ls_jobs
+        'ls': ls_jobs,
+        'retry': retry_job
     })

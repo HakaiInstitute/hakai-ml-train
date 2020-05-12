@@ -41,7 +41,7 @@ def job_loop(db):
                 print(f"Invalid path specified for job {pk}")
                 mark_job_complete(db, pk, success=False)
                 continue
-                
+
             if not Path(out_file).parent.is_dir():
                 Path(out_file).parent.mkdir(parents=True, exist_ok=True)
 
