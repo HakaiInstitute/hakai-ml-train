@@ -1,10 +1,23 @@
+from pathlib import Path
+
 import fire
+
 from utils import SQLite
 
 
 def add_job(in_file, out_file, weight_file):
+    in_file = Path(in_file).expanduser().resolve()
+    out_file = Path(out_file).expanduser().resolve()
+    weight_file = Path(weight_file).expanduser().resolve()
+
+    for f in [in_file, out_file, weight_file]:
+        if not f.is_file():
+            print(f"file {f} does not exist")
+
     with SQLite("kelp.sqlite") as db:
-        db.execute(f"INSERT INTO jobs (infile,outfile,weightfile) VALUES('{in_file}','{out_file}','{weight_file}');")
+        db.execute(
+            f"INSERT INTO jobs (infile,outfile,weightfile) "
+            f"VALUES('{str(in_file)}','{str(out_file)}','{str(weight_file)}');")
         return db.commit()
 
 
