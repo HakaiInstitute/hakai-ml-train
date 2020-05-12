@@ -21,9 +21,10 @@ def add_job(in_file, out_file, weight_file):
         return db.commit()
 
 
-def rm_job(pk):
+def rm_job(*pks):
     with SQLite("kelp.sqlite") as db:
-        db.execute(f"DELETE FROM jobs WHERE pk={pk}")
+        for pk in pks:
+            db.execute(f"DELETE FROM jobs WHERE pk={pk}")
         return db.commit()
 
 
