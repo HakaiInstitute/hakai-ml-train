@@ -66,7 +66,8 @@ for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016
     "./$DIR_NAME/image_wgs.tif" \
     "./$DIR_NAME/kelp_wgs.tif" \
     "./$DIR_NAME" \
-    --crop_size=513
+    --crop_size=512 \
+    --stride=256
 done
 
 python "$PROJECT_DIR/utils/combine_filter_upload_kelp_data.py" \

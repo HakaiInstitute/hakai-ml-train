@@ -7,7 +7,7 @@ from osgeo import gdal
 import data_prep as dp
 
 
-def make(img, kelp, out, crop_size=513):
+def make(img, kelp, out, crop_size=513, stride=None):
     """
     Create tiled png images from drone imagery with kelp labels. Useful for creating a dataset for ML learning.
 
@@ -16,10 +16,14 @@ def make(img, kelp, out, crop_size=513):
         kelp: A raster delineating the kelp beds. Used to create tiled label rasters for ML algorithms.
         out: The directory to save the output dataset and intermediate files.
         crop_size: The size of the tiled dataset images. Used for both length and width.
+        stride: The difference in x0 and y0 positions for adjacent cropped image chips. Defaults to crop_size.
 
     Returns: None. Creates a tiled dataset at location `out`.
 
     """
+    if stride is None:
+        stride = crop_size
+
     # Create out directory if not already exists
     Path(out).mkdir(parents=True, exist_ok=True)
     print("Creating file:", out)
@@ -41,10 +45,10 @@ def make(img, kelp, out, crop_size=513):
     print("Creating image patches dataset...")
     # Slice the image into fixed width and height sections
     dp.check_same_extent(img, clipped_kelp)
-    dp.slice_and_dice_image(img, dest_x, mode='RGB', crop_size=crop_size)
+    dp.slice_and_dice_image(img, dest_x, mode='RGB', crop_size=crop_size, stride=stride)
 
     print("Creating label patches dataset...")
-    dp.slice_and_dice_image(clipped_kelp, dest_y, mode='L', crop_size=crop_size)
+    dp.slice_and_dice_image(clipped_kelp, dest_y, mode='L', crop_size=crop_size, stride=stride)
 
     print("Deleting extra labels")
     dp.del_extra_labels(out)
