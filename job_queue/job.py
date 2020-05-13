@@ -71,7 +71,7 @@ def ls_jobs(db):
 
 def _ls():
     """
-    List all jobs in the queue and their status. Includes completed and failed jobs.
+    List all jobs in the queue and their status. Includes jobs with status "complete", "failed", and "scheduled".
 
     Returns: None
     """
@@ -87,7 +87,7 @@ def retry_job(db, *pks):
 
 def _retry(*pks):
     """
-    Reset jobs with id in *pks to scheduled so they are reprocessed.
+    Reset jobs with id in *pks to "scheduled" so they are reprocessed.
 
     Args:
         *pks: The list of job ids to remove, separated by spaces (e.g. 12 1 8 7)
@@ -106,7 +106,7 @@ def complete_job(db, pk, failed=False):
 
 def _complete(pk, failed=False):
     """
-    Set job status to complete or failed using a list of ids.
+    Set job status to "complete" or "failed" using a list of ids.
 
     Args:
         *pks: The list of job ids to remove, separated by spaces (e.g. 12 1 8 7)
