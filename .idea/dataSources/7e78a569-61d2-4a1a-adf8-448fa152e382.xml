@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<dataSource name="kelp">
+<dataSource name="jobs">
   <database-model serializer="dbm" dbms="SQLITE" family-id="SQLITE" format-version="4.18">
     <root id="1">
       <ServerVersion>3.25.1</ServerVersion>
@@ -35,6 +35,7 @@
     <column id="12" parent="6" name="created_dt">
       <Position>4</Position>
       <DataType>datetime|0s</DataType>
+      <DefaultExpression>CURRENT_TIMESTAMP</DefaultExpression>
     </column>
     <column id="13" parent="6" name="pk">
       <Position>5</Position>

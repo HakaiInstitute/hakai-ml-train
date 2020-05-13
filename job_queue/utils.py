@@ -1,6 +1,8 @@
 import subprocess
-from sqlite3 import connect
 from pathlib import Path
+from sqlite3 import connect
+
+DB_NAME = "jobs.sqlite"
 
 
 class SQLite(object):
