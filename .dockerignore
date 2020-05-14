@@ -11,3 +11,5 @@ aws_scripts
 *.ipynb
 *.tar
 *.gz
+job_queue
+*/lightning_logs

@@ -1,12 +1,13 @@
-ARG VERSION=1.5-cuda10.1-cudnn7-runtime
-FROM pytorch/pytorch:$VERSION
-
-RUN pip install tensorboard tqdm rasterio fire
+ARG VERSION=20.03-py3
+FROM nvcr.io/nvidia/pytorch:$VERSION
 
 ENV PYTHONUNBUFFERED=TRUE
 ENV PYTHONDONTWRITEBYTECODE=TRUE
 ENV PATH="/opt/code:${PATH}"
 ENV DOCKER=TRUE
+
+# Install required python packages
+RUN pip install rasterio fire pytorch-lightning
 
 # Set up the program in the image
 COPY kelp/segment_kelp.py /opt/code/segment_kelp.py
