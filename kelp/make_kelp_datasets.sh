@@ -1,13 +1,16 @@
 THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+echo $THIS_DIR
 PROJECT_DIR=$(realpath "$THIS_DIR/..")
+echo $PROJECT_DIR
+WORKING_DIR="/mnt/Z/kelp_data"
 
 # Mount the samba data server
 #sudo mkdir -p /mnt/H
 #sudo mount -t cifs -o user=taylor.denouden,domain=victoria.hakai.org //10.10.1.50/Geospatial /mnt/H
 
 # Execute all following instructions in the uav-classif/deeolabv3/kelp directory
-mkdir -p raw_data
-cd raw_data || exit 1
+mkdir -p "$WORKING_DIR/raw_data"
+cd "$WORKING_DIR/raw_data" || exit 1
 
 mkdir -p \
   nw_calvert_2012 \
