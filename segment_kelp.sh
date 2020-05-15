@@ -1,5 +1,3 @@
-#docker build --file kelp/Dockerfile --compress --tag tayden/deeplabv3-kelp:latest .
-
 # Get infile, outfile, weights from args
 in_file=$(realpath "$1")
 out_file=$(realpath "$2")

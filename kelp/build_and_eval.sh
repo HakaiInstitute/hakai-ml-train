@@ -7,7 +7,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 docker build --file ./Dockerfile --compress --tag tayden/deeplabv3-kelp ..
 
 # Sync datasets
-aws s3 sync s3://hakai-deep-learning-datasets/kelp/train ./train_input/data/train
+aws s3 sync --exclude="*" --include="*/[0-99].png" s3://hakai-deep-learning-datasets/kelp/train ./train_input/data/train
 aws s3 sync s3://hakai-deep-learning-datasets/kelp/eval ./train_input/data/eval
 
 docker run -it --rm \
