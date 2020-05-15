@@ -38,7 +38,7 @@ class DeepLabv3Model(pl.LightningModule):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr,
                                       weight_decay=self.hparams.weight_decay)
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
-        return {'optimizer': optimizer, 'lr_scheduler': lr_scheduler}
+        return [optimizer], [{'scheduler': lr_scheduler, 'interval': 'step'}]
 
     def train_dataloader(self):
         ds_train = SegmentationDataset(self.hparams.train_data_dir, transform=t.train_transforms,
@@ -122,7 +122,6 @@ def _get_checkpoint(checkpoint_dir):
         return str(checkpoint_files[0])
     else:
         return False
-        print("Loading checkpoint:", checkpoint)
 
 
 def train(train_data_dir, val_data_dir, checkpoint_dir,
@@ -156,7 +155,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
     )
 
     trainer_kwargs = {
-        'gpus': list(range(torch.cuda.device_count())) if torch.cuda.is_available() else None,
+        'gpus': torch.cuda.device_count() if torch.cuda.is_available() else None,
         'checkpoint_callback': checkpoint_callback,
         'logger': logger,
         'early_stop_callback': False,
