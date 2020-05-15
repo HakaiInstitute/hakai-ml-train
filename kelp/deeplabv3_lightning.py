@@ -127,7 +127,7 @@ def _get_checkpoint(checkpoint_dir):
 
 def train(train_data_dir, val_data_dir, checkpoint_dir,
           num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
-          accumulate_grad_batches=1, precision=32, amp_level='01', auto_lr_find=False, unfreeze_backbone_epoch=150,
+          accumulate_grad_batches=1, precision=32, amp_level=1, auto_lr_find=False, unfreeze_backbone_epoch=150,
           auto_scale_batch_size=False, restart=True):
     os.environ['TORCH_HOME'] = str(Path(checkpoint_dir).parent)
     logger = TensorBoardLogger(Path(checkpoint_dir).joinpath('runs'), name="")
@@ -159,15 +159,13 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'gpus': list(range(torch.cuda.device_count())) if torch.cuda.is_available() else None,
         'checkpoint_callback': checkpoint_callback,
         'logger': logger,
-        'auto_select_gpus': True,
         'early_stop_callback': False,
         'deterministic': True,
-        'log_gpu_memory': torch.cuda.is_available(),
         'default_root_dir': checkpoint_dir,
         'accumulate_grad_batches': accumulate_grad_batches,
         'max_epochs': epochs,
         'precision': precision,
-        'amp_level': amp_level,
+        'amp_level': '{:02d}'.format(amp_level),
         'auto_scale_batch_size': auto_scale_batch_size,
     }
 
