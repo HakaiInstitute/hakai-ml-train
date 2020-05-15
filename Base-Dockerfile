@@ -1,0 +1,16 @@
+ARG VERSION=1.5-cuda10.1-cudnn7-devel
+FROM pytorch/pytorch:$VERSION
+
+# Install Git
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y git
+
+# Install APEX
+WORKDIR /tmp/unique_for_apex
+# SHA is something the user can touch to force recreation of this Docker layer,
+# and therefore force cloning of the latest version of Apex
+RUN SHA=ToUcHMe git clone https://github.com/NVIDIA/apex.git
+WORKDIR /tmp/unique_for_apex/apex
+RUN pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" .
+WORKDIR /workspace

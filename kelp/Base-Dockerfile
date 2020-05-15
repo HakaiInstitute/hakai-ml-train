@@ -1,9 +1,0 @@
-ARG VERSION=1.5-cuda10.1-cudnn7-devel
-FROM pytorch/pytorch:$VERSION
-
-ENV PYTHONUNBUFFERED=TRUE
-ENV PYTHONDONTWRITEBYTECODE=TRUE
-
-# Install Dependancies
-RUN conda install -c conda-forge nvidia-apex rasterio fire
-RUN pip install pytorch-lightning
