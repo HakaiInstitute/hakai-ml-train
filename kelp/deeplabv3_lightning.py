@@ -126,7 +126,7 @@ def _get_checkpoint(checkpoint_dir):
 
 
 def train(train_data_dir, val_data_dir, checkpoint_dir,
-          num_classes=2, batch_size=4, lr=0.036, weight_decay=1e-4, epochs=310,
+          num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310,
           aux_loss_factor=0.3, accumulate_grad_batches=1, precision=32,
           auto_lr_find=False, unfreeze_backbone_epochs=150, auto_scale_batch_size=False):
     os.environ['TORCH_HOME'] = str(Path(checkpoint_dir).parent)
