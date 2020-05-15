@@ -128,7 +128,7 @@ def _get_checkpoint(checkpoint_dir):
 def train(train_data_dir, val_data_dir, checkpoint_dir,
           num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
           accumulate_grad_batches=1, precision=32, amp_level='01', auto_lr_find=False, unfreeze_backbone_epoch=150,
-          auto_scale_batch_size=False):
+          auto_scale_batch_size=False, restart=True):
     os.environ['TORCH_HOME'] = str(Path(checkpoint_dir).parent)
     logger = TensorBoardLogger(Path(checkpoint_dir).joinpath('runs'), name="")
     checkpoint_callback = ModelCheckpoint(
@@ -173,7 +173,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
 
     # If checkpoint exists, resume
     checkpoint = _get_checkpoint(checkpoint_dir)
-    if checkpoint:
+    if restart and checkpoint:
         print("Loading checkpoint:", checkpoint)
         model = DeepLabv3Model.load_from_checkpoint(checkpoint)
         trainer = pl.Trainer(resume_from_checkpoint=checkpoint, **trainer_kwargs)
