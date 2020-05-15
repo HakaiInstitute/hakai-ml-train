@@ -47,7 +47,7 @@ if [ $VOLUME_ID ]; then
 		cd /home/ubuntu/
 
 		# Get training code
-		git clone https://github.com/tayden/uav-classif.git
+		git clone --branch develop https://github.com/tayden/uav-classif.git
 		chown -R ubuntu: uav-classif
 		cd uav-classif/seagrass
 		mkdir -p ./train_input/data
