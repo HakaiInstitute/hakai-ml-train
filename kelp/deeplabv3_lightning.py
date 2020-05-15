@@ -2,25 +2,20 @@ import os
 from argparse import Namespace
 from pathlib import Path
 
+import fire
 import pytorch_lightning as pl
 import torch
+from pytorch_lightning import seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 
-from dataset.SegmentationDataset import SegmentationDataset
+from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
 from utils.loss import dice_loss, iou
 
-NUM_CLASSES = 2
-NUM_EPOCHS = 310
-BATCH_SIZE = 4
-LR = 0.01
-WEIGHT_DECAY = 1e-4
-AUX_LOSS_FACTOR = 0.3
-ACCUMULATE_GRAD_BATCHES = 2
-PRECISION = 32
 PRED_CROP_SIZE = 300
 PRED_CROP_PAD = 150
 
@@ -48,7 +43,8 @@ class DeepLabv3Model(pl.LightningModule):
     def train_dataloader(self):
         ds_train = SegmentationDataset(self.hparams.train_data_dir, transform=t.train_transforms,
                                        target_transform=t.train_target_transforms)
-        return DataLoader(ds_train, shuffle=True, batch_size=self.hparams.batch_size, pin_memory=True, drop_last=True,
+        return DataLoader(ds_train, shuffle=True, batch_size=self.hparams.batch_size, pin_memory=True,
+                          drop_last=True,
                           num_workers=os.cpu_count())
 
     def val_dataloader(self):
@@ -74,6 +70,11 @@ class DeepLabv3Model(pl.LightningModule):
         return {'loss': loss, 'ious': ious, 'log': {'loss': loss, 'miou': ious.mean(dim=0)}}
 
     def training_epoch_end(self, outputs):
+        # Allow fine-tuning of backbone layers after 150 epochs
+        if self.current_epoch == self.hparams.unfreeze_backbone_epochs - 1:
+            self.model.backbone.layer3.requires_grad_(True)
+            self.model.backbone.layer4.requires_grad_(True)
+
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
         avg_ious = torch.stack([x['ious'] for x in outputs]).mean(dim=0)
         avg_mious = avg_ious.mean()
@@ -115,9 +116,30 @@ class DeepLabv3Model(pl.LightningModule):
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
 
 
+def _get_checkpoint(checkpoint_dir):
+    checkpoint_files = list(Path(checkpoint_dir).glob("best_val_miou_*.ckpt"))
+    if len(checkpoint_files) > 0:
+        return str(checkpoint_files[0])
+    else:
+        return False
+        print("Loading checkpoint:", checkpoint)
+
+
 def train(train_data_dir, val_data_dir, checkpoint_dir,
-          num_classes=NUM_CLASSES, batch_size=BATCH_SIZE, lr=LR, weight_decay=WEIGHT_DECAY, epochs=NUM_EPOCHS,
-          aux_loss_factor=AUX_LOSS_FACTOR, accumulate_grad_batches=ACCUMULATE_GRAD_BATCHES, precision=PRECISION):
+          num_classes=2, batch_size=4, lr=0.036, weight_decay=1e-4, epochs=310,
+          aux_loss_factor=0.3, accumulate_grad_batches=1, precision=32,
+          auto_lr_find=False, unfreeze_backbone_epochs=150, auto_scale_batch_size=False):
+    os.environ['TORCH_HOME'] = str(Path(checkpoint_dir).parent)
+    logger = TensorBoardLogger(Path(checkpoint_dir).joinpath('runs'), name="")
+    checkpoint_callback = ModelCheckpoint(
+        filepath=checkpoint_dir,
+        save_top_k=True,
+        verbose=True,
+        monitor='val_miou',
+        mode='max',
+        prefix='best_val_miou_'
+    )
+
     hparams = Namespace(
         train_data_dir=train_data_dir,
         val_data_dir=val_data_dir,
@@ -128,46 +150,55 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         epochs=epochs,
         aux_loss_factor=aux_loss_factor,
         accumulate_grad_batches=accumulate_grad_batches,
-        precision=precision
+        precision=precision,
+        unfreeze_backbone_epochs=unfreeze_backbone_epochs,
     )
 
-    checkpoint_callback = ModelCheckpoint(
-        filepath=checkpoint_dir,
-        save_top_k=True,
-        verbose=True,
-        monitor='val_miou',
-        mode='max',
-        prefix='best_val_miou_'
-    )
+    trainer_kwargs = {
+        'gpus': list(range(torch.cuda.device_count())) if torch.cuda.is_available() else None,
+        'checkpoint_callback': checkpoint_callback,
+        'logger': logger,
+        'auto_select_gpus': True,
+        'early_stop_callback': False,
+        'deterministic': True,
+        'log_gpu_memory': torch.cuda.is_available(),
+        'default_root_dir': checkpoint_dir,
+        'accumulate_grad_batches': accumulate_grad_batches,
+        'max_epochs': epochs,
+        'precision': precision,
+        'auto_scale_batch_size': auto_scale_batch_size,
+    }
 
     # If checkpoint exists, resume
-    trainer_kwargs = {
-        'auto_select_gpus': True, 'accumulate_grad_batches': accumulate_grad_batches, 'max_epochs': epochs,
-        'early_stop_callback': False, 'checkpoint_callback': checkpoint_callback, 'precision': precision}
-
-    checkpoint_files = list(Path(checkpoint_dir).glob("best_val_miou_*.ckpt"))
-    if len(checkpoint_files) > 0:
-        checkpoint = str(checkpoint_files[0])
+    checkpoint = _get_checkpoint(checkpoint_dir)
+    if checkpoint:
         print("Loading checkpoint:", checkpoint)
         model = DeepLabv3Model.load_from_checkpoint(checkpoint)
         trainer = pl.Trainer(resume_from_checkpoint=checkpoint, **trainer_kwargs)
     else:
         model = DeepLabv3Model(hparams)
-        trainer = pl.Trainer(**trainer_kwargs)
+        trainer = pl.Trainer(auto_lr_find=auto_lr_find, **trainer_kwargs)
 
     trainer.fit(model)
 
-    # TODO: Check that tensorboard works
-    # TODO: Configure to use fire
-    # TODO: Unfreeze backbone layers after 150 epochs
-    # TODO: Run LR optimization
+
+def evaluate():
+    # TODO: Implement eval method
+    pass
+
+
+def predict():
+    # TODO: Implement pred method
+    pass
 
 
 if __name__ == '__main__':
-    train('/home/tadenoud/PycharmProjects/uav-classif/kelp/train_input/data/train',
-          '/home/tadenoud/PycharmProjects/uav-classif/kelp/train_input/data/eval',
-          '/home/tadenoud/PycharmProjects/uav-classif/kelp/train_output/checkpoints')
+    seed_everything(0)
+    print("GPUS available:", torch.cuda.is_available())
+    print("# GPUs:", torch.cuda.device_count())
 
-    # fire.Fire({
-    #     'train': train
-    # })
+    fire.Fire({
+        'train': train,
+        'eval': evaluate,
+        'pred': predict
+    })
