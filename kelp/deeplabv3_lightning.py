@@ -85,7 +85,8 @@ class DeepLabv3Model(pl.LightningModule):
             'loss': avg_loss,
             'miou': avg_mious,
             'fg_iou': avg_fg_ious,
-            'bg_iou': avg_bg_ious
+            'bg_iou': avg_bg_ious,
+            'step': self.current_epoch
         }
         return {'loss': avg_loss, 'log': tensorboard_logs}
 
@@ -111,7 +112,8 @@ class DeepLabv3Model(pl.LightningModule):
             'val_loss': avg_loss,
             'val_miou': avg_mious,
             'val_fg_iou': avg_fg_ious,
-            'val_bg_iou': avg_bg_ious
+            'val_bg_iou': avg_bg_ious,
+            'step': self.current_epoch
         }
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
 
