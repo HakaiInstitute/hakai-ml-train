@@ -67,11 +67,11 @@ class DeepLabv3Model(pl.LightningModule):
 
         loss = loss + self.hparams.aux_loss_factor * aux_loss
         ious = iou(y, logits.float())
-        return {'loss': loss, 'ious': ious, 'log': {'loss': loss, 'miou': ious.mean(dim=0)}}
+        return {'loss': loss, 'ious': ious}
 
     def training_epoch_end(self, outputs):
         # Allow fine-tuning of backbone layers after 150 epochs
-        if self.current_epoch == self.hparams.unfreeze_backbone_epochs - 1:
+        if self.current_epoch == self.hparams.unfreeze_backbone_epoch - 1:
             self.model.backbone.layer3.requires_grad_(True)
             self.model.backbone.layer4.requires_grad_(True)
 
@@ -126,9 +126,9 @@ def _get_checkpoint(checkpoint_dir):
 
 
 def train(train_data_dir, val_data_dir, checkpoint_dir,
-          num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310,
-          aux_loss_factor=0.3, accumulate_grad_batches=1, precision=32,
-          auto_lr_find=False, unfreeze_backbone_epochs=150, auto_scale_batch_size=False):
+          num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
+          accumulate_grad_batches=1, precision=32, amp_level='01', auto_lr_find=False, unfreeze_backbone_epoch=150,
+          auto_scale_batch_size=False):
     os.environ['TORCH_HOME'] = str(Path(checkpoint_dir).parent)
     logger = TensorBoardLogger(Path(checkpoint_dir).joinpath('runs'), name="")
     checkpoint_callback = ModelCheckpoint(
@@ -151,7 +151,8 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         aux_loss_factor=aux_loss_factor,
         accumulate_grad_batches=accumulate_grad_batches,
         precision=precision,
-        unfreeze_backbone_epochs=unfreeze_backbone_epochs,
+        amp_level=amp_level,
+        unfreeze_backbone_epoch=unfreeze_backbone_epoch,
     )
 
     trainer_kwargs = {
@@ -166,6 +167,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'accumulate_grad_batches': accumulate_grad_batches,
         'max_epochs': epochs,
         'precision': precision,
+        'amp_level': amp_level,
         'auto_scale_batch_size': auto_scale_batch_size,
     }
 
