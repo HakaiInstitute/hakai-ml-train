@@ -4,19 +4,9 @@ from collections import deque
 from pathlib import Path
 from time import sleep
 
-from utils import SQLite
+from job import complete_job, ls_scheduled_jobs
 
-
-def get_jobs(db):
-    curs = db.cursor()
-    curs.execute("SELECT pk, infile, outfile, weightfile FROM jobs WHERE status='scheduled' ORDER BY created_dt;")
-    return curs.fetchall()
-
-
-def mark_job_complete(db, pk, success=True):
-    status = 'complete' if success else 'failed'
-    db.execute(f"UPDATE jobs SET status='{status}' WHERE pk={pk};")
-    return db.commit()
+from utils import SQLite, DB_NAME
 
 
 def job_loop(db):
@@ -25,7 +15,7 @@ def job_loop(db):
     while True:
         if len(q) == 0:
             # Add items to q
-            new_jobs = get_jobs(db)
+            new_jobs = ls_scheduled_jobs(db)
             if len(new_jobs) > 0:
                 for job in new_jobs:
                     q.append(job)
@@ -39,7 +29,7 @@ def job_loop(db):
 
             if not all([Path(f).is_file() for f in [in_file, weight_file]]):
                 print(f"Invalid path specified for job {pk}")
-                mark_job_complete(db, pk, success=False)
+                complete_job(db, pk, failed=True)
                 continue
 
             if not Path(out_file).parent.is_dir():
@@ -59,9 +49,9 @@ def job_loop(db):
             ], cwd='../', check=True)
 
             # Mark job complete
-            mark_job_complete(db, pk)
+            complete_job(db, pk)
 
 
 if __name__ == '__main__':
-    with SQLite("jobs.sqlite") as db:
+    with SQLite(DB_NAME) as db:
         job_loop(db)

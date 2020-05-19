@@ -7,7 +7,10 @@ aws_scripts
 *.png
 *.pth
 *.pt
+*.ckpt
 *.tif
 *.ipynb
 *.tar
 *.gz
+job_queue
+*/lightning_logs

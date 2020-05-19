@@ -1,5 +1,3 @@
-#docker build --file kelp/Dockerfile --compress --tag tayden/deeplabv3-kelp:latest .
-
 # Get infile, outfile, weights from args
 in_file=$(realpath "$1")
 out_file=$(realpath "$2")
@@ -18,4 +16,4 @@ docker run -it --rm \
 --ipc host \
 --gpus all \
 --name kelp-pred \
-tayden/deeplabv3-kelp:v1.1.0 pred --seg_in="$in_file" --seg_out="$out_file" --weights="$weight_file"
+tayden/deeplabv3-kelp:v1.2.0 pred --seg_in="$in_file" --seg_out="$out_file" --weights="$weight_file"

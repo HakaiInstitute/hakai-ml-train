@@ -42,7 +42,7 @@ def _pad_out(crop, crop_size):
         return crop
 
 
-def slice_and_dice_image(src_img, dest_d, mode='L', crop_size=200):
+def slice_and_dice_image(src_img, dest_d, mode='L', crop_size=200, stride=None):
     """
     Create a machine learning dataset of image patches. Chops src_img into square sections of length/width crop_size
     and saves the patches and intermediate files to direction dest_d. Uses `cpus` count of cpus to process image in
@@ -52,12 +52,16 @@ def slice_and_dice_image(src_img, dest_d, mode='L', crop_size=200):
         dest_d: Path to directory to save the processed image
         mode: The Pillow image write mode. E.g. 'RGB', 'L' (for BW)
         crop_size: The length and width of cropped sections to create
+        stride: The difference in x0 and y0 positions for adjacent cropped image chips. Defaults to crop_size
 
     Returns: None
     """
+    if stride is None:
+        stride = crop_size
+
     with rasterio.open(src_img) as dataset:
-        x0s = range(0, dataset.width, crop_size)
-        y0s = range(0, dataset.height, crop_size)
+        x0s = range(0, dataset.width, stride)
+        y0s = range(0, dataset.height, stride)
 
         dest_d = Path(dest_d)
         for i, (x0, y0) in enumerate(tproduct(x0s, y0s)):

@@ -4,7 +4,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # Build the docker image
-docker build --file ./Dockerfile --compress --tag tayden/deeplabv3-kelp ..
+DOCKER_BUILDKIT=1 docker build --file ./Dockerfile --compress --tag tayden/deeplabv3-kelp ..
 
 # Run the docker image and bind data
 docker run -it --rm \
@@ -15,4 +15,4 @@ docker run -it --rm \
 --gpus all \
 --name kelp-pred \
 tayden/deeplabv3-kelp:latest pred "/opt/ml/input/data/segmentation/mcnaughton_small.tif" \
-  "/opt/ml/output/segmentation/mcnaughton_small_kelp.tif" "/opt/ml/output/weights/deeplabv3_kelp_200421.pt"
+  "/opt/ml/output/segmentation/mcnaughton_small_kelp.tif" "/opt/ml/output/weights/deeplabv3_kelp_200517.ckpt"

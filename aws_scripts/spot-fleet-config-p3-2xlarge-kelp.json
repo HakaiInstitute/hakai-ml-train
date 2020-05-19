@@ -12,14 +12,9 @@
     {
       "LaunchTemplateSpecification": {
         "LaunchTemplateId": "lt-0657ba86300dca079",
-        "Version": "18"
+        "Version": "20"
       },
       "Overrides": [
-        {
-          "InstanceType": "p3.2xlarge",
-          "WeightedCapacity": 1,
-          "SubnetId": "subnet-08b11310fa285c218"
-        },
         {
           "InstanceType": "p3.2xlarge",
           "WeightedCapacity": 1,
@@ -34,11 +29,6 @@
           "InstanceType": "p3.2xlarge",
           "WeightedCapacity": 1,
           "SubnetId": "subnet-02e89e3223878310a"
-        },
-        {
-          "InstanceType": "p3.2xlarge",
-          "WeightedCapacity": 1,
-          "SubnetId": "subnet-0aea1eca7ff4b281c"
         },
         {
           "InstanceType": "p3.2xlarge",

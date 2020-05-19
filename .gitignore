@@ -146,3 +146,5 @@ data
 /deeplabv3/kelp/train_output/
 /unet/seagrass/train_output/
 /job_queue/jobs.sqlite
+*/lightning_logs/
+*/train_output
