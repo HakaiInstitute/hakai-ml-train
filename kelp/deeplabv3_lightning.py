@@ -78,15 +78,14 @@ class DeepLabv3Model(pl.LightningModule):
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
         avg_ious = torch.stack([x['ious'] for x in outputs]).mean(dim=0)
         avg_mious = avg_ious.mean()
-        avg_fg_ious = avg_ious[0]
-        avg_bg_ious = avg_ious[1]
+        avg_bg_ious = avg_ious[0]
+        avg_fg_ious = avg_ious[1]
 
         tensorboard_logs = {
             'loss': avg_loss,
             'miou': avg_mious,
             'fg_iou': avg_fg_ious,
-            'bg_iou': avg_bg_ious,
-            'step': self.current_epoch
+            'bg_iou': avg_bg_ious
         }
         return {'loss': avg_loss, 'log': tensorboard_logs}
 
@@ -105,36 +104,36 @@ class DeepLabv3Model(pl.LightningModule):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_ious = torch.stack([x['val_ious'] for x in outputs]).mean(dim=0)
         avg_mious = avg_ious.mean()
-        avg_fg_ious = avg_ious[0]
-        avg_bg_ious = avg_ious[1]
+        avg_bg_ious = avg_ious[0]
+        avg_fg_ious = avg_ious[1]
 
         tensorboard_logs = {
             'val_loss': avg_loss,
             'val_miou': avg_mious,
             'val_fg_iou': avg_fg_ious,
-            'val_bg_iou': avg_bg_ious,
-            'step': self.current_epoch
+            'val_bg_iou': avg_bg_ious
         }
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
 
 
-def _get_checkpoint(checkpoint_dir):
-    checkpoint_files = list(Path(checkpoint_dir).glob("best_val_miou_*.ckpt"))
+def _get_checkpoint(checkpoint_dir, name=""):
+    versions_dir = Path(checkpoint_dir).joinpath(name)
+    checkpoint_files = list(versions_dir.glob("*/checkpoints/best_val_miou_*.ckpt"))
     if len(checkpoint_files) > 0:
-        return str(checkpoint_files[0])
+        return str(sorted(checkpoint_files)[-1])
     else:
         return False
 
 
 def train(train_data_dir, val_data_dir, checkpoint_dir,
           num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
-          accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O1', auto_lr_find=False, unfreeze_backbone_epoch=150,
-          auto_scale_batch_size=False, restart=True):
+          accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O1', auto_lr_find=False,
+          unfreeze_backbone_epoch=150, auto_scale_batch_size=False, name=""):
     os.environ['TORCH_HOME'] = str(Path(checkpoint_dir).parent)
-    logger = TensorBoardLogger(Path(checkpoint_dir).joinpath('runs'), name="")
+
+    logger = TensorBoardLogger(Path(checkpoint_dir), name=name)
+
     checkpoint_callback = ModelCheckpoint(
-        filepath=checkpoint_dir,
-        save_top_k=True,
         verbose=True,
         monitor='val_miou',
         mode='max',
@@ -173,8 +172,8 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
     }
 
     # If checkpoint exists, resume
-    checkpoint = _get_checkpoint(checkpoint_dir)
-    if restart and checkpoint:
+    checkpoint = _get_checkpoint(checkpoint_dir, name)
+    if checkpoint:
         print("Loading checkpoint:", checkpoint)
         model = DeepLabv3Model.load_from_checkpoint(checkpoint)
         trainer = pl.Trainer(resume_from_checkpoint=checkpoint, **trainer_kwargs)
@@ -197,9 +196,6 @@ def predict():
 
 if __name__ == '__main__':
     seed_everything(0)
-    print("GPUS available:", torch.cuda.is_available())
-    print("# GPUs:", torch.cuda.device_count())
-
     fire.Fire({
         'train': train,
         'eval': evaluate,
