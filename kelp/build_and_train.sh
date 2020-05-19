@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=AMP2
+NAME=AMPO1
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
@@ -26,7 +26,7 @@ docker run -dit --rm \
   --name kelp-train \
   tayden/deeplabv3-kelp train "/opt/ml/input/data/train" "/opt/ml/input/data/eval" "/opt/ml/output/checkpoints" \
   --accumulate_grad_batches=4 --gradient_clip_val=0.5 --weight_decay=0.001 --unfreeze_backbone_epoch=30 --epochs=150 \
-  --name=$NAME --precision=16 --amp_level="O2" --auto-lr-find
+  --name=$NAME --precision=16 --amp_level="O1" --auto-lr-find
 
 # Can start tensorboard in running container as follows:
 docker exec -dit kelp-train tensorboard --logdir=/opt/ml/output/checkpoints --host=0.0.0.0 --port=$PORT
