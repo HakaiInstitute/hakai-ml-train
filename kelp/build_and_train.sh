@@ -26,7 +26,7 @@ docker run -dit --rm \
   --name kelp-train \
   tayden/deeplabv3-kelp train "/opt/ml/input/data/train" "/opt/ml/input/data/eval" "/opt/ml/output/checkpoints" \
   --accumulate_grad_batches=4 --gradient_clip_val=0.5 --weight_decay=0.001 --unfreeze_backbone_epoch=30 --epochs=150 \
-  --name=$NAME --precision=16 --amp_level="O1" --auto-lr-find
+  --name=$NAME --precision=16 --amp_level="O1" --lr=0.0003019951720402019
 
 # Can start tensorboard in running container as follows:
 docker exec -dit kelp-train tensorboard --logdir=/opt/ml/output/checkpoints --host=0.0.0.0 --port=$PORT

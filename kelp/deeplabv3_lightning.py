@@ -6,18 +6,16 @@ import fire
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning import seed_everything
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateLogger
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 
+from eval import predict_tiff
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
 from utils.loss import dice_loss, iou
-
-PRED_CROP_SIZE = 300
-PRED_CROP_PAD = 150
 
 
 class DeepLabv3Model(pl.LightningModule):
@@ -133,10 +131,35 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
           num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
           accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O1', auto_lr_find=False,
           unfreeze_backbone_epoch=150, auto_scale_batch_size=False, name=""):
+    """
+    Train the DeepLabV3 Kelp Detection model.
+    Args:
+        train_data_dir: Path to the directory containing subdirectories x and y containing the training dataset.
+        val_data_dir: Path to the directory containing subdirectories x and y containing the validation dataset.
+        checkpoint_dir: Path to the directory where tensorboard logging and model checkpoint outputs should go.
+        num_classes: The number of classes in the dataset. Defaults to 2.
+        batch_size: The batch size for training. Multiplied by # GPUs for DDP. Defaults to 4.
+        lr: The learning rate. Defaults to 0.001.
+        weight_decay: The amount of L2 regularization on model parameters. Defaults to 1e-4.
+        epochs: The number of training epochs. Defaults to 310.
+        aux_loss_factor: The weight for the auxiliary loss to encourage could features in early layers. Default 0.3.
+        accumulate_grad_batches: The number of gradients batches to accumulate before backprop. Defaults to 1 (No accumulation).
+        gradient_clip_val: The value of the gradient norm at which backprop should be skipped if over that value. Defaults to 0 (None).
+        precision: The floating point precision of model weights. Defaults to 32. Set to 16 for AMP training with Nvidia Apex.
+        amp_level: The AMP level in NVidia Apex. Defaults to "O1" (i.e. letter O, number 1). See Apex docs to details.
+        auto_lr_find: Flag on wether or not to run the LR finder at the beginning of training. Defaults to False.
+        unfreeze_backbone_epoch: The epoch at which blocks 3 and 4 of the backbone network should start adjusting parameters. Defaults to 150.
+        auto_scale_batch_size: Run a heuristic to maximize batch size per GPU. Defaults to False.
+        name: The name of the model. Creates a subdirectory in the checkpoint dir with this name. Defaults to "".
+
+    Returns: None. Side effects include logging and checkpointing models to the checkpoint directory.
+    
+    """
     os.environ['TORCH_HOME'] = str(Path(checkpoint_dir).parent)
 
     logger = TensorBoardLogger(Path(checkpoint_dir), name=name)
 
+    lr_logger_callback = LearningRateLogger()
     checkpoint_callback = ModelCheckpoint(
         verbose=True,
         monitor='val_miou',
@@ -173,13 +196,14 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'precision': precision,
         'amp_level': amp_level,
         'auto_scale_batch_size': auto_scale_batch_size,
+        'callbacks': [lr_logger_callback],
     }
 
     # If checkpoint exists, resume
     checkpoint = _get_checkpoint(checkpoint_dir, name)
     if checkpoint:
         print("Loading checkpoint:", checkpoint)
-        model = DeepLabv3Model.load_from_checkpoint(checkpoint)
+        model = DeepLabv3Model.load_from_checkpoint(checkpoint, hparams=hparams)
         trainer = pl.Trainer(resume_from_checkpoint=checkpoint, **trainer_kwargs)
     else:
         model = DeepLabv3Model(hparams)
@@ -188,20 +212,48 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
     trainer.fit(model)
 
 
-def evaluate():
-    # TODO: Implement eval method
-    pass
+def predict(seg_in, seg_out, weights, batch_size=4, crop_size=300, crop_pad=150):
+    """
+    Segment the FG class using DeepLabv3 Segmentation model of an input .tif image.
+    Args:
+        weights: Path to a model weights file (*.pt). Required for eval and pred mode.
+        seg_in: Path to a *.tif image to do segmentation on in pred mode.
+        seg_out: Path to desired output *.tif created by the model in pred mode.
+        batch_size: The batch size per GPU. Defaults to 4.
+        crop_size: The crop size in pixels for processing the image. Defines the length and width of the individual
+            sections the input .tif image is cropped to for processing. Defaults to 300.
+        crop_pad: The amount of padding added for classification context to each image crop. The output classification
+            on this crop area is not output by the model but will influence the classification of the area in the
+            (crop_size x crop_size) window. Defaults to 150.
 
+    Note: Changing the crop_size and crop_pad parameters may require adjusting the batch_size such that the image
+        batches fit into the GPU memory.
 
-def predict():
-    # TODO: Implement pred method
-    pass
+    Returns: None. Outputs various files as a side effect depending on the script mode.
+    """
+    seg_in, seg_out, weights = Path(seg_in), Path(seg_out), Path(weights)
+    os.environ['TORCH_HOME'] = str(weights.parent)
+
+    # Create output directory as required
+    seg_out.parent.mkdir(parents=True, exist_ok=True)
+
+    # Load model and weights
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = DeepLabv3Model.load_from_checkpoint(weights)
+    model.freeze()
+    model = model.to(device)
+
+    print("Processing:", seg_in)
+    batch_size = batch_size * max(torch.cuda.device_count(), 1)
+    predict_tiff(model, device, seg_in, seg_out,
+                 transform=t.test_transforms,
+                 crop_size=crop_size, pad=crop_pad,
+                 batch_size=batch_size)
 
 
 if __name__ == '__main__':
     seed_everything(0)
     fire.Fire({
         'train': train,
-        'eval': evaluate,
         'pred': predict
     })
