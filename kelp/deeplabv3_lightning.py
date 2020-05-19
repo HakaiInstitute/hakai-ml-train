@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 
-from eval import predict_tiff
+from utils.eval import predict_tiff
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
 from utils.loss import dice_loss, iou

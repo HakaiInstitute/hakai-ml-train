@@ -11,7 +11,6 @@ RUN pip install pytorch-lightning rasterio fire
 
 # Set up the program in the image
 COPY kelp/deeplabv3_lightning.py /opt/code/deeplabv3_lightning.py
-COPY models /opt/code/models
 COPY utils /opt/code/utils
 WORKDIR /opt/code
 
