@@ -35,7 +35,7 @@
 - Download the image to the local hard drive. It’ll run way faster this way. It's possible to read the file from the NAS, but there will be a network bottleneck.
     - e.g. `cp /mnt/H/path/to/image.* ./local/drive/location/`
 - Navigate to the cloned Github repo: e.g. `cd path/to/repo/uav-classif`
-- Update the GitHub repo if you haven't lately. This ensures you have the latest version of the code.
+- Update the GitHub repo if you haven't lately. This ensures you have the latest version of the code and these instructions.
     - Run `git pull`
 - Run the classification script:
     - Using Docker: `bash segment_kelp.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3-kelp_200517.ckpt`
@@ -75,6 +75,24 @@ bash segment_kelp.sh …
 # to re-attach the session and check progress, etc.
 screen -r
 ```
+
+#### Queuing multiple jobs
+If you have a lot of files to process, its much more convenient to be able to dynamically add them to a queue such that the processing happens
+sequentially and you don't need to supervise each segmentation run so you know when you can start the next job. The downloaded GitHub repo contains
+a toolset for doing just this in the "job_queue" directory.
+
+##### Processing jobs in the queue
+There is a script that is essentially a loop that checks the queue for new jobs, and processes them in the order they were submitted. This script is called `job_queue/run.py`.
+To start the queue, run `python run.py`. You may want to run this in a screen session so it doesn't get killed when you log out. See the "Long running jobs" section of this Readme 
+for details on the screen util. 
+
+##### Adding, removing, and manipulation of the job queue
+Also in the `job_queue` directory, there is another script called "job.py" useful for manipulating the job queue.
+Documentation for all of the functions available can be printed to the terminal using `python job.py --help`.
+
+The most important command for you is likely to be `python job.py add /path/to/in_image.tif /path/to/where/you/want/the/output.tif /path/to/the/weight/file`
+
+There are other commands to restart jobs, remove jobs, list jobs and the status, and mark jobs as complete. Use `python job.py --help` for all the details of each.
 
 #### Docker
 Docker simply creates a lightweight virtual Linux machine and then executes the script in it. This ensures consistency across environments.
