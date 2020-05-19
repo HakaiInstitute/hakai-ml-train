@@ -31,6 +31,10 @@ class DeepLabv3Model(pl.LightningModule):
         self.model.classifier = DeepLabHead(2048, self.hparams.num_classes)
         self.model.classifier.requires_grad_(True)
 
+        if self.hparams.unfreeze_backbone_epoch == 0:
+            self.model.backbone.layer3.requires_grad_(True)
+            self.model.backbone.layer4.requires_grad_(True)
+
     def forward(self, x):
         return self.model.forward(x)
 
