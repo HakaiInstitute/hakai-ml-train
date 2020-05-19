@@ -6,7 +6,7 @@ import fire
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning import seed_everything
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateLogger
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import deeplabv3_resnet101
@@ -136,6 +136,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
     os.environ['TORCH_HOME'] = str(Path(checkpoint_dir).parent)
 
     logger = TensorBoardLogger(Path(checkpoint_dir), name=name)
+    lr_logger = LearningRateLogger()
 
     checkpoint_callback = ModelCheckpoint(
         verbose=True,
@@ -173,6 +174,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'precision': precision,
         'amp_level': amp_level,
         'auto_scale_batch_size': auto_scale_batch_size,
+        'callbacks': [lr_logger],
     }
 
     # If checkpoint exists, resume
