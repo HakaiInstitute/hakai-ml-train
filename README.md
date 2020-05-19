@@ -11,7 +11,7 @@
 
 ### First-time setup
 - Install cifs-utils so you can later access NAS files `sudo apt-get install cifs-utils`
-- Make a mount point for H drive if it doesn’t exist: `sudo mkdir -p /mnt/H`
+- Make a mount point for H drive if it doesn't exist: `sudo mkdir -p /mnt/H`
 - Add yourself to the Docker user group: `sudo usermod -aG docker $USER`
     - Log out and log back in for the change to take effect.
     - `docker run hello-world` should print a “Hello World” message to the terminal if everything is working. See https://docs.docker.com/engine/install/linux-postinstall/ if you have any issues.
@@ -46,7 +46,7 @@
 - Move the output back to the samba server if desired, e.g. `mv /path/to/desired/output.tif /mnt/H/location/of/choice`
 
 ### Interpreting the model output
-- The model outputs a raster image with integer values (0-255). This value should be thresholded to obtain a kelp/not-kelp classification output.
+- The model outputs a raster image with integer values (0-255). You should set a threshold on this value to obtain a kelp/not-kelp classification output.
 - In most cases, setting the threshold such that a pixel being >=128 means kelp should be adequate. 
 - If you want to increase kelp recall at the cost of precision, you can lower this threshold (e.g. to 100).
 
