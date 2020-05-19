@@ -5,7 +5,7 @@ from pathlib import Path
 import fire
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning import seed_everything, Callback
+from pytorch_lightning import seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateLogger
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
@@ -28,6 +28,10 @@ class DeepLabv3Model(pl.LightningModule):
         self.model.requires_grad_(False)
         self.model.classifier = DeepLabHead(2048, self.hparams.num_classes)
         self.model.classifier.requires_grad_(True)
+
+        if self.hparams.unfreeze_backbone_epoch == 0:
+            self.model.backbone.layer3.requires_grad_(True)
+            self.model.backbone.layer4.requires_grad_(True)
 
     def forward(self, x):
         return self.model.forward(x)
@@ -68,6 +72,11 @@ class DeepLabv3Model(pl.LightningModule):
         return {'loss': loss, 'ious': ious}
 
     def training_epoch_end(self, outputs):
+        # Allow fine-tuning of backbone layers after 150 epochs
+        if self.current_epoch == self.hparams.unfreeze_backbone_epoch - 1:
+            self.model.backbone.layer3.requires_grad_(True)
+            self.model.backbone.layer4.requires_grad_(True)
+
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
         avg_ious = torch.stack([x['ious'] for x in outputs]).mean(dim=0)
         avg_mious = avg_ious.mean()
@@ -118,14 +127,6 @@ def _get_checkpoint(checkpoint_dir, name=""):
         return False
 
 
-class OnEpochStartCallback(Callback):
-    def on_epoch_start(self, trainer, pl_module):
-        # Allow fine-tuning of backbone layers after some epochs
-        if pl_module.current_epoch >= pl_module.hparams.unfreeze_backbone_epoch:
-            pl_module.model.backbone.layer3.requires_grad_(True)
-            pl_module.model.backbone.layer4.requires_grad_(True)
-
-
 def train(train_data_dir, val_data_dir, checkpoint_dir,
           num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
           accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O1', auto_lr_find=False,
@@ -135,7 +136,6 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
     logger = TensorBoardLogger(Path(checkpoint_dir), name=name)
 
     lr_logger_callback = LearningRateLogger()
-    on_epoch_start_callback = OnEpochStartCallback()
     checkpoint_callback = ModelCheckpoint(
         verbose=True,
         monitor='val_miou',
@@ -172,25 +172,20 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'precision': precision,
         'amp_level': amp_level,
         'auto_scale_batch_size': auto_scale_batch_size,
-        'callbacks': [lr_logger_callback, on_epoch_start_callback],
+        'callbacks': [lr_logger_callback],
     }
 
     # If checkpoint exists, resume
     checkpoint = _get_checkpoint(checkpoint_dir, name)
     if checkpoint:
         print("Loading checkpoint:", checkpoint)
-        model = DeepLabv3Model.load_from_checkpoint(checkpoint)
+        model = DeepLabv3Model.load_from_checkpoint(checkpoint, hparams=hparams)
         trainer = pl.Trainer(resume_from_checkpoint=checkpoint, **trainer_kwargs)
     else:
         model = DeepLabv3Model(hparams)
         trainer = pl.Trainer(auto_lr_find=auto_lr_find, **trainer_kwargs)
 
     trainer.fit(model)
-
-
-def evaluate():
-    # TODO: Implement eval method
-    pass
 
 
 def predict(seg_in, seg_out, weights, batch_size=4, crop_size=300, crop_pad=150):
@@ -219,10 +214,9 @@ def predict(seg_in, seg_out, weights, batch_size=4, crop_size=300, crop_pad=150)
     seg_out.parent.mkdir(parents=True, exist_ok=True)
 
     # Load model and weights
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = DeepLabv3Model.load_from_checkpoint(weights)
     model.freeze()
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = model.to(device)
 
     print("Processing:", seg_in)
@@ -237,6 +231,5 @@ if __name__ == '__main__':
     seed_everything(0)
     fire.Fire({
         'train': train,
-        'eval': evaluate,
         'pred': predict
     })
