@@ -147,5 +147,4 @@ data
 /unet/seagrass/train_output/
 /job_queue/jobs.sqlite
 */lightning_logs/
-
-*.ckpt
+*/train_output

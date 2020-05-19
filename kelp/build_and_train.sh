@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
+NAME=AMP2
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
@@ -24,18 +25,18 @@ docker run -dit --rm \
   --gpus all \
   --name kelp-train \
   tayden/deeplabv3-kelp train "/opt/ml/input/data/train" "/opt/ml/input/data/eval" "/opt/ml/output/checkpoints" \
-  --accumulate_grad_batches=4 --gradient_clip_val=0.5 --precision=16 --auto-lr-find
+  --accumulate_grad_batches=4 --gradient_clip_val=0.5 --weight_decay=0.001 --unfreeze_backbone_epoch=30 --epochs=150 \
+  --name=$NAME --precision=16 --amp_level="O2" --auto-lr-find
 
 # Can start tensorboard in running container as follows:
-docker exec -dit kelp-train tensorboard --logdir=/opt/ml/output/checkpoints/runs --host=0.0.0.0 --port=$PORT
+docker exec -dit kelp-train tensorboard --logdir=/opt/ml/output/checkpoints --host=0.0.0.0 --port=$PORT
 # Navigate to localhost:6006 to see train stats
 
 # Wait for process so AWS exits when it's done
 docker wait kelp-train
 
 # Sync results to S3
-ARCHIVE="$(date +'%Y-%m-%d-%H%M').tar.gz"
-cd ./train_output/checkpoints/ || exit 1
-tar -czvf "../$ARCHIVE" ./*.ckpt
-cd ../
+ARCHIVE="$(date +'%Y-%m-%d-%H%M')_$NAME.tar.gz"
+cd ./train_output/checkpoints/$NAME || exit 1
+tar -czvf "$ARCHIVE" ./*
 aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/kelp/output/
