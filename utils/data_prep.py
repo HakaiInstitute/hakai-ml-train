@@ -45,8 +45,7 @@ def _pad_out(crop, crop_size):
 def slice_and_dice_image(src_img, dest_d, mode='L', crop_size=200, stride=None):
     """
     Create a machine learning dataset of image patches. Chops src_img into square sections of length/width crop_size
-    and saves the patches and intermediate files to direction dest_d. Uses `cpus` count of cpus to process image in
-    parallel.
+    and saves the patches and intermediate files to direction dest_d.
     Args:
         src_img: Path to the image to crop into square sections
         dest_d: Path to directory to save the processed image
