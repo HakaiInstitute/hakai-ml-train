@@ -16,3 +16,4 @@ WORKDIR /opt/code
 
 # Run the train script
 ENTRYPOINT ["python", "deeplabv3_lightning.py"]
+CMD ["--help"]
