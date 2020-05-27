@@ -14,7 +14,6 @@ cd "$WORKING_DIR/raw_data" || exit 1
 
 mkdir -p \
   nw_calvert_2012 \
-  nw_calvert_2014 \
   nw_calvert_2015 \
   choked_pass_2016 \
   west_beach_2016 \
@@ -23,7 +22,6 @@ mkdir -p \
 
 # Copy all the image tifs to local drive with multiprocessing
 echo "nw_calvert_2012	/mnt/H/Internal/RS/Airborne/Air_Photos/Orthophotos_Processed/Calvert_Island_2012/Calvert_ortho_2012_Web_NAD83 \
-nw_calvert_2014 /mnt/H/Internal/RS/Airborne/Air_Photos/Orthophotos_Processed/Calvert_Imagery_July31_2014_Heli/Calvert_2014_Heli_MOS \
 nw_calvert_2015	/mnt/H/Internal/RS/UAV/Files/Calvert/2015/20150812_NWCalvertFinal_U0015/Products/calvert_nwcalvert15_CSRS_mos_U0015 \
 choked_pass_2016	/mnt/H/Internal/RS/UAV/Files/Calvert/2016/20160803_choked_U0069/Products/20160803_Calvert_ChokedNorthBeach_georef_MOS_U0069 \
 west_beach_2016	/mnt/H/Internal/RS/UAV/Files/Calvert/2016/20160804_westbeach_U0070/Products/20160804_Calvert_WestBeach_Georef_mos_U0070 \
@@ -37,7 +35,6 @@ cp -u -v "$2.tif.xml" "./$1/$fname.tif.xml"' sh
 
 # Copy all the kelp tifs to local drive with multiprocessing
 echo "nw_calvert_2012	/mnt/H/Working/For_Taylor/2012_Kelp/2012_Kelp_Water_RC_1 \
-nw_calvert_2014 /mnt/H/Working/For_Taylor/2014_Kelp/2014_NWCalvert_heli_kelp_30m \
 nw_calvert_2015	/mnt/H/Working/For_Taylor/2015_Kelp/2015_U0015_kelp \
 choked_pass_2016	/mnt/H/Working/For_Taylor/2016_Kelp/2016_U069_Kelp_RC_1 \
 west_beach_2016	/mnt/H/Working/For_Taylor/2016_Kelp/2016_U070_Kelp_RC_1 \
@@ -54,7 +51,7 @@ cp -u -v "$2.tif.xml" "./$1/$fname.tif.xml"' sh
 source "$HOME/anaconda3/bin/activate uav"
 
 # conda activate uav
-for DIR_NAME in nw_calvert_2012 nw_calvert_2014 nw_calvert_2015 choked_pass_2016 west_beach_2016 mcnaughton_2017 triquet_2019; do
+for DIR_NAME in nw_calvert_2012 nw_calvert_2015 choked_pass_2016 west_beach_2016 mcnaughton_2017 triquet_2019; do
   # Remove any weird noData values
   gdal_edit.py "./$DIR_NAME/kelp.tif" -unsetnodata
   gdal_edit.py "./$DIR_NAME/image.tif" -unsetnodata
@@ -81,12 +78,11 @@ done
 
 python "$PROJECT_DIR/utils/combine_filter_upload_kelp_data.py" \
   ./nw_calvert_2012 \
-  ./nw_calvert_2014 \
   ./nw_calvert_2015 \
   ./choked_pass_2016 \
   ./west_beach_2016 \
   ./mcnaughton_2017 \
   ./triquet_2019 \
-  --out_dir=../train_input/data
+  --out_dir=../train_input/data --dataset_name="kelp_species"
 
 cd - || exit 1
