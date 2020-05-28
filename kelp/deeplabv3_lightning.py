@@ -61,11 +61,11 @@ class DeepLabv3Model(pl.LightningModule):
 
         logits = y_hat['out']
         scores = torch.softmax(logits, dim=1)
-        loss = dice_loss(scores[:, 1], y)
+        loss = dice_loss(scores, y)
 
         aux_logits = y_hat['aux']
         aux_scores = torch.softmax(aux_logits, dim=1)
-        aux_loss = dice_loss(aux_scores[:, 1], y)
+        aux_loss = dice_loss(aux_scores, y)
 
         loss = loss + self.hparams.aux_loss_factor * aux_loss
         ious = iou(y, logits.float())
@@ -97,7 +97,7 @@ class DeepLabv3Model(pl.LightningModule):
 
         logits = y_hat['out']
         scores = torch.softmax(logits, dim=1)
-        loss = dice_loss(scores[:, 1], y)
+        loss = dice_loss(scores, y)
 
         ious = iou(y, logits.float())
         return {'val_loss': loss, 'val_ious': ious}
