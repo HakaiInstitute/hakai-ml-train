@@ -83,6 +83,6 @@ python "$PROJECT_DIR/utils/combine_filter_upload_kelp_data.py" \
   ./west_beach_2016 \
   ./mcnaughton_2017 \
   ./triquet_2019 \
-  --out_dir=../train_input/data --dataset_name="kelp_species"
+  --out_dir=../train_input/data
 
 cd - || exit 1
