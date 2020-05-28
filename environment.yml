@@ -14,3 +14,5 @@ dependencies:
   - fire
   - geopandas
   - numpy
+  - pip:
+      - pytorch-lightning
