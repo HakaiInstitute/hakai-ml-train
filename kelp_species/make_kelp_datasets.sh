@@ -51,16 +51,16 @@ for DIR_NAME in choked_2014 choked_2016 crabapple_2014 manly_kildidt_2016 nw_cal
   gdal_edit.py "./$DIR_NAME/image.tif" -unsetnodata
 
   # Let any pixel > 0 be kelp and set to value 1
-  gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --overwrite \
-    --calc="nan_to_num(A==1)" --type="Byte"
-  rm "./$DIR_NAME/kelp.tif"
+#  gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --overwrite \
+#    --calc="nan_to_num(A==1)" --type="Byte"
+#  rm "./$DIR_NAME/kelp.tif"
 
   # Convert all CRS to EPSG:4326 WGS84
   gdalwarp -t_srs EPSG:4326 -r near -of GTiff -overwrite "./$DIR_NAME/image.tif" "./$DIR_NAME/image_wgs.tif"
   rm "./$DIR_NAME/image.tif"
 
-  gdalwarp -t_srs EPSG:4326 -r near -of GTiff -overwrite "./$DIR_NAME/kelp_scaled.tif" "./$DIR_NAME/kelp_wgs.tif"
-  rm "./$DIR_NAME/kelp_scaled.tif"
+  gdalwarp -t_srs EPSG:4326 -r near -of GTiff -overwrite "./$DIR_NAME/kelp.tif" "./$DIR_NAME/kelp_wgs.tif"
+  rm "./$DIR_NAME/kelp.tif"
 
   python "$PROJECT_DIR/utils/dice_kelp_img_and_label.py" \
     "./$DIR_NAME/image_wgs.tif" \
