@@ -55,9 +55,9 @@ for DIR_NAME in choked_2014 choked_2016 crabapple_2014 golden_monitoring_2018 ma
   gdal_edit.py "./$DIR_NAME/kelp.tif" -unsetnodata
   gdal_edit.py "./$DIR_NAME/image.tif" -unsetnodata
 
-  # Let any value >2 be not kelp and set to value 0
+  # Set all Nan values to 0
   gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --overwrite \
-    --calc="nan_to_num(A>2)" --type="Byte"
+    --calc="nan_to_num(A)" --type="Byte"
   rm "./$DIR_NAME/kelp.tif"
 
   # Convert all CRS to EPSG:4326 WGS84
