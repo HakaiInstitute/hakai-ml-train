@@ -68,7 +68,7 @@ class DeepLabv3Model(pl.LightningModule):
         aux_loss = dice_loss(aux_scores, y)
 
         loss = loss + self.hparams.aux_loss_factor * aux_loss
-        ious = iou(y, logits.float())
+        ious = iou(logits.float(), y)
         return {'loss': loss, 'ious': ious}
 
     def training_epoch_end(self, outputs):
@@ -99,7 +99,7 @@ class DeepLabv3Model(pl.LightningModule):
         scores = torch.softmax(logits, dim=1)
         loss = dice_loss(scores, y)
 
-        ious = iou(y, logits.float())
+        ious = iou(logits.float(), y)
         return {'val_loss': loss, 'val_ious': ious}
 
     def validation_epoch_end(self, outputs):
