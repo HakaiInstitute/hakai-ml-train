@@ -16,6 +16,7 @@ mkdir -p \
   choked_2014 \
   choked_2016 \
   crabapple_2014 \
+  golden_monitoring_2018 \
   manly_kildidt_2016 \
   nw_calvert_2012 \
   nw_calvert_2015 \
@@ -23,13 +24,12 @@ mkdir -p \
   west_beach_2016 \
   simmonds_area_kelp_2019 \
   simmonds_monitoring_2018 \
-  crabapple_2014 \
   stryker_monitoring_2018 \
   stryker_monitoring_low_2018
 
 # Copy all the image tifs to local drive with multiprocessing
-echo "choked_2014 choked_2016 crabapple_2014 manly_kildidt_2016 nw_calvert_2012 nw_calvert_2015 \
-  west_beach_2014 west_beach_2016 simmonds_area_kelp_2019 simmonds_monitoring_2018 crabapple_2014 \
+echo "choked_2014 choked_2016 crabapple_2014 golden_monitoring_2018 manly_kildidt_2016 nw_calvert_2012 nw_calvert_2015 \
+  west_beach_2014 west_beach_2016 simmonds_area_kelp_2019 simmonds_monitoring_2018 \
   stryker_monitoring_2018 stryker_monitoring_low_2018" | xargs -n1 -P8 sh -c \
   'fname="image"; \
 cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tfw" "./$1/$fname.tfw"; \
@@ -38,8 +38,8 @@ cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tif.aux.xml" "./$1/$fname.
 cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tif.xml" "./$1/$fname.tif.xml"' sh
 
 # Copy all the kelp tifs to local drive with multiprocessing
-echo "choked_2014 choked_2016 crabapple_2014 manly_kildidt_2016 nw_calvert_2012 nw_calvert_2015 \
-  west_beach_2014 west_beach_2016 simmonds_area_kelp_2019 simmonds_monitoring_2018 crabapple_2014 \
+echo "choked_2014 choked_2016 crabapple_2014 golden_monitoring_2018 manly_kildidt_2016 nw_calvert_2012 nw_calvert_2015 \
+  west_beach_2014 west_beach_2016 simmonds_area_kelp_2019 simmonds_monitoring_2018 \
   stryker_monitoring_2018 stryker_monitoring_low_2018" | xargs -n1 -P8 sh -c \
   'fname="kelp"; \
 cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tfw" "./$1/$fname.tfw"; \
@@ -48,8 +48,9 @@ cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tif.aux.xml" "./$1/$fname.
 cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tif.xml" "./$1/$fname.tif.xml"' sh
 
 # Convert dataset to the cropped format
-for DIR_NAME in choked_2014 choked_2016 crabapple_2014 manly_kildidt_2016 nw_calvert_2012 nw_calvert_2015 west_beach_2014 west_beach_2016 \
-  simmonds_area_kelp_2019 simmonds_monitoring_2018 crabapple_2014 stryker_monitoring_2018 stryker_monitoring_low_2018; do
+for DIR_NAME in choked_2014 choked_2016 crabapple_2014 golden_monitoring_2018 manly_kildidt_2016 nw_calvert_2012 \
+  nw_calvert_2015 west_beach_2014 west_beach_2016 simmonds_area_kelp_2019 simmonds_monitoring_2018 \
+  stryker_monitoring_2018 stryker_monitoring_low_2018; do
   # Remove any weird noData values
   gdal_edit.py "./$DIR_NAME/kelp.tif" -unsetnodata
   gdal_edit.py "./$DIR_NAME/image.tif" -unsetnodata
@@ -78,6 +79,7 @@ python "$PROJECT_DIR/utils/combine_filter_upload_kelp_data.py" \
   choked_2014 \
   choked_2016 \
   crabapple_2014 \
+  golden_monitoring_2018 \
   manly_kildidt_2016 \
   nw_calvert_2012 \
   nw_calvert_2015 \
@@ -85,7 +87,6 @@ python "$PROJECT_DIR/utils/combine_filter_upload_kelp_data.py" \
   west_beach_2016 \
   simmonds_area_kelp_2019 \
   simmonds_monitoring_2018 \
-  crabapple_2014 \
   stryker_monitoring_2018 \
   stryker_monitoring_low_2018 \
   --out_dir=../train_input/data --dataset_name="kelp_species"
