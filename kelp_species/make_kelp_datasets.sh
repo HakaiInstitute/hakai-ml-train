@@ -55,21 +55,21 @@ for DIR_NAME in choked_2014 choked_2016 crabapple_2014 golden_monitoring_2018 ma
   gdal_edit.py "./$DIR_NAME/kelp.tif" -unsetnodata
   gdal_edit.py "./$DIR_NAME/image.tif" -unsetnodata
 
-  # Set all Nan values to 0
-  gdal_calc.py -A "./$DIR_NAME/kelp.tif" --outfile="./$DIR_NAME/kelp_scaled.tif" --overwrite \
-    --calc="nan_to_num(A)" --type="Byte"
-  rm "./$DIR_NAME/kelp.tif"
-
   # Convert all CRS to EPSG:4326 WGS84
   gdalwarp -t_srs EPSG:4326 -r near -of GTiff -overwrite "./$DIR_NAME/image.tif" "./$DIR_NAME/image_wgs.tif"
   rm "./$DIR_NAME/image.tif"
 
-  gdalwarp -t_srs EPSG:4326 -r near -of GTiff -overwrite "./$DIR_NAME/kelp_scaled.tif" "./$DIR_NAME/kelp_wgs.tif"
+  gdalwarp -t_srs EPSG:4326 -r near -of GTiff -overwrite "./$DIR_NAME/kelp.tif" "./$DIR_NAME/kelp_wgs.tif"
   rm "./$DIR_NAME/kelp.tif"
+
+  # Set values above 2 to 0 as well as set nodata values (i.e 255) to 0
+  gdal_calc.py -A "./$DIR_NAME/kelp_wgs.tif" --outfile="./$DIR_NAME/kelp_wgs_scaled.tif" --overwrite \
+    --calc="nan_to_num(A*(A<3), nan=0)" --type="Byte"
+  rm "./$DIR_NAME/kelp_wgs.tif"
 
   python "$PROJECT_DIR/utils/dice_kelp_img_and_label.py" \
     "./$DIR_NAME/image_wgs.tif" \
-    "./$DIR_NAME/kelp_wgs.tif" \
+    "./$DIR_NAME/kelp_wgs_scaled.tif" \
     "./$DIR_NAME" \
     --crop_size=512 \
     --stride=256
