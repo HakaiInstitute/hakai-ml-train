@@ -11,10 +11,11 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
+from torchvision.models.segmentation.fcn import FCNHead
 
-from utils.eval import predict_tiff
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
+from utils.eval import predict_tiff
 from utils.loss import dice_loss, iou
 
 
@@ -28,6 +29,9 @@ class DeepLabv3Model(pl.LightningModule):
         self.model.requires_grad_(False)
         self.model.classifier = DeepLabHead(2048, self.hparams.num_classes)
         self.model.classifier.requires_grad_(True)
+
+        self.model.aux_classifier = FCNHead(1024, self.hparams.num_classes)
+        self.model.aux_classifier.requires_grad_(True)
 
         if self.hparams.unfreeze_backbone_epoch == 0:
             self.model.backbone.layer3.requires_grad_(True)
@@ -55,17 +59,20 @@ class DeepLabv3Model(pl.LightningModule):
         return DataLoader(ds_val, shuffle=False, batch_size=self.hparams.batch_size, pin_memory=True,
                           num_workers=os.cpu_count())
 
+    def calc_loss(self, p, g):
+        return dice_loss(p.permute(0, 2, 3, 1).reshape((-1, self.hparams.num_classes)), g.flatten())
+
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
 
         logits = y_hat['out']
         scores = torch.softmax(logits, dim=1)
-        loss = dice_loss(scores, y)
+        loss = self.calc_loss(scores, y)
 
         aux_logits = y_hat['aux']
         aux_scores = torch.softmax(aux_logits, dim=1)
-        aux_loss = dice_loss(aux_scores, y)
+        aux_loss = self.calc_loss(aux_scores, y)
 
         loss = loss + self.hparams.aux_loss_factor * aux_loss
         ious = iou(logits.float(), y)
@@ -97,7 +104,7 @@ class DeepLabv3Model(pl.LightningModule):
 
         logits = y_hat['out']
         scores = torch.softmax(logits, dim=1)
-        loss = dice_loss(scores, y)
+        loss = self.calc_loss(scores, y)
 
         ious = iou(logits.float(), y)
         return {'val_loss': loss, 'val_ious': ious}
