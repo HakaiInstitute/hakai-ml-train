@@ -45,7 +45,7 @@ def job_loop(db):
                 "--gpus=all",
                 "--name=kelp-pred",
                 "tayden/deeplabv3-kelp", "pred",
-                f"--seg_in={in_file}", f"--seg_out={out_file}", f"--weights={weight_file}"
+                f"--seg_in={in_file}", f"--seg_out={out_file}", f"--weights={weight_file}", "--batch_size=12"
             ], cwd='../', check=True)
 
             # Mark job complete
