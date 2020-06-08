@@ -88,14 +88,13 @@ class DeepLabv3Model(pl.LightningModule):
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
         avg_ious = torch.stack([x['ious'] for x in outputs]).mean(dim=0)
         avg_mious = avg_ious.mean()
-        avg_bg_ious = avg_ious[0]
-        avg_fg_ious = avg_ious[1]
 
         tensorboard_logs = {
             'loss': avg_loss,
             'miou': avg_mious,
-            'fg_iou': avg_fg_ious,
-            'bg_iou': avg_bg_ious
+            'macro_iou': avg_ious[0],
+            'nereo_iou': avg_ious[1],
+            'bg_iou': avg_ious[2]
         }
         return {'loss': avg_loss, 'log': tensorboard_logs}
 
@@ -114,14 +113,13 @@ class DeepLabv3Model(pl.LightningModule):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_ious = torch.stack([x['val_ious'] for x in outputs]).mean(dim=0)
         avg_mious = avg_ious.mean()
-        avg_bg_ious = avg_ious[0]
-        avg_fg_ious = avg_ious[1]
 
         tensorboard_logs = {
             'val_loss': avg_loss,
             'val_miou': avg_mious,
-            'val_fg_iou': avg_fg_ious,
-            'val_bg_iou': avg_bg_ious
+            'val_macro_iou': avg_ious[0],
+            'val_nereo_iou': avg_ious[1],
+            'val_bg_iou': avg_ious[2]
         }
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
 
