@@ -10,7 +10,7 @@ ENV DOCKER=TRUE
 RUN pip install pytorch-lightning rasterio fire
 
 # Set up the program in the image
-COPY kelp/deeplabv3_lightning.py /opt/code/deeplabv3_lightning.py
+COPY kelp_species/deeplabv3_lightning.py /opt/code/deeplabv3_lightning.py
 COPY utils /opt/code/utils
 WORKDIR /opt/code
 

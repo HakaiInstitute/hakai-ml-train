@@ -16,7 +16,7 @@
     <option name="requirementsPath" value="" />
   </component>
   <component name="PyDocumentationSettings">
-    <option name="format" value="GOOGLE" />
-    <option name="myDocStringFormat" value="Google" />
+    <option name="format" value="NUMPY" />
+    <option name="myDocStringFormat" value="NumPy" />
   </component>
 </module>

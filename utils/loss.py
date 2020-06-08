@@ -1,136 +1,292 @@
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
-from torch.autograd import Variable
 
 
-def iou(true, logits, eps=1e-7):
-    """Computes the Jaccard loss, a.k.a the IoU loss.
-    Note that PyTorch optimizers minimize a loss. In this
-    case, we would like to maximize the jaccard loss so we
-    return the negated jaccard loss.
-    Args:
-        true: a tensor of shape [B, H, W] or [B, 1, H, W].
-        logits: a tensor of shape [B, C, H, W]. Corresponds to
-            the raw output or logits of the model.
-        eps: added to the denominator for numerical stability.
-    Returns:
-        jacc_loss: the Jaccard loss.
+def iou(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
+    """Computes the intersection over union statistic for predictions p and ground truth labels g.
+
+    Parameters
+    ----------
+    p : np.ndarray shape=(n, c, h, w)
+        Softmax or sigmoid scaled predictions.
+    g : np.ndarray shape=(n, h, w)
+        int type ground truth labels for each sample.
+    smooth : Optional[float]
+        A function smooth parameter that also provides numerical stability.
+
+    Returns
+    -------
+    List[float]
+        The calculated IoU index for each class.
     """
-    num_classes = logits.shape[1]
+    num_classes = p.shape[1]
     if num_classes == 1:
-        true_1_hot = torch.eye(num_classes + 1)[true.squeeze(1)]
+        true_1_hot = torch.eye(num_classes + 1)[g.squeeze(1)]
         true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
         true_1_hot_f = true_1_hot[:, 0:1, :, :]
         true_1_hot_s = true_1_hot[:, 1:2, :, :]
         true_1_hot = torch.cat([true_1_hot_s, true_1_hot_f], dim=1)
-        pos_prob = torch.sigmoid(logits)
+        pos_prob = torch.sigmoid(p)
         neg_prob = 1 - pos_prob
         probas = torch.cat([pos_prob, neg_prob], dim=1)
     else:
-        true_1_hot = torch.eye(num_classes)[true.squeeze(1)]
+        true_1_hot = torch.eye(num_classes)[g.squeeze(1)]
         true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
-        probas = F.softmax(logits, dim=1)
-    true_1_hot = true_1_hot.type(logits.type())
+        probas = F.softmax(p, dim=1)
+    true_1_hot = true_1_hot.type(p.type())
     dims = (0,) + tuple(range(2, true_1_hot.ndimension()))
     intersection = torch.sum(probas * true_1_hot, dims)
     cardinality = torch.sum(probas + true_1_hot, dims)
     union = cardinality - intersection
-    return (intersection / (union + eps))
+    return (intersection / (union + smooth))
 
 
-def jaccard_loss(true, logits, eps=1e-7):
-    return 1 - iou(true, logits, eps=eps).mean()
+def jaccard_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
+    """Computes the Jaccard similarity loss for predictions p and ground truth labels g.
+
+    Parameters
+    ----------
+    p : np.ndarray shape=(n, c, h, w)
+        Softmax or sigmoid scaled predictions.
+    g : np.ndarray shape=(n, h, w)
+        int type ground truth labels for each sample.
+    smooth : Optional[float]
+        A function smooth parameter that also provides numerical stability.
+
+    Returns
+    -------
+    List[float]
+        The calculated IoU index for each class.
+    """
+    return 1 - iou(p, g, smooth=smooth).mean()
 
 
-def assymetric_tversky_loss(p, g, beta=1.):
+def _dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
+    """Compute the Dice similarity index for each class for predictions p and ground truth labels g.
+
+    Parameters
+    ----------
+    p : np.ndarray shape=(n, c)
+        Softmax or sigmoid scaled predictions.
+    g : np.ndarray shape=(n)
+        int type ground truth labels for each sample.
+    smooth : Optional[float]
+        A function smooth parameter that also provides numerical stability.
+
+    Returns
+    -------
+    List[float]
+        The calculated similarity index amount for each class.
+
+    Examples
+    --------
+    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
+    >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
+    >>> list(np.around(_dice_similarity_c(X, y, smooth=0).numpy(), 6))
+    [0.777778, 0.666667]
+
+    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
+    >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
+    >>> list(np.around(_dice_similarity_c(X, y, smooth=0).numpy(), 6))
+    [1.0, 1.0]
+
+    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
+    >>> y = F.one_hot(torch.LongTensor([1, 1, 0]), 2)
+    >>> list(np.around(_dice_similarity_c(X, y, smooth=0).numpy(), 6))
+    [0.0, 0.0]
+    """
+    tp = torch.sum(torch.mul(p, g), dim=0)
+    denom = torch.sum(p + g, dim=0)
+    return ((2 * tp) + smooth) / (denom + smooth)
+
+
+def dice_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     """Loss function from the paper S. R. Hashemi, et al, 2018. "Asymmetric loss functions and deep densely-connected
     networks for highly-imbalanced medical image segmentation: application to multiple sclerosis lesion detection"
     https://ieeexplore.ieee.org/abstract/document/8573779.
     Electronic ISSN: 2169-3536. DOI: 10.1109/ACCESS.2018.2886371.
 
-    p: predicted output from a sigmoid-like activation. (i.e. range is 0-1)
-    g: ground truth label of pixel (0 or 1)
-    beta: parameter that adjusts weight between FP and FN error importance. beta=1. simplifies to the Dice loss function
-    (F1 score) and weights both FP and FNs equally. B=0 is precicion, B=2 is the F_2 score
+    Parameters
+    ----------
+    p : np.ndarray shape=(n, c)
+        Softmax or sigmoid scaled predictions.
+    g : np.ndarray shape=(n)
+        int type ground truth labels for each sample.
+    smooth : Optional[float]
+        A function smooth parameter that also provides numerical stability.
 
-    >>> np.around(assymetric_tversky_loss(torch.Tensor([0.9, 0.5, 0.2]), torch.Tensor([1., 0., 1.]), beta=1.5).numpy(), 6)
-    0.413934
+    Returns
+    -------
+    float
+        The calculated loss amount.
+
+    Examples
+    --------
+    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
+    >>> y = torch.Tensor([0, 0, 1])
+    >>> np.around(dice_loss(X, y, smooth=0).numpy(), 6)
+    0.555556
+
+    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
+    >>> y = torch.Tensor([0, 0, 1])
+    >>> np.around(dice_loss(X, y, smooth=0).numpy(), 1)
+    0.0
+
+    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
+    >>> y = torch.Tensor([1, 1, 0])
+    >>> np.around(dice_loss(X, y, smooth=0).numpy(), 1)
+    2.0
     """
-    p = p.float()
-    g = g.float()
-    bsq = beta * beta
-    pg = torch.sum(torch.mul(p, g))  # 1.1
-    similarity_coeff = ((1 + bsq) * pg) / (  # (3.25*1.1) / ((3.25*1.1)+(2.25*0.9)+(0.5))
-            ((1 + bsq) * pg) + (bsq * torch.sum(torch.mul((1 - p), g))) + (torch.sum(torch.mul(p, (1 - g))))
-    )
-    return 1 - similarity_coeff
+    num_samples, num_classes = p.shape
+    g = F.one_hot(g.long(), num_classes)
+
+    dsc = _dice_similarity_c(p, g, smooth)
+    return torch.sum(1 - dsc, dim=0)
 
 
-def dice_loss(p, g):
+def _tversky_index_c(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
+    """Compute the Tversky similarity index for each class for predictions p and ground truth labels g.
+
+    Parameters
+    ----------
+    p : np.ndarray shape=(n, c)
+        Softmax or sigmoid scaled predictions.
+    g : np.ndarray shape=(n)
+        int type ground truth labels for each sample.
+    alpha : Optional[float]
+        The relative weight to go to false positives.
+    beta : Optional[float]
+        The relative weight to go to false negatives.
+    smooth : Optional[float]
+        A function smooth parameter that also provides numerical stability.
+
+    Returns
+    -------
+    List[float]
+        The calculated similarity index amount for each class.
+
+    Examples
+    --------
+    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
+    >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
+    >>> np.allclose(_dice_similarity_c(X, y).numpy(), _tversky_index_c(X, y, alpha=0.5, beta=0.5).numpy())
+    True
+
+    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
+    >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
+    >>> list(np.around(_tversky_index_c(X, y).numpy(), 6))
+    [0.777778, 0.666667]
+
+    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
+    >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
+    >>> list(np.around(_tversky_index_c(X, y).numpy(), 6))
+    [1.0, 1.0]
+
+    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
+    >>> y = F.one_hot(torch.LongTensor([1, 1, 0]), 2)
+    >>> list(np.around(_tversky_index_c(X, y).numpy(), 6))
+    [0.0, 0.0]
     """
-    Loss function from the paper S. R. Hashemi, et al, 2018. "Asymmetric loss functions and deep densely-connected
-    networks for highly-imbalanced medical image segmentation: application to multiple sclerosis lesion detection"
-    https://ieeexplore.ieee.org/abstract/document/8573779.
-    Electronic ISSN: 2169-3536. DOI: 10.1109/ACCESS.2018.2886371.
+    tp = torch.sum(torch.mul(p, g), dim=0)
+    fp = torch.sum(torch.mul(p, 1. - g), dim=0)
+    fn = torch.sum(torch.mul(1. - p, g), dim=0)
+    return (tp + smooth) / (tp + alpha * fp + beta * fn + smooth)
 
-    p: predicted output from a sigmoid-like activation. (i.e. range is 0-1)
-    g: ground truth label of pixel (0 or 1)
-    beta: parameter that adjusts weight between FP and FN error importance. beta=1. simplifies to the Dice loss function
-    (F1 score) and weights both FP and FNs equally. B=0 is precicion, B=2 is the F_2 score
 
-    >>> np.around(dice_loss(torch.Tensor([0.9, 0.5, 0.2]), torch.Tensor([1., 0., 1.])).numpy(), 6)
-    0.388889
+def tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
+    """Compute the Tversky Loss for predictions p and ground truth labels g.
+
+    Parameters
+    ----------
+    p : np.ndarray shape=(n, c)
+        Softmax or sigmoid scaled predictions.
+    g : np.ndarray shape=(n)
+        int type ground truth labels for each sample.
+    alpha : Optional[float]
+        The relative weight to go to false positives.
+    beta : Optional[float]
+        The relative weight to go to false negatives.
+    smooth : Optional[float]
+        A function smooth parameter that also provides numerical stability.
+
+    Returns
+    -------
+    float
+        The calculated loss amount.
+
+    Examples
+    --------
+    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
+    >>> y = torch.Tensor([0, 0, 1])
+    >>> np.around(tversky_loss(X, y, smooth=0).numpy(), 6)
+    0.555556
+
+    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
+    >>> y = torch.Tensor([0, 0, 1])
+    >>> np.around(tversky_loss(X, y, smooth=0).numpy(), 1)
+    0.0
+
+    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
+    >>> y = torch.Tensor([1, 1, 0])
+    >>> np.around(tversky_loss(X, y, smooth=0).numpy(), 1)
+    2.0
     """
-    return assymetric_tversky_loss(p, g, beta=1.)
+    num_samples, num_classes = p.shape
+    g = F.one_hot(g.long(), num_classes)
+
+    ti = _tversky_index_c(p, g, alpha, beta, smooth)
+    return torch.sum(1 - ti, dim=0)
 
 
-class FocalLoss(nn.Module):
-    def __init__(self, gamma):
-        super().__init__()
-        self.gamma = gamma
+def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1.,
+                       smooth: float = 1e-8):
+    """Compute the focal Tversky Loss for predictions p and ground truth labels g.
 
-    def forward(self, input, target):
-        # Inspired by the implementation of binary_cross_entropy_with_logits
-        if not (target.size() == input.size()):
-            raise ValueError("Target size ({}) must be the same as input size ({})".format(target.size(), input.size()))
+    Parameters
+    ----------
+    p : np.ndarray shape=(n, c)
+        Softmax or sigmoid scaled predictions.
+    g : np.ndarray shape=(n)
+        int type ground truth labels for each sample.
+    alpha : Optional[float]
+        The relative weight to go to false positives.
+    beta : Optional[float]
+        The relative weight to go to false negatives.
+    gamma : Optional[float]
+        Parameter controlling how much weight is given to large vs small errors in prediction.
+    smooth : Optional[float]
+        A function smooth parameter that also provides numerical stability.
 
-        max_val = (-input).clamp(min=0)
-        loss = input - input * target + max_val + ((-max_val).exp() + (-input - max_val).exp()).log()
+    Returns
+    -------
+    float
+        The calculated loss amount.
 
-        # This formula gives us the log sigmoid of 1-p if y is 0 and of p if y is 1
-        invprobs = F.logsigmoid(-input * (target * 2 - 1))
-        loss = (invprobs * self.gamma).exp() * loss
+    Examples
+    --------
+    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
+    >>> y = torch.Tensor([0, 0, 1])
+    >>> np.around(focal_tversky_loss(X, y, alpha=0.5, beta=0.5, smooth=0).numpy(), 6)
+    0.555556
 
-        return loss.mean()
+    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
+    >>> y = torch.Tensor([0, 0, 1])
+    >>> np.around(focal_tversky_loss(X, y, alpha=0.5, beta=0.5, smooth=0).numpy(), 1)
+    0.0
 
+    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
+    >>> y = torch.Tensor([1, 1, 0])
+    >>> np.around(focal_tversky_loss(X, y, alpha=0.5, beta=0.5, smooth=0).numpy(), 1)
+    2.0
+    """
+    num_samples, num_classes = p.shape
+    g = F.one_hot(g.long(), num_classes)
 
-def make_one_hot(labels, num_classes=2):
-    one_hot = torch.FloatTensor(labels.size(0), num_classes, labels.size(2), labels.size(3)).zero_()
-    target = one_hot.scatter_(1, labels.data, 1)
-
-    target = Variable(target)
-
-    return target
-
-
-class FocalLossMultiLabel(nn.Module):
-    def __init__(self, gamma, weight):
-        super().__init__()
-        self.gamma = gamma
-        self.nll = nn.NLLLoss(weight=weight, reduce=False)
-
-    def forward(self, input, target):
-        loss = self.nll(input, target)
-
-        one_hot = make_one_hot(target.unsqueeze(dim=1), input.size()[1])
-        inv_probs = 1 - input.exp()
-        focal_weights = (inv_probs * one_hot).sum(dim=1) ** self.gamma
-        loss = loss * focal_weights
-
-        return loss.mean()
+    ti = _tversky_index_c(p, g, alpha, beta, smooth)
+    res = (1 - ti).pow(1 / gamma)
+    return torch.sum(res, dim=0)
 
 
 if __name__ == '__main__':

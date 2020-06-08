@@ -16,7 +16,7 @@ from torchvision.models.segmentation.fcn import FCNHead
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
 from utils.eval import predict_tiff
-from utils.loss import dice_loss, iou
+from utils.loss import iou, focal_tversky_loss
 
 
 class DeepLabv3Model(pl.LightningModule):
@@ -60,7 +60,8 @@ class DeepLabv3Model(pl.LightningModule):
                           num_workers=os.cpu_count())
 
     def calc_loss(self, p, g):
-        return dice_loss(p.permute(0, 2, 3, 1).reshape((-1, self.hparams.num_classes)), g.flatten())
+        return focal_tversky_loss(p.permute(0, 2, 3, 1).reshape((-1, self.hparams.num_classes)), g.flatten(),
+                                  alpha=0.3, beta=0.7, gamma=4. / 3.)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -135,7 +136,7 @@ def _get_checkpoint(checkpoint_dir, name=""):
 
 
 def train(train_data_dir, val_data_dir, checkpoint_dir,
-          num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
+          num_classes=3, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
           accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O1', auto_lr_find=False,
           unfreeze_backbone_epoch=150, auto_scale_batch_size=False, name=""):
     """

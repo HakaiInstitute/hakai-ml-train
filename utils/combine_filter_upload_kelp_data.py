@@ -16,7 +16,7 @@ from dataset.transforms import transforms as T
 
 def get_indices_of_kelp_images(dataset):
     ds = TransformDataset(dataset, transform=T.test_transforms, target_transform=T.test_target_transforms)
-    dl = DataLoader(ds, batch_size=1, shuffle=False, pin_memory=True, num_workers=os.cpu_count())
+    dl = DataLoader(ds, batch_size=1, shuffle=False, pin_memory=True, num_workers=0)
     indices = []
     for i, (_, y) in enumerate(tqdm(iter(dl))):
         if torch.any(y > 0):
