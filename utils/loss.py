@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.utils.data
 
 
-def iou(p: np.ndarray, g: np.ndarray, smooth: float = 1e-8):
+def iou(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     """Computes the intersection over union statistic for predictions p and ground truth labels g.
 
     Parameters
@@ -43,7 +43,7 @@ def iou(p: np.ndarray, g: np.ndarray, smooth: float = 1e-8):
     return (intersection / (union + smooth))
 
 
-def jaccard_loss(p: np.ndarray, g: np.ndarray, smooth: float = 1e-8):
+def jaccard_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     """Computes the Jaccard similarity loss for predictions p and ground truth labels g.
 
     Parameters
@@ -63,7 +63,7 @@ def jaccard_loss(p: np.ndarray, g: np.ndarray, smooth: float = 1e-8):
     return 1 - iou(p, g, smooth=smooth).mean()
 
 
-def _dice_similarity_c(p: np.ndarray, g: np.ndarray, smooth: float = 1e-8):
+def _dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     """Compute the Dice similarity index for each class for predictions p and ground truth labels g.
 
     Parameters
@@ -102,7 +102,7 @@ def _dice_similarity_c(p: np.ndarray, g: np.ndarray, smooth: float = 1e-8):
     return ((2 * tp) + smooth) / (denom + smooth)
 
 
-def dice_loss(p: np.ndarray, g: np.ndarray, smooth: float = 1e-8):
+def dice_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     """Loss function from the paper S. R. Hashemi, et al, 2018. "Asymmetric loss functions and deep densely-connected
     networks for highly-imbalanced medical image segmentation: application to multiple sclerosis lesion detection"
     https://ieeexplore.ieee.org/abstract/document/8573779.
@@ -146,7 +146,7 @@ def dice_loss(p: np.ndarray, g: np.ndarray, smooth: float = 1e-8):
     return torch.sum(1 - dsc, dim=0)
 
 
-def _tversky_index_c(p: np.ndarray, g: np.ndarray, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
+def _tversky_index_c(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
     """Compute the Tversky similarity index for each class for predictions p and ground truth labels g.
 
     Parameters
@@ -195,7 +195,7 @@ def _tversky_index_c(p: np.ndarray, g: np.ndarray, alpha: float = 0.5, beta: flo
     return (tp + smooth) / (tp + alpha * fp + beta * fn + smooth)
 
 
-def tversky_loss(p: np.ndarray, g: np.ndarray, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
+def tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
     """Compute the Tversky Loss for predictions p and ground truth labels g.
 
     Parameters
@@ -240,7 +240,7 @@ def tversky_loss(p: np.ndarray, g: np.ndarray, alpha: float = 0.5, beta: float =
     return torch.sum(1 - ti, dim=0)
 
 
-def focal_tversky_loss(p: np.ndarray, g: np.ndarray, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1.,
+def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1.,
                        smooth: float = 1e-8):
     """Compute the focal Tversky Loss for predictions p and ground truth labels g.
 
