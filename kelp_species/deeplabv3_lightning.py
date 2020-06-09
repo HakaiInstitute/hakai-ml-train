@@ -1,3 +1,4 @@
+import math
 import os
 from argparse import Namespace
 from pathlib import Path
@@ -43,7 +44,14 @@ class DeepLabv3Model(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr,
                                       weight_decay=self.hparams.weight_decay)
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
+
+        scheduler_kwargs = {
+            "max_lr": self.hparams.lr,
+            "epochs": self.hparams.epochs,
+            "steps_per_epoch": math.floor(self.hparams.epochs / self.hparams.batch_size),
+            "pct_start": self.hparams.unfreeze_backbone_epoch / self.hparams.epochs
+        }
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, **scheduler_kwargs)
         return [optimizer], [{'scheduler': lr_scheduler, 'interval': 'step'}]
 
     def train_dataloader(self):
