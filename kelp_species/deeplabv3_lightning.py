@@ -44,7 +44,7 @@ class DeepLabv3Model(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
 
-        steps_per_epoch = math.floor(len(self.train_dataloader()) / self.hparams.gpus)
+        steps_per_epoch = math.floor(len(self.train_dataloader()) / max(self.hparams.gpus, 1))
         pct_start = self.hparams.unfreeze_backbone_epoch / self.hparams.epochs
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr, pct_start=pct_start,
                                                            epochs=self.hparams.epochs, steps_per_epoch=steps_per_epoch)
