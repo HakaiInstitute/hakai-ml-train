@@ -7,10 +7,10 @@ import random
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, ds_path, ext=".png", transform=None, target_transform=None):
+    def __init__(self, ds_path, transform=None, target_transform=None):
         super().__init__()
-        self._images = sorted(Path(ds_path).joinpath("x").glob("*" + ext))
-        self._labels = sorted(Path(ds_path).joinpath("y").glob("*" + ext))
+        self._images = list(Path(ds_path).joinpath("x").iterdir())
+        self._labels = list(Path(ds_path).joinpath("y").iterdir())
         self.transform = transform
         self.target_transform = target_transform
 
