@@ -42,24 +42,20 @@ class DeepLabv3Model(pl.LightningModule):
         return self.model.forward(x)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr,
-                                      weight_decay=self.hparams.weight_decay)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
 
-        scheduler_kwargs = {
-            "max_lr": self.hparams.lr,
-            "epochs": self.hparams.epochs,
-            "steps_per_epoch": math.floor(self.hparams.epochs / self.hparams.batch_size),
-            "pct_start": self.hparams.unfreeze_backbone_epoch / self.hparams.epochs
-        }
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, **scheduler_kwargs)
+        steps_per_epoch = math.floor(len(self.train_dataloader()) / self.hparams.gpus)
+        pct_start = self.hparams.unfreeze_backbone_epoch / self.hparams.epochs
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr, pct_start=pct_start,
+                                                           epochs=self.hparams.epochs, steps_per_epoch=steps_per_epoch)
+
         return [optimizer], [{'scheduler': lr_scheduler, 'interval': 'step'}]
 
     def train_dataloader(self):
         ds_train = SegmentationDataset(self.hparams.train_data_dir, transform=t.train_transforms,
                                        target_transform=t.train_target_transforms)
         return DataLoader(ds_train, shuffle=True, batch_size=self.hparams.batch_size, pin_memory=True,
-                          drop_last=True,
-                          num_workers=os.cpu_count())
+                          drop_last=True, num_workers=os.cpu_count())
 
     def val_dataloader(self):
         ds_val = SegmentationDataset(self.hparams.val_data_dir, transform=t.test_transforms,
@@ -195,10 +191,12 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         precision=precision,
         amp_level=amp_level,
         unfreeze_backbone_epoch=unfreeze_backbone_epoch,
+        gpus=torch.cuda.device_count(),
     )
 
     trainer_kwargs = {
         'gpus': torch.cuda.device_count() if torch.cuda.is_available() else None,
+        'distributed_backend': 'ddp' if torch.cuda.is_available() else None,
         'checkpoint_callback': checkpoint_callback,
         'logger': logger,
         'early_stop_callback': False,
