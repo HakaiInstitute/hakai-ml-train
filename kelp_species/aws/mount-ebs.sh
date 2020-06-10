@@ -54,10 +54,6 @@ if [ $VOLUME_ID ]; then
 		mount --bind /dltraining/species/data ./train_input/data
 		mkdir -p ./train_output
 		mount --bind /dltraining/species/train_output ./train_output
-
-		# Initiate training using the pytorch_36 conda environment
-		sudo -H -u ubuntu bash -c "aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/train ./train_input/data/train"
-		sudo -H -u ubuntu bash -c "aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/eval ./train_input/data/eval"
 fi
 
 # After training, clean up by cancelling spot requests and terminating itself
