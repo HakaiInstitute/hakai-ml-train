@@ -43,7 +43,7 @@ class DeepLabv3Model(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
-
+        import pdb; pdb.set_trace()
         steps_per_epoch = math.floor(len(self.train_dataloader()))
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr,
                                                            epochs=self.hparams.epochs, steps_per_epoch=steps_per_epoch)
@@ -207,6 +207,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'amp_level': amp_level,
         'auto_scale_batch_size': auto_scale_batch_size,
         'callbacks': [lr_logger_callback],
+        'profile': True,
     }
 
     # If checkpoint exists, resume
