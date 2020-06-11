@@ -206,7 +206,6 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'max_epochs': epochs,
         'auto_scale_batch_size': auto_scale_batch_size,
         'callbacks': [lr_logger_callback],
-        'profiler': True,
     }
 
     # If checkpoint exists, resume
