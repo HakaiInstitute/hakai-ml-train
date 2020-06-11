@@ -43,8 +43,7 @@ class DeepLabv3Model(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
-        import pdb; pdb.set_trace()
-        steps_per_epoch = math.floor(len(self.train_dataloader()))
+        steps_per_epoch = math.floor(len(self.train_dataloader()) / max(torch.cuda.device_count(), 1))
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr,
                                                            epochs=self.hparams.epochs, steps_per_epoch=steps_per_epoch)
 
@@ -84,9 +83,9 @@ class DeepLabv3Model(pl.LightningModule):
 
     def training_epoch_end(self, outputs):
         # Allow fine-tuning of backbone layers after 150 epochs
-        if self.current_epoch == self.hparams.unfreeze_backbone_epoch - 1:
-            self.model.backbone.layer3.requires_grad_(True)
-            self.model.backbone.layer4.requires_grad_(True)
+        # if self.current_epoch == self.hparams.unfreeze_backbone_epoch - 1:
+        #     self.model.backbone.layer3.requires_grad_(True)
+        #     self.model.backbone.layer4.requires_grad_(True)
 
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
         avg_ious = torch.stack([x['ious'] for x in outputs]).mean(dim=0)
@@ -195,6 +194,8 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
     trainer_kwargs = {
         'gpus': torch.cuda.device_count() if torch.cuda.is_available() else None,
         'distributed_backend': 'ddp' if torch.cuda.is_available() else None,
+        'amp_level': amp_level,
+        'precision': precision,
         'checkpoint_callback': checkpoint_callback,
         'logger': logger,
         'early_stop_callback': False,
@@ -203,11 +204,9 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'accumulate_grad_batches': accumulate_grad_batches,
         'gradient_clip_val': gradient_clip_val,
         'max_epochs': epochs,
-        'precision': precision,
-        'amp_level': amp_level,
         'auto_scale_batch_size': auto_scale_batch_size,
         'callbacks': [lr_logger_callback],
-        'profile': True,
+        'profiler': True,
     }
 
     # If checkpoint exists, resume
