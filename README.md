@@ -17,7 +17,7 @@
     - `docker run hello-world` should print a “Hello World” message to the terminal if everything is working. See https://docs.docker.com/engine/install/linux-postinstall/ if you have any issues.
 
 #### Download the Kelp model weights
-- `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200517.ckpt > deeplabv3_kelp_200517.ckpt` will download the weights to your current directory
+- `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp_species/weights/deeplabv3_kelp_species_200611.ckpt > deeplabv3_kelp_species_200611.ckpt` will download the weights to your current directory
     - Later, you’ll need to pass the path to the weights to the classification script, so you may want to move them with `mv /from/location /to/location`
 
 #### Clone the GitHub repo
@@ -38,11 +38,11 @@
 - Update the GitHub repo if you haven't lately. This ensures you have the latest version of the code and these instructions.
     - Run `git pull`
 - Run the classification script:
-    - Using Docker: `bash segment_kelp.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3-kelp_200517.ckpt`
+    - Using Docker: `bash segment_kelp_species.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3_kelp_species_200611.ckpt`
     - Or, using a local Python environment:
         - Using the local environment requires installing packages. The easiest way to do this is with conda. In the git repo, run `conda env create`.
         - After installing packages, run `conda activate uav`
-        - Now, run `PYTHONPATH=. python segment_kelp.py pred /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3-kelp_200517.ckpt`
+        - Now, run `PYTHONPATH=. python segment_kelp_species.py pred /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3_kelp_species_200611.ckpt`
 - Move the output back to the samba server if desired, e.g. `mv /path/to/desired/output.tif /mnt/H/location/of/choice`
 
 ### Interpreting the model output
@@ -66,7 +66,7 @@ sudo apt-get install screen
 screen
 
 # execute the script
-bash segment_kelp.sh …
+bash segment_kelp_species.sh …
 
 # to detach: Press CTRL+A+D
 # Script is now running in the background and protected from interruption by
@@ -96,6 +96,6 @@ There are other commands to restart jobs, remove jobs, list jobs and the status,
 
 #### Docker
 Docker simply creates a lightweight virtual Linux machine and then executes the script in it. This ensures consistency across environments.
-You can inspect the `segment_kelp.sh` file to see exactly what Docker image is being pulled and what volumes are mounted to it.
+You can inspect the `segment_kelp_species.sh` file to see exactly what Docker image is being pulled and what volumes are mounted to it.
 To access from Hal9000 in the running Docker environment, the data drives must be mapped with the `-v from_location:to_location` flags.
 This is all taken care of for you in this script.
