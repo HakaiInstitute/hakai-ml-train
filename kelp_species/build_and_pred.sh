@@ -15,4 +15,4 @@ docker run -it --rm \
 --gpus all \
 --name kelp-species-pred \
 tayden/deeplabv3-kelp-species:latest pred "/opt/ml/input/data/segmentation/mcnaughton_small.tif" \
-  "/opt/ml/output/segmentation/mcnaughton_small_kelp.tif" "/opt/ml/output/weights/deeplabv3_kelp_200517.ckpt"
+  "/opt/ml/output/segmentation/mcnaughton_small_kelp.tif" "/opt/ml/output/weights/deeplabv3_kelp_species_200611.ckpt"
