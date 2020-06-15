@@ -63,7 +63,7 @@ class DeepLabv3Model(pl.LightningModule):
 
     def calc_loss(self, p, g):
         return focal_tversky_loss(p.permute(0, 2, 3, 1).reshape((-1, self.hparams.num_classes)), g.flatten(),
-                                  alpha=0.3, beta=0.7, gamma=4. / 3.)
+                                  alpha=0.5, beta=0.5, gamma=4. / 3.)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
