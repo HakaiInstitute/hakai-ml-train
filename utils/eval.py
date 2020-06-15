@@ -46,7 +46,7 @@ def predict_tiff(model, device, img_path, dest_path, transform, crop_size=200, p
         xs = xs.to(device)
         batch_size = xs.shape[0]
 
-        # skip classification entirely if batch is all empty images
+        # skip classification entirely if batch is all blank images
         if all([_is_empty(x) for x in xs]):
             continue
 
@@ -56,12 +56,9 @@ def predict_tiff(model, device, img_path, dest_path, transform, crop_size=200, p
 
         # Do segmentation
         segmentation = model(xs)['out']
-        # torch.cuda.synchronize(device=device)  # For profiling only
 
-        segmentation = F.softmax(segmentation, dim=1)
-        segmentation = segmentation[:, 1] * 255  # For likelihood output
+        segmentation = segmentation.argmax(dim=1).unsqueeze(dim=1)  # For class output
         segmentation = segmentation.detach().cpu().numpy()
-        segmentation = np.expand_dims(segmentation, axis=1)
         segmentation = segmentation.astype(np.uint8)
 
         # Save part of tiff wither rasterio TODO: Multi-process this
