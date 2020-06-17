@@ -6,6 +6,7 @@ from pathlib import Path
 import fire
 import pytorch_lightning as pl
 import torch
+import torch.nn.functional as F
 from pytorch_lightning import seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateLogger
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -61,12 +62,13 @@ class DeepLabv3Model(pl.LightningModule):
         return DataLoader(ds_val, shuffle=False, batch_size=self.hparams.batch_size, pin_memory=True,
                           num_workers=os.cpu_count())
 
-    @staticmethod
-    def calc_loss(p, g):
+    def calc_loss(self, p, g):
         alpha = 0.7
         beta = 0.3
         gamma = 4. / 3.
 
+        g = F.one_hot(g.flatten().long(), self.hparams.num_classes)
+        p = p.permute(0, 2, 3, 1).reshape((-1, self.hparams.num_classes))
         ti = tversky_index_c(p, g, alpha, beta)
         tversky = torch.sum((1 - ti), dim=0)
         focal_tversky = torch.sum((1 - ti).pow(1 / gamma), dim=0)
