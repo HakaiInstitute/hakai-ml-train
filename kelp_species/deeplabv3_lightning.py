@@ -73,7 +73,7 @@ class DeepLabv3Model(pl.LightningModule):
         tversky = torch.sum((1 - ti), dim=0)
         focal_tversky = torch.sum((1 - ti).pow(1 / gamma), dim=0)
 
-        return tversky + focal_tversky
+        return (0.5 * tversky) + (0.5 * focal_tversky)
 
     def training_step(self, batch, batch_idx):
         x, y = batch

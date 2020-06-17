@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=OneCycleLR_AdamW_FTL_TL
+NAME=OneCycleLR_AdamW_FTL_TLV2
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
@@ -26,7 +26,7 @@ docker run -dit --rm \
   --gpus all \
   --name kelp-species-train \
   tayden/deeplabv3-kelp-species train "/opt/ml/input/data/train" "/opt/ml/input/data/eval" "/opt/ml/output/checkpoints" \
-  --name=$NAME --epochs=100 --lr=0.01 --weight_decay=0.001 \
+  --name=$NAME --epochs=100 --lr=0.001 --weight_decay=0.001 \
   --gradient_clip_val=0.5 --batch_size=8 --precision=16 --amp_level="O1"
 
 # Can start tensorboard in running container as follows:
