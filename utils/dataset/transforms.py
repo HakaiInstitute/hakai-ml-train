@@ -21,15 +21,15 @@ transforms = SimpleNamespace(
     train_transforms=T.Compose([
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
-        T.RandomRotation(degrees=90),
-        T.ColorJitter(brightness=0.05, contrast=0.05, saturation=0.05),
+        T.RandomRotation(degrees=45),
+        T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         T.ToTensor(),
         _normalize,
     ]),
     train_target_transforms=T.Compose([
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
-        T.RandomRotation(degrees=90, fill=(0,)),
+        T.RandomRotation(degrees=45, fill=(0,)),
         _target_to_tensor,
     ]),
     test_transforms=T.Compose([
