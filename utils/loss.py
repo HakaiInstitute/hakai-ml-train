@@ -63,7 +63,7 @@ def jaccard_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     return 1 - iou(p, g, smooth=smooth).mean()
 
 
-def _dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
+def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     """Compute the Dice similarity index for each class for predictions p and ground truth labels g.
 
     Parameters
@@ -84,17 +84,17 @@ def _dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     --------
     >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
     >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
-    >>> list(np.around(_dice_similarity_c(X, y, smooth=0).numpy(), 6))
+    >>> list(np.around(dice_similarity_c(X, y, smooth=0).numpy(), 6))
     [0.777778, 0.666667]
 
     >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
     >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
-    >>> list(np.around(_dice_similarity_c(X, y, smooth=0).numpy(), 6))
+    >>> list(np.around(dice_similarity_c(X, y, smooth=0).numpy(), 6))
     [1.0, 1.0]
 
     >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
     >>> y = F.one_hot(torch.LongTensor([1, 1, 0]), 2)
-    >>> list(np.around(_dice_similarity_c(X, y, smooth=0).numpy(), 6))
+    >>> list(np.around(dice_similarity_c(X, y, smooth=0).numpy(), 6))
     [0.0, 0.0]
     """
     tp = torch.sum(torch.mul(p, g), dim=0)
@@ -142,11 +142,11 @@ def dice_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     num_samples, num_classes = p.shape
     g = F.one_hot(g.long(), num_classes)
 
-    dsc = _dice_similarity_c(p, g, smooth)
+    dsc = dice_similarity_c(p, g, smooth)
     return torch.sum(1 - dsc, dim=0)
 
 
-def _tversky_index_c(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
+def tversky_index_c(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
     """Compute the Tversky similarity index for each class for predictions p and ground truth labels g.
 
     Parameters
@@ -156,9 +156,9 @@ def _tversky_index_c(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta:
     g : np.ndarray shape=(n)
         int type ground truth labels for each sample.
     alpha : Optional[float]
-        The relative weight to go to false positives.
-    beta : Optional[float]
         The relative weight to go to false negatives.
+    beta : Optional[float]
+        The relative weight to go to false positives.
     smooth : Optional[float]
         A function smooth parameter that also provides numerical stability.
 
@@ -171,28 +171,28 @@ def _tversky_index_c(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta:
     --------
     >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
     >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
-    >>> np.allclose(_dice_similarity_c(X, y).numpy(), _tversky_index_c(X, y, alpha=0.5, beta=0.5).numpy())
+    >>> np.allclose(dice_similarity_c(X, y).numpy(), tversky_index_c(X, y, alpha=0.5, beta=0.5).numpy())
     True
 
     >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
     >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
-    >>> list(np.around(_tversky_index_c(X, y).numpy(), 6))
+    >>> list(np.around(tversky_index_c(X, y).numpy(), 6))
     [0.777778, 0.666667]
 
     >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
     >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
-    >>> list(np.around(_tversky_index_c(X, y).numpy(), 6))
+    >>> list(np.around(tversky_index_c(X, y).numpy(), 6))
     [1.0, 1.0]
 
     >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
     >>> y = F.one_hot(torch.LongTensor([1, 1, 0]), 2)
-    >>> list(np.around(_tversky_index_c(X, y).numpy(), 6))
+    >>> list(np.around(tversky_index_c(X, y).numpy(), 6))
     [0.0, 0.0]
     """
     tp = torch.sum(torch.mul(p, g), dim=0)
-    fp = torch.sum(torch.mul(p, 1. - g), dim=0)
     fn = torch.sum(torch.mul(1. - p, g), dim=0)
-    return (tp + smooth) / (tp + alpha * fp + beta * fn + smooth)
+    fp = torch.sum(torch.mul(p, 1. - g), dim=0)
+    return (tp + smooth) / (tp + alpha * fn + beta * fp + smooth)
 
 
 def tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
@@ -205,9 +205,9 @@ def tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: flo
     g : np.ndarray shape=(n)
         int type ground truth labels for each sample.
     alpha : Optional[float]
-        The relative weight to go to false positives.
-    beta : Optional[float]
         The relative weight to go to false negatives.
+    beta : Optional[float]
+        The relative weight to go to false positives.
     smooth : Optional[float]
         A function smooth parameter that also provides numerical stability.
 
@@ -236,7 +236,7 @@ def tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: flo
     num_samples, num_classes = p.shape
     g = F.one_hot(g.long(), num_classes)
 
-    ti = _tversky_index_c(p, g, alpha, beta, smooth)
+    ti = tversky_index_c(p, g, alpha, beta, smooth)
     return torch.sum(1 - ti, dim=0)
 
 
@@ -251,9 +251,9 @@ def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, bet
     g : np.ndarray shape=(n)
         int type ground truth labels for each sample.
     alpha : Optional[float]
-        The relative weight to go to false positives.
-    beta : Optional[float]
         The relative weight to go to false negatives.
+    beta : Optional[float]
+        The relative weight to go to false positives.
     gamma : Optional[float]
         Parameter controlling how much weight is given to large vs small errors in prediction.
     smooth : Optional[float]
@@ -284,7 +284,7 @@ def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, bet
     num_samples, num_classes = p.shape
     g = F.one_hot(g.long(), num_classes)
 
-    ti = _tversky_index_c(p, g, alpha, beta, smooth)
+    ti = tversky_index_c(p, g, alpha, beta, smooth)
     res = (1 - ti).pow(1 / gamma)
     return torch.sum(res, dim=0)
 
