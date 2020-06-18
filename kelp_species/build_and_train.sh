@@ -38,6 +38,5 @@ docker wait kelp-species-train
 
 # Sync results to S3
 ARCHIVE="$(date +'%Y-%m-%d-%H%M')_$NAME.tar.gz"
-cd ./train_output/checkpoints/$NAME || exit 1
-tar -czvf "$ARCHIVE" ./*
+tar -czvf "$ARCHIVE" -C train_output/checkpoints/$NAME .
 aws s3 cp "$ARCHIVE" s3://hakai-deep-learning-datasets/kelp_species/output/
