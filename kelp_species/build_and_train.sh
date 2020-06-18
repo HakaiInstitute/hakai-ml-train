@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=OneCycleLR_AdamW_FTL_TLV2
+NAME=OneCycleLR_AdamW_FTL_TLV3
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 

@@ -6,10 +6,8 @@ from pathlib import Path
 import fire
 import pytorch_lightning as pl
 import torch
-import torch.nn.functional as F
-from pytorch_lightning import seed_everything
-from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateLogger
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.metrics import IoU
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
@@ -18,7 +16,9 @@ from torchvision.models.segmentation.fcn import FCNHead
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
 from utils.eval import predict_tiff
-from utils.loss import iou, focal_tversky_loss
+from utils.loss import FocalTverskyMetric
+
+pl.seed_everything(0)
 
 
 class DeepLabv3Model(pl.LightningModule):
@@ -38,6 +38,9 @@ class DeepLabv3Model(pl.LightningModule):
         if self.hparams.unfreeze_backbone_epoch == 0:
             self.model.backbone.layer3.requires_grad_(True)
             self.model.backbone.layer4.requires_grad_(True)
+
+        self.calc_loss = FocalTverskyMetric(alpha=0.7, beta=0.3, gamma=4. / 3.)
+        self.calc_iou = IoU(reduction='none')
 
     def forward(self, x):
         return self.model.forward(x)
@@ -63,10 +66,6 @@ class DeepLabv3Model(pl.LightningModule):
         return DataLoader(ds_val, shuffle=False, batch_size=self.hparams.batch_size, pin_memory=True,
                           num_workers=os.cpu_count())
 
-    @staticmethod
-    def calc_loss(p, g):
-        return focal_tversky_loss(p, g, alpha=0.7, beta=0.3, gamma=4. / 3.)
-
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
@@ -80,7 +79,7 @@ class DeepLabv3Model(pl.LightningModule):
         aux_loss = self.calc_loss(aux_scores, y)
 
         loss = loss + self.hparams.aux_loss_factor * aux_loss
-        ious = iou(logits.float(), y)
+        ious = self.calc_iou(logits.argmax(dim=1), y)
         return {'loss': loss, 'ious': ious}
 
     def training_epoch_end(self, outputs):
@@ -88,7 +87,6 @@ class DeepLabv3Model(pl.LightningModule):
         # if self.current_epoch == self.hparams.unfreeze_backbone_epoch - 1:
         #     self.model.backbone.layer3.requires_grad_(True)
         #     self.model.backbone.layer4.requires_grad_(True)
-
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
         avg_ious = torch.stack([x['ious'] for x in outputs]).mean(dim=0)
         avg_mious = avg_ious.mean()
@@ -110,7 +108,8 @@ class DeepLabv3Model(pl.LightningModule):
         scores = torch.softmax(logits, dim=1)
         loss = self.calc_loss(scores, y)
 
-        ious = iou(logits.float(), y)
+        # PL sometimes adds an extra nan value after the IoUs
+        ious = self.calc_iou(logits.argmax(dim=1), y)
         return {'val_loss': loss, 'val_ious': ious}
 
     def validation_epoch_end(self, outputs):
@@ -169,8 +168,8 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
 
     logger = TensorBoardLogger(Path(checkpoint_dir), name=name)
 
-    lr_logger_callback = LearningRateLogger()
-    checkpoint_callback = ModelCheckpoint(
+    lr_logger_callback = pl.callbacks.LearningRateLogger()
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(
         verbose=True,
         monitor='val_miou',
         mode='max',
@@ -263,7 +262,6 @@ def predict(seg_in, seg_out, weights, batch_size=4, crop_size=300, crop_pad=150)
 
 
 if __name__ == '__main__':
-    seed_everything(0)
     fire.Fire({
         'train': train,
         'pred': predict

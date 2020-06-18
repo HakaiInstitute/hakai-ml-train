@@ -1,18 +1,15 @@
 name: uav
 channels:
-  - pytorch
+  - pytorch-nightly
   - conda-forge
   - defaults
 dependencies:
-  - python=3.7
+  - python=3.8
   - cudatoolkit=10.2
   - torchvision
-  - pytorch=1.5.0
-  - rasterio
+  - pytorch
+  - pytorch-lightning
   - tensorboard
+  - rasterio
   - tqdm
   - fire
-  - geopandas
-  - numpy
-  - pip:
-      - pytorch-lightning
