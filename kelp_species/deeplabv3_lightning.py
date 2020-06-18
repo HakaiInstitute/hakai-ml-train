@@ -18,7 +18,7 @@ from torchvision.models.segmentation.fcn import FCNHead
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
 from utils.eval import predict_tiff
-from utils.loss import iou, tversky_index_c
+from utils.loss import iou, focal_tversky_loss
 
 
 class DeepLabv3Model(pl.LightningModule):
@@ -62,16 +62,9 @@ class DeepLabv3Model(pl.LightningModule):
         return DataLoader(ds_val, shuffle=False, batch_size=self.hparams.batch_size, pin_memory=True,
                           num_workers=os.cpu_count())
 
-    def calc_loss(self, p, g):
-        alpha = 0.7
-        beta = 0.3
-        gamma = 4. / 3.
-
-        ti = tversky_index_c(p, g, alpha, beta)
-        tversky = torch.sum((1 - ti), dim=0)
-        focal_tversky = torch.sum((1 - ti).pow(1 / gamma), dim=0)
-
-        return (0.5 * tversky) + (0.5 * focal_tversky)
+    @staticmethod
+    def calc_loss(p, g):
+        return focal_tversky_loss(p, g, alpha=0.7, beta=0.3, gamma=4. / 3.)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
