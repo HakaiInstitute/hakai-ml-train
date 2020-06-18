@@ -43,7 +43,8 @@ class DeepLabv3Model(pl.LightningModule):
         return self.model.forward(x)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr, amsgrad=True,
+                                      weight_decay=self.hparams.weight_decay)
         steps_per_epoch = math.floor(len(self.train_dataloader()) / max(torch.cuda.device_count(), 1))
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr,
                                                            epochs=self.hparams.epochs, steps_per_epoch=steps_per_epoch)
