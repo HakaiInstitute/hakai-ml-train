@@ -67,8 +67,6 @@ class DeepLabv3Model(pl.LightningModule):
         beta = 0.3
         gamma = 4. / 3.
 
-        g = F.one_hot(g.flatten().long(), self.hparams.num_classes)
-        p = p.permute(0, 2, 3, 1).reshape((-1, self.hparams.num_classes))
         ti = tversky_index_c(p, g, alpha, beta)
         tversky = torch.sum((1 - ti), dim=0)
         focal_tversky = torch.sum((1 - ti).pow(1 / gamma), dim=0)

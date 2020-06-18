@@ -68,9 +68,9 @@ def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
 
     Parameters
     ----------
-    p : np.ndarray shape=(n, c)
+    p : np.ndarray shape=(batch_size, num_classes, height, width)
         Softmax or sigmoid scaled predictions.
-    g : np.ndarray shape=(n)
+    g : np.ndarray shape=(batch_size, height, width)
         int type ground truth labels for each sample.
     smooth : Optional[float]
         A function smooth parameter that also provides numerical stability.
@@ -82,21 +82,25 @@ def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
 
     Examples
     --------
-    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
-    >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]]], [[[0.5]], [[0.5]]], [[[0.2]], [[0.8]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> list(np.around(dice_similarity_c(X, y, smooth=0).numpy(), 6))
     [0.777778, 0.666667]
 
-    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
-    >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> list(np.around(dice_similarity_c(X, y, smooth=0).numpy(), 6))
     [1.0, 1.0]
 
-    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
-    >>> y = F.one_hot(torch.LongTensor([1, 1, 0]), 2)
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[1]], [[1]], [[0]]])
     >>> list(np.around(dice_similarity_c(X, y, smooth=0).numpy(), 6))
     [0.0, 0.0]
     """
+    c = p.shape[1]
+    p = p.permute(0, 2, 3, 1).reshape((-1, c))
+    g = F.one_hot(g.flatten().long(), c)
+
     tp = torch.sum(torch.mul(p, g), dim=0)
     denom = torch.sum(p + g, dim=0)
     return ((2 * tp) + smooth) / (denom + smooth)
@@ -110,9 +114,9 @@ def dice_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
 
     Parameters
     ----------
-    p : np.ndarray shape=(n, c)
+    p : np.ndarray shape=(batch_size, num_classes, height, width)
         Softmax or sigmoid scaled predictions.
-    g : np.ndarray shape=(n)
+    g : np.ndarray shape=(batch_size, height, width)
         int type ground truth labels for each sample.
     smooth : Optional[float]
         A function smooth parameter that also provides numerical stability.
@@ -124,24 +128,21 @@ def dice_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
 
     Examples
     --------
-    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
-    >>> y = torch.Tensor([0, 0, 1])
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]]], [[[0.5]], [[0.5]]], [[[0.2]], [[0.8]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> np.around(dice_loss(X, y, smooth=0).numpy(), 6)
     0.555556
 
-    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
-    >>> y = torch.Tensor([0, 0, 1])
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> np.around(dice_loss(X, y, smooth=0).numpy(), 1)
     0.0
 
-    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
-    >>> y = torch.Tensor([1, 1, 0])
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[1]], [[1]], [[0]]])
     >>> np.around(dice_loss(X, y, smooth=0).numpy(), 1)
     2.0
     """
-    num_samples, num_classes = p.shape
-    g = F.one_hot(g.long(), num_classes)
-
     dsc = dice_similarity_c(p, g, smooth)
     return torch.sum(1 - dsc, dim=0)
 
@@ -151,9 +152,9 @@ def tversky_index_c(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: 
 
     Parameters
     ----------
-    p : np.ndarray shape=(n, c)
+    p : np.ndarray shape=(batch_size, num_classes, height, width)
         Softmax or sigmoid scaled predictions.
-    g : np.ndarray shape=(n)
+    g : np.ndarray shape=(batch_size, height, width)
         int type ground truth labels for each sample.
     alpha : Optional[float]
         The relative weight to go to false negatives.
@@ -169,26 +170,30 @@ def tversky_index_c(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: 
 
     Examples
     --------
-    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
-    >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]]], [[[0.5]], [[0.5]]], [[[0.2]], [[0.8]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> np.allclose(dice_similarity_c(X, y).numpy(), tversky_index_c(X, y, alpha=0.5, beta=0.5).numpy())
     True
 
-    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
-    >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]]], [[[0.5]], [[0.5]]], [[[0.2]], [[0.8]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> list(np.around(tversky_index_c(X, y).numpy(), 6))
     [0.777778, 0.666667]
 
-    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
-    >>> y = F.one_hot(torch.LongTensor([0, 0, 1]), 2)
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> list(np.around(tversky_index_c(X, y).numpy(), 6))
     [1.0, 1.0]
 
-    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
-    >>> y = F.one_hot(torch.LongTensor([1, 1, 0]), 2)
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.LongTensor([[[1]], [[1]], [[0]]])
     >>> list(np.around(tversky_index_c(X, y).numpy(), 6))
     [0.0, 0.0]
     """
+    c = p.shape[1]
+    p = p.permute(0, 2, 3, 1).reshape((-1, c))
+    g = F.one_hot(g.flatten().long(), c)
+
     tp = torch.sum(torch.mul(p, g), dim=0)
     fn = torch.sum(torch.mul(1. - p, g), dim=0)
     fp = torch.sum(torch.mul(p, 1. - g), dim=0)
@@ -200,9 +205,9 @@ def tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: flo
 
     Parameters
     ----------
-    p : np.ndarray shape=(n, c)
+    p : np.ndarray shape=(batch_size, num_classes, height, width)
         Softmax or sigmoid scaled predictions.
-    g : np.ndarray shape=(n)
+    g : np.ndarray shape=(batch_size, height, width)
         int type ground truth labels for each sample.
     alpha : Optional[float]
         The relative weight to go to false negatives.
@@ -218,24 +223,21 @@ def tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: flo
 
     Examples
     --------
-    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
-    >>> y = torch.Tensor([0, 0, 1])
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]]], [[[0.5]], [[0.5]]], [[[0.2]], [[0.8]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> np.around(tversky_loss(X, y, smooth=0).numpy(), 6)
     0.555556
 
-    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
-    >>> y = torch.Tensor([0, 0, 1])
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> np.around(tversky_loss(X, y, smooth=0).numpy(), 1)
     0.0
 
-    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
-    >>> y = torch.Tensor([1, 1, 0])
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[1]], [[1]], [[0]]])
     >>> np.around(tversky_loss(X, y, smooth=0).numpy(), 1)
     2.0
     """
-    num_samples, num_classes = p.shape
-    g = F.one_hot(g.long(), num_classes)
-
     ti = tversky_index_c(p, g, alpha, beta, smooth)
     return torch.sum(1 - ti, dim=0)
 
@@ -246,9 +248,9 @@ def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, bet
 
     Parameters
     ----------
-    p : np.ndarray shape=(n, c)
+    p : np.ndarray shape=(batch_size, num_classes, height, width)
         Softmax or sigmoid scaled predictions.
-    g : np.ndarray shape=(n)
+    g : np.ndarray shape=(batch_size, height, width)
         int type ground truth labels for each sample.
     alpha : Optional[float]
         The relative weight to go to false negatives.
@@ -266,24 +268,21 @@ def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, bet
 
     Examples
     --------
-    >>> X = torch.Tensor([[0.9, 0.1], [0.5, 0.5], [0.2, 0.8]])
-    >>> y = torch.Tensor([0, 0, 1])
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]]], [[[0.5]], [[0.5]]], [[[0.2]], [[0.8]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> np.around(focal_tversky_loss(X, y, alpha=0.5, beta=0.5, smooth=0).numpy(), 6)
     0.555556
 
-    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
-    >>> y = torch.Tensor([0, 0, 1])
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
     >>> np.around(focal_tversky_loss(X, y, alpha=0.5, beta=0.5, smooth=0).numpy(), 1)
     0.0
 
-    >>> X = torch.Tensor([[1., 0.], [1., 0.], [0., 1.]])
-    >>> y = torch.Tensor([1, 1, 0])
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[1]], [[1]], [[0]]])
     >>> np.around(focal_tversky_loss(X, y, alpha=0.5, beta=0.5, smooth=0).numpy(), 1)
     2.0
     """
-    num_samples, num_classes = p.shape
-    g = F.one_hot(g.long(), num_classes)
-
     ti = tversky_index_c(p, g, alpha, beta, smooth)
     res = (1 - ti).pow(1 / gamma)
     return torch.sum(res, dim=0)
