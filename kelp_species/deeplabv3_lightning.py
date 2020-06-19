@@ -16,7 +16,7 @@ from torchvision.models.segmentation.fcn import FCNHead
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
 from utils.eval import predict_tiff
-from utils.loss import FocalTverskyMetric
+from utils.loss import focal_tversky_loss
 
 pl.seed_everything(0)
 
@@ -39,7 +39,6 @@ class DeepLabv3Model(pl.LightningModule):
             self.model.backbone.layer3.requires_grad_(True)
             self.model.backbone.layer4.requires_grad_(True)
 
-        self.calc_loss = FocalTverskyMetric(alpha=0.7, beta=0.3, gamma=4. / 3.)
         self.calc_iou = IoU(reduction='none')
 
     def forward(self, x):
@@ -65,6 +64,10 @@ class DeepLabv3Model(pl.LightningModule):
                                      target_transform=t.test_target_transforms)
         return DataLoader(ds_val, shuffle=False, batch_size=self.hparams.batch_size, pin_memory=True,
                           num_workers=os.cpu_count())
+
+    @staticmethod
+    def calc_loss(p, g):
+        return focal_tversky_loss(p, g, alpha=0.7, beta=0.3, gamma=4. / 3.)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -108,7 +111,6 @@ class DeepLabv3Model(pl.LightningModule):
         scores = torch.softmax(logits, dim=1)
         loss = self.calc_loss(scores, y)
 
-        # PL sometimes adds an extra nan value after the IoUs
         ious = self.calc_iou(logits.argmax(dim=1), y)
         return {'val_loss': loss, 'val_ious': ious}
 
