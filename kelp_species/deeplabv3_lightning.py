@@ -1,13 +1,14 @@
 import math
 import os
 from argparse import Namespace
+from functools import partial
 from pathlib import Path
 
 import fire
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.metrics import IoU
+from pytorch_lightning.metrics.functional import iou
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
@@ -39,7 +40,7 @@ class DeepLabv3Model(pl.LightningModule):
             self.model.backbone.layer3.requires_grad_(True)
             self.model.backbone.layer4.requires_grad_(True)
 
-        self.calc_iou = IoU(reduction='none')
+        self.calc_iou = partial(iou, num_classes=self.hparams.num_classes, reduction='none')
 
     def forward(self, x):
         return self.model.forward(x)
@@ -164,7 +165,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         name: The name of the model. Creates a subdirectory in the checkpoint dir with this name. Defaults to "".
 
     Returns: None. Side effects include logging and checkpointing models to the checkpoint directory.
-    
+
     """
     os.environ['TORCH_HOME'] = str(Path(checkpoint_dir).parent)
 

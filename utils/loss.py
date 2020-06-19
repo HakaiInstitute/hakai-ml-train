@@ -5,45 +5,6 @@ import torch.utils.data
 from pytorch_lightning.metrics import TensorMetric
 
 
-def iou(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
-    """Computes the intersection over union statistic for predictions p and ground truth labels g.
-
-    Parameters
-    ----------
-    p : np.ndarray shape=(n, c, h, w)
-        Softmax or sigmoid scaled predictions.
-    g : np.ndarray shape=(n, h, w)
-        int type ground truth labels for each sample.
-    smooth : Optional[float]
-        A function smooth parameter that also provides numerical stability.
-
-    Returns
-    -------
-    List[float]
-        The calculated IoU index for each class.
-    """
-    num_classes = p.shape[1]
-    if num_classes == 1:
-        true_1_hot = torch.eye(num_classes + 1)[g.squeeze(1)]
-        true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
-        true_1_hot_f = true_1_hot[:, 0:1, :, :]
-        true_1_hot_s = true_1_hot[:, 1:2, :, :]
-        true_1_hot = torch.cat([true_1_hot_s, true_1_hot_f], dim=1)
-        pos_prob = torch.sigmoid(p)
-        neg_prob = 1 - pos_prob
-        probas = torch.cat([pos_prob, neg_prob], dim=1)
-    else:
-        true_1_hot = torch.eye(num_classes)[g.squeeze(1)]
-        true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
-        probas = F.softmax(p, dim=1)
-    true_1_hot = true_1_hot.type(p.type())
-    dims = (0,) + tuple(range(2, true_1_hot.ndimension()))
-    intersection = torch.sum(probas * true_1_hot, dims)
-    cardinality = torch.sum(probas + true_1_hot, dims)
-    union = cardinality - intersection
-    return (intersection / (union + smooth))
-
-
 def jaccard_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     """Computes the Jaccard similarity loss for predictions p and ground truth labels g.
 
