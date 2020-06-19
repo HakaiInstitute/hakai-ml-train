@@ -173,7 +173,9 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         verbose=True,
         monitor='val_miou',
         mode='max',
-        prefix='best_val_miou_'
+        prefix='best_val_miou_',
+        save_top_k=4,
+        save_last=True,
     )
 
     hparams = Namespace(
