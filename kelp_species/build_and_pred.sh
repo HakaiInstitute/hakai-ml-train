@@ -17,4 +17,4 @@ docker run -it --rm \
   tayden/deeplabv3-kelp-species:latest pred \
   "/opt/ml/input/data/segmentation/triquet_2019.tif" \
   "/opt/ml/output/segmentation/triquet_2019_kelp_species_200616.tif" \
-  "/opt/ml/output/weights/deeplabv3_kelp_species_200616.ckpt"
+  "/opt/ml/output/weights/deeplabv3_kelp_species_200620.ckpt"

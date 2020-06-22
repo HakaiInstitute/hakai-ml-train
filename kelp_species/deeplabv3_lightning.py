@@ -14,6 +14,7 @@ from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
 
+from utils.checkpoint import get_checkpoint
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
 from utils.eval import predict_tiff
@@ -88,9 +89,10 @@ class DeepLabv3Model(pl.LightningModule):
 
     def training_epoch_end(self, outputs):
         # Allow fine-tuning of backbone layers after 150 epochs
-        # if self.current_epoch == self.hparams.unfreeze_backbone_epoch - 1:
-        #     self.model.backbone.layer3.requires_grad_(True)
-        #     self.model.backbone.layer4.requires_grad_(True)
+        if self.current_epoch >= self.hparams.unfreeze_backbone_epoch - 1:
+            self.model.backbone.layer3.requires_grad_(True)
+            self.model.backbone.layer4.requires_grad_(True)
+
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
         avg_ious = torch.stack([x['ious'] for x in outputs]).mean(dim=0)
         avg_mious = avg_ious.mean()
@@ -130,19 +132,10 @@ class DeepLabv3Model(pl.LightningModule):
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
 
 
-def _get_checkpoint(checkpoint_dir, name=""):
-    versions_dir = Path(checkpoint_dir).joinpath(name)
-    checkpoint_files = list(versions_dir.glob("*/checkpoints/best_val_miou_*.ckpt"))
-    if len(checkpoint_files) > 0:
-        return str(sorted(checkpoint_files)[-1])
-    else:
-        return False
-
-
 def train(train_data_dir, val_data_dir, checkpoint_dir,
           num_classes=3, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
           accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O1', auto_lr_find=False,
-          unfreeze_backbone_epoch=0, auto_scale_batch_size=False, name=""):
+          unfreeze_backbone_epoch=0, auto_scale_batch_size=False, overfit_batches=None, name=""):
     """
     Train the DeepLabV3 Kelp Detection model.
     Args:
@@ -162,6 +155,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         auto_lr_find: Flag on wether or not to run the LR finder at the beginning of training. Defaults to False.
         unfreeze_backbone_epoch: The epoch at which blocks 3 and 4 of the backbone network should start adjusting parameters. Defaults to 150.
         auto_scale_batch_size: Run a heuristic to maximize batch size per GPU. Defaults to False.
+        overfit_batches: The number or percentage of batches to train on. Useful for debugging.
         name: The name of the model. Creates a subdirectory in the checkpoint dir with this name. Defaults to "".
 
     Returns: None. Side effects include logging and checkpointing models to the checkpoint directory.
@@ -212,10 +206,11 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'max_epochs': epochs,
         'auto_scale_batch_size': auto_scale_batch_size,
         'callbacks': [lr_logger_callback],
+        'overfit_batches': overfit_batches,
     }
 
     # If checkpoint exists, resume
-    checkpoint = _get_checkpoint(checkpoint_dir, name)
+    checkpoint = get_checkpoint(checkpoint_dir, name)
     if checkpoint:
         print("Loading checkpoint:", checkpoint)
         model = DeepLabv3Model.load_from_checkpoint(checkpoint, hparams=hparams)
@@ -254,7 +249,7 @@ def predict(seg_in, seg_out, weights, batch_size=4, crop_size=300, crop_pad=150)
 
     # Load model and weights
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = DeepLabv3Model.load_from_checkpoint(weights)
+    model = DeepLabv3Model.load_from_checkpoint(str(weights))
     model.freeze()
     model = model.to(device)
 
