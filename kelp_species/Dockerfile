@@ -1,11 +1,13 @@
 ARG VERSION=latest
 FROM tayden/uav:$VERSION
 
+ENV PYTHONPATH /opt/code:$PYTHONPATH
 WORKDIR /opt/code
 
 # Copy the script to the image
-COPY kelp_species/deeplabv3_lightning.py /opt/code/deeplabv3_lightning.py
 COPY utils /opt/code/utils
+COPY models /opt/code/models
+COPY kelp_species/*.py /opt/code/kelp_species/
 
-# Run the train script
-ENTRYPOINT ["python", "deeplabv3_lightning.py"]
+# Run the cli script
+ENTRYPOINT ["python", "kelp_species/cli.py"]
