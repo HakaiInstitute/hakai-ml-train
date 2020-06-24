@@ -1,19 +1,13 @@
-ARG VERSION=1.5-cuda10.1-cudnn7-devel-apex
-FROM tayden/pytorch:$VERSION
+ARG VERSION=latest
+FROM tayden/uav:$VERSION
 
-ENV PYTHONUNBUFFERED=TRUE
-ENV PYTHONDONTWRITEBYTECODE=TRUE
-ENV PATH="/opt/code:${PATH}"
-ENV DOCKER=TRUE
-
-# Install dependancies
-RUN pip install pytorch-lightning rasterio fire
-
-# Set up the program in the image
-COPY kelp/deeplabv3_lightning.py /opt/code/deeplabv3_lightning.py
-COPY utils /opt/code/utils
+ENV PYTHONPATH /opt/code:$PYTHONPATH
 WORKDIR /opt/code
 
-# Run the train script
-ENTRYPOINT ["python", "deeplabv3_lightning.py"]
-CMD ["--help"]
+# Copy the script to the image
+COPY utils /opt/code/utils
+COPY models /opt/code/models
+COPY kelp/*.py /opt/code/kelp/
+
+# Run the cli script
+ENTRYPOINT ["python", "kelp/cli.py"]

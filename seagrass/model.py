@@ -8,8 +8,7 @@ class SeagrassModel(DeepLabv3):
         bg_iou = ious[:, 0][~torch.isnan(ious[:, 0])].mean(dim=0)
         seagrass_iou = ious[:, 1][~torch.isnan(ious[:, 1])].mean(dim=0)
 
-        miou = torch.stack([bg_iou, seagrass_iou])
-        miou = miou[~torch.isnan(miou)].mean()
+        miou = torch.stack([bg_iou, seagrass_iou]).mean()
 
         key_prefix = 'val_' if phase == 'val' else ''
         return {
