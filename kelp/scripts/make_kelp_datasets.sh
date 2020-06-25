@@ -1,8 +1,8 @@
 THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 echo $THIS_DIR
-PROJECT_DIR=$(realpath "$THIS_DIR/..")
+PROJECT_DIR=$(realpath "$THIS_DIR/../..")
 echo $PROJECT_DIR
-WORKING_DIR="/mnt/Z/kelp_species_data"
+WORKING_DIR="/mnt/Z/kelp_presence_data"
 
 # Mount the samba data server
 #sudo mkdir -p /mnt/H
@@ -25,32 +25,33 @@ mkdir -p \
   simmonds_area_kelp_2019 \
   simmonds_monitoring_2018 \
   stryker_monitoring_2018 \
-  stryker_monitoring_low_2018
+  stryker_monitoring_low_2018 \
+  triquet_2019
 
 # Copy all the image tifs to local drive with multiprocessing
 echo "choked_2014 choked_2016 crabapple_2014 golden_monitoring_2018 manly_kildidt_2016 nw_calvert_2012 nw_calvert_2015 \
   west_beach_2014 west_beach_2016 simmonds_area_kelp_2019 simmonds_monitoring_2018 \
-  stryker_monitoring_2018 stryker_monitoring_low_2018" | xargs -n1 -P8 sh -c \
+  stryker_monitoring_2018 stryker_monitoring_low_2018 triquet_2019" | xargs -n1 -P8 sh -c \
   'fname="image"; \
-cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tif" "./$1/$fname.tif"; \
-cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tfw" "./$1/$fname.tfw"; \
-cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tif.aux.xml" "./$1/$fname.tif.aux.xml"; \
-cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tif.xml" "./$1/$fname.tif.xml"' sh
+cp -u -v "/mnt/H/Working/Taylor/KelpPresence/$1/$fname.tif" "./$1/$fname.tif"; \
+cp -u -v "/mnt/H/Working/Taylor/KelpPresence/$1/$fname.tfw" "./$1/$fname.tfw"; \
+cp -u -v "/mnt/H/Working/Taylor/KelpPresence/$1/$fname.tif.aux.xml" "./$1/$fname.tif.aux.xml"; \
+cp -u -v "/mnt/H/Working/Taylor/KelpPresence/$1/$fname.tif.xml" "./$1/$fname.tif.xml"' sh
 
 # Copy all the kelp tifs to local drive with multiprocessing
 echo "choked_2014 choked_2016 crabapple_2014 golden_monitoring_2018 manly_kildidt_2016 nw_calvert_2012 nw_calvert_2015 \
   west_beach_2014 west_beach_2016 simmonds_area_kelp_2019 simmonds_monitoring_2018 \
-  stryker_monitoring_2018 stryker_monitoring_low_2018" | xargs -n1 -P8 sh -c \
+  stryker_monitoring_2018 stryker_monitoring_low_2018 triquet_2019" | xargs -n1 -P8 sh -c \
   'fname="kelp"; \
-cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tif" "./$1/$fname.tif"; \
-cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tfw" "./$1/$fname.tfw"; \
-cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tif.aux.xml" "./$1/$fname.tif.aux.xml"; \
-cp -u -v "/mnt/H/Working/Taylor/KelpSpecies/$1/$fname.tif.xml" "./$1/$fname.tif.xml"' sh
+cp -u -v "/mnt/H/Working/Taylor/KelpPresence/$1/$fname.tif" "./$1/$fname.tif"; \
+cp -u -v "/mnt/H/Working/Taylor/KelpPresence/$1/$fname.tfw" "./$1/$fname.tfw"; \
+cp -u -v "/mnt/H/Working/Taylor/KelpPresence/$1/$fname.tif.aux.xml" "./$1/$fname.tif.aux.xml"; \
+cp -u -v "/mnt/H/Working/Taylor/KelpPresence/$1/$fname.tif.xml" "./$1/$fname.tif.xml"' sh
 
 # Convert dataset to the cropped format
 for DIR_NAME in choked_2014 choked_2016 crabapple_2014 golden_monitoring_2018 manly_kildidt_2016 nw_calvert_2012 \
   nw_calvert_2015 west_beach_2014 west_beach_2016 simmonds_area_kelp_2019 simmonds_monitoring_2018 \
-  stryker_monitoring_2018 stryker_monitoring_low_2018; do
+  stryker_monitoring_2018 stryker_monitoring_low_2018 triquet_2019; do
   # Remove any weird noData values
   gdal_edit.py "./$DIR_NAME/kelp.tif" -unsetnodata
   gdal_edit.py "./$DIR_NAME/image.tif" -unsetnodata
@@ -62,9 +63,9 @@ for DIR_NAME in choked_2014 choked_2016 crabapple_2014 golden_monitoring_2018 ma
   gdalwarp -t_srs EPSG:4326 -r near -of GTiff -overwrite "./$DIR_NAME/kelp.tif" "./$DIR_NAME/kelp_wgs.tif"
   rm "./$DIR_NAME/kelp.tif"
 
-  # Set values above 2 to 0 as well as set nodata values (i.e 255) to 0
+  # Set values above 1 to 0 as well as set nodata values (i.e 255) to 0
   gdal_calc.py -A "./$DIR_NAME/kelp_wgs.tif" --outfile="./$DIR_NAME/kelp_wgs_scaled.tif" --overwrite \
-    --calc="nan_to_num(A*(A<3), nan=0)" --type="Byte"
+    --calc="nan_to_num(A*(A<2))" --type="Byte"
   rm "./$DIR_NAME/kelp_wgs.tif"
 
   python "$PROJECT_DIR/utils/dice_kelp_img_and_label.py" \
@@ -89,6 +90,7 @@ python "$PROJECT_DIR/utils/combine_filter_upload_kelp_data.py" \
   simmonds_monitoring_2018 \
   stryker_monitoring_2018 \
   stryker_monitoring_low_2018 \
-  --out_dir=../train_input/data --dataset_name="kelp_species"
+  triquet_2019 \
+  --out_dir=../train_input/data --dataset_name="kelp"
 
 cd - || exit 1
