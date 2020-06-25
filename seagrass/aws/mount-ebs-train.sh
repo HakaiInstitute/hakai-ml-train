@@ -44,19 +44,20 @@ if [ $VOLUME_ID ]; then
 		mkdir -p /dltraining
 		mount /dev/xvdf /dltraining
 		chown -R ubuntu: /dltraining/
-		cd /home/ubuntu/
+		cd /home/ubuntu/ || exit 1
 
 		# Get training code
 		git clone https://github.com/tayden/uav-classif.git
 		chown -R ubuntu: uav-classif
-		cd uav-classif/seagrass
+		cd uav-classif/seagrass || exit 1
 		mkdir -p ./train_input/data
 		mount --bind /dltraining/data ./train_input/data
 		mkdir -p ./train_output
 		mount --bind /dltraining/train_output ./train_output
 
 		# Initiate training using the pytorch_36 conda environment
-		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate python3; bash scripts/build_and_train.sh"
+    cd scripts || exit 1
+		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate python3; bash ./build_and_train.sh"
 fi
 
 # After training, clean up by cancelling spot requests and terminating itself
