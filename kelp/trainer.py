@@ -85,9 +85,11 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'gradient_clip_val': gradient_clip_val,
         'max_epochs': epochs,
         'auto_scale_batch_size': auto_scale_batch_size,
-        'callbacks': [lr_logger_callback],
-        'overfit_batches': overfit_batches,
+        'callbacks': [lr_logger_callback]
     }
+
+    if overfit_batches is not None:
+        trainer_kwargs['overfit_batches'] = overfit_batches
 
     # If checkpoint exists, resume
     checkpoint = get_checkpoint(checkpoint_dir, name)
