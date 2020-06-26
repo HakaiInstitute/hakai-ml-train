@@ -11,5 +11,5 @@ dependencies:
   - pytorch-lightning
   - tensorboard
   - rasterio
-  - tqdm
+  - tqdm>=4.46
   - fire

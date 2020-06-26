@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="tayden/pytorch" type="docker-deploy" factoryName="dockerfile" editBeforeRun="true" server-name="Docker">
+  <configuration default="false" name="uav/Dockerfile" type="docker-deploy" factoryName="dockerfile" editBeforeRun="true" server-name="Docker">
     <deployment type="dockerfile">
       <settings>
         <option name="imageTag" value="tayden/uav:latest" />

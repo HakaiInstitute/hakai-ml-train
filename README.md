@@ -17,8 +17,11 @@
     - `docker run hello-world` should print a “Hello World” message to the terminal if everything is working. See https://docs.docker.com/engine/install/linux-postinstall/ if you have any issues.
 
 #### Download the Kelp model weights
-- `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp_species/weights/deeplabv3_kelp_species_200611.ckpt > deeplabv3_kelp_species_200611.ckpt` will download the weights to your current directory
-    - Later, you’ll need to pass the path to the weights to the classification script, so you may want to move them with `mv /from/location /to/location`
+Later, you’ll need to pass the path to the weights to the classification script, so you may want to move them with `mv /from/location /to/location`
+##### For Kelp presence segmentation
+`curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200626.ckpt > deeplabv3_kelp_200626.ckpt` will download the weights to your current directory
+##### For Kelp species segmentation
+`curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp_species/weights/deeplabv3_kelp_species_200611.ckpt > deeplabv3_kelp_species_200611.ckpt` will download the weights to your current directory
 
 #### Clone the GitHub repo
 - Install Git if necessary: `sudo apt-get install git`
@@ -38,7 +41,9 @@
 - Update the GitHub repo if you haven't lately. This ensures you have the latest version of the code and these instructions.
     - Run `git pull`
 - Run the classification script:
-    - Using Docker: `bash segment_kelp_species.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3_kelp_species_200611.ckpt`
+    - Using Docker: 
+        - For species: `bash segment_kelp_species.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3_kelp_species_200611.ckpt`
+        - For presence/absence: `bash segment_kelp.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3_kelp_200626.ckpt`
     - Or, using a local Python environment:
         - Using the local environment requires installing packages. The easiest way to do this is with conda. In the git repo, run `conda env create`.
         - After installing packages, run `conda activate uav`
@@ -46,9 +51,9 @@
 - Move the output back to the samba server if desired, e.g. `mv /path/to/desired/output.tif /mnt/H/location/of/choice`
 
 ### Interpreting the model output
-- The model outputs a raster image with integer values (0-255). You should set a threshold on this value to obtain a kelp/not-kelp classification output.
-- In most cases, setting the threshold such that a pixel being >=128 means kelp should be adequate. 
-- If you want to increase kelp recall at the cost of precision, you can lower this threshold (e.g. to 100).
+- The model outputs a raster image with integer values (0-255). Each value is a class label.
+    - For presence/absence, 1 is kelp, 0 is not kelp
+    - For species, 0 is not kelp, 1 is macro, 2 is nereo.
 
 ### Tips
 #### Killing a job
