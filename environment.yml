@@ -13,3 +13,4 @@ dependencies:
   - rasterio
   - tqdm>=4.46
   - fire
+  - scikit-learn
