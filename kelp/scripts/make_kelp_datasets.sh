@@ -145,6 +145,13 @@ for DATASET in "${DATASETS[@]}"; do
   echo "Deleting tile pairs with blank image data"
   python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "blank_imgs" "$DATASET"
 
+  echo "Deleting tile pairs less than half the required size"
+  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "skinny_labels" "$DATASET" --min_height=256 --min_width=256
+
+  # Pad images that aren't 512 x 512 shaped
+  echo "Padding incorrectly shaped images."
+  python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "expand_chips" "$DATASET" --size=512
+
   # Split to train/test set
   echo "Splitting to 80/20 train/test sets"
   python "$PROJECT_DIR/utils/data_prep/train_test_split.py" "$DATASET" "$WORKING_DIR" --train_size=0.8
