@@ -41,7 +41,7 @@ aws iam attach-role-policy \
      --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole --role-name DL-Training-Spot-Fleet-Role
 
 # Turn train script to base64 and attach to spot-fleet request
-base64 mount-ebs-train.sh -w0 | xclip -selection c
+base64 mount-ebs.sh -w0 | xclip -selection c
 
 # Request the spot instances
 aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-m4-large-kelp.json
