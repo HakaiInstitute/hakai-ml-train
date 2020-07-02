@@ -102,8 +102,7 @@ class ReflectExpandChips(Modifier):
             bool: A flag indicating if the image at path is incorrectly sized.
         """
         img = Image.open(str(path))
-        h = img.height
-        w = img.width
+        w, h = img.size
         return w < self.required_width or h > self.required_height
 
     def modify(self, path: Path) -> None:

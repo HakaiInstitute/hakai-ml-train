@@ -93,7 +93,7 @@ class LabelFilter(Filter, ABC):
         return self.mp_remove_if_should(self.labels, chunksize)
 
 
-class SkinnyLabelFilter(LabelFilter):
+class SkinnyImgFilter(ImgFilter):
     """Filters [image, label] tiles from the dataset where the height or width are below some threshold."""
 
     def __init__(self, dataset, min_height: int = 256, min_width: int = 256):
@@ -141,8 +141,8 @@ class SkinnyLabelFilter(LabelFilter):
         -------
             bool: A flag indicating if the label at path contains only the BG class.
         """
-        label = Image.open(str(path))
-        w, h = label.size
+        img = Image.open(str(path))
+        w, h = img.size
         return h < self.min_height or w < self.min_width
 
 
@@ -192,5 +192,5 @@ if __name__ == '__main__':
     fire.Fire({
         "bg_only_labels": BGOnlyLabelFilter.process,
         "blank_imgs": BlankImgFilter.process,
-        "skinny_labels": SkinnyLabelFilter.process,
+        "skinny_labels": SkinnyImgFilter.process,
     })
