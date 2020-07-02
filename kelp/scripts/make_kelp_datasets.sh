@@ -85,10 +85,12 @@ for DATASET in "${DATASETS[@]}"; do
   #  rm "./$DATASET/kelp.tif"
 
   # Get kelp extent
-  x_min=$(gdalinfo "$DATASET/kelp_wgs.tif" | grep "Upper Left" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o) \
-  x_max=$(gdalinfo "$DATASET/kelp_wgs.tif" | grep "Upper Right" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o) \
-  y_min=$(gdalinfo "$DATASET/kelp_wgs.tif" | grep "Lower Left" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o) \
-  y_max=$(gdalinfo "$DATASET/kelp_wgs.tif" | grep "Upper Left" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
+  ul=$(gdalinfo "$DATASET/kelp_wgs.tif" | grep "Upper Left")
+  lr=$(gdalinfo "$DATASET/kelp_wgs.tif" | grep "Lower Right")
+  x_min=$(echo "$ul" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
+  x_max=$(echo "$lr" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
+  y_min=$(echo "$lr" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
+  y_max=$(echo "$ul" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
 
   echo "Adjusting image extent"
   gdalwarp \
