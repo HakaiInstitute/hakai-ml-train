@@ -21,7 +21,10 @@ DATASETS=(
 #sudo mkdir -p /mnt/H
 #sudo mount -t cifs -o user=taylor.denouden,domain=victoria.hakai.org //10.10.1.50/Geospatial /mnt/H
 
-# Execute all following instructions in the uav-classif/deeolabv3/kelp directory
+# Execute all following instructions in the uav-classif/deeplabv3/kelp directory
+rm -rf "$WORKING_DIR/train"
+rm -rf "$WORKING_DIR/eval"
+
 mkdir -p "$WORKING_DIR/raw_data"
 cd "$WORKING_DIR/raw_data" || exit 1
 
@@ -144,8 +147,6 @@ for DATASET in "${DATASETS[@]}"; do
 
   # Split to train/test set
   echo "Splitting to 80/20 train/test sets"
-  rm -rf "$WORKING_DIR/train"
-  rm -rf "$WORKING_DIR/eval"
   python "$PROJECT_DIR/utils/data_prep/train_test_split.py" "$DATASET" "$WORKING_DIR" --train_size=0.8
 done
 
