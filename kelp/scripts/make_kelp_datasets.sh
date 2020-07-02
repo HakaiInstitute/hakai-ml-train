@@ -108,7 +108,7 @@ for DATASET in "${DATASETS[@]}"; do
   gdal_calc.py \
     -A "./$DATASET/kelp_wgs.tif" \
     --overwrite \
-    --calc="nan_to_num(A*(A<2))" \
+    --calc="where(logical_and(nan_to_num(A)>0, nan_to_num(A)<=2), 1, 0)" \
     --type="Byte" \
     --outfile="./$DATASET/label_${DATASET}.tif"
   rm "./$DATASET/kelp_wgs.tif"
