@@ -1,11 +1,6 @@
-import os
-
 import torch
-from torch.utils.data import DataLoader
 
 from models.deeplabv3 import DeepLabv3
-from utils.dataset.SegmentationDataset import SegmentationDataset
-from utils.dataset.transforms import transforms as t
 
 
 class KelpModel(DeepLabv3):
@@ -22,15 +17,3 @@ class KelpModel(DeepLabv3):
             f'{key_prefix}bg_iou': bg_iou,
             f'{key_prefix}fg_iou': fg_iou
         }
-
-    def train_dataloader(self):
-        ds_train = SegmentationDataset(self.hparams.train_data_dir, transform=t.train_transforms,
-                                       target_transform=t.train_target_transforms, ext="tif")
-        return DataLoader(ds_train, shuffle=True, batch_size=self.hparams.batch_size, pin_memory=True,
-                          drop_last=True, num_workers=os.cpu_count())
-
-    def val_dataloader(self):
-        ds_val = SegmentationDataset(self.hparams.val_data_dir, transform=t.test_transforms,
-                                     target_transform=t.test_target_transforms, ext="tif")
-        return DataLoader(ds_val, shuffle=False, batch_size=self.hparams.batch_size, pin_memory=True,
-                          num_workers=os.cpu_count())
