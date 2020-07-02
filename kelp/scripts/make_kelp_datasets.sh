@@ -1,6 +1,6 @@
 THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PROJECT_DIR=$(realpath "$THIS_DIR/../..")
-WORKING_DIR="/mnt/Z/test"
+WORKING_DIR="/mnt/Z/kelp_presence_data"
 S3_BUCKET=s3://hakai_deep_learning_dataset/kelp
 
 DATASETS=(
@@ -148,7 +148,7 @@ for DATASET in "${DATASETS[@]}"; do
 done
 
 # Upload data to S3
-#aws s3 rsync "$WORKING_DIR/train" "${S3_BUCKET}/train"
-#aws s3 rsync "$WORKING_DIR/eval" "${S3_BUCKET}/eval"
+aws s3 rsync "$WORKING_DIR/train" "${S3_BUCKET}/train"
+aws s3 rsync "$WORKING_DIR/eval" "${S3_BUCKET}/eval"
 
 cd - || exit 1
