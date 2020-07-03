@@ -119,8 +119,8 @@ class ReflectExpandChips(Modifier):
         img = np.pad(img, ((0, h_pad), (0, w_pad), (0, 0)), mode='reflect')
         label = np.pad(label, ((0, h_pad), (0, w_pad)), mode='reflect')
 
-        Image.fromarray(img).save(path)
-        Image.fromarray(label).save(path)
+        Image.fromarray(img).save(str(path))
+        Image.fromarray(label).save(str(label_path))
 
     @classmethod
     def process(cls, dataset: str, size: int = 512, chunksize: int = 100) -> None:
