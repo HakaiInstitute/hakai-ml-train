@@ -103,7 +103,7 @@ class ReflectExpandChips(Modifier):
         """
         img = Image.open(str(path))
         h, w, _ = np.asarray(img).shape
-        return w < self.required_width or h > self.required_height
+        return w < self.required_width or h < self.required_height
 
     def modify(self, path: Path) -> None:
         """Modify an image chip and a label chip by expanding the dims to the required shape."""
@@ -116,7 +116,7 @@ class ReflectExpandChips(Modifier):
         h_pad = self.required_height - img.shape[0]
         w_pad = self.required_width - img.shape[1]
 
-        img = np.pad(img, ((0, h_pad), (0, w_pad)), mode='reflect')
+        img = np.pad(img, ((0, h_pad), (0, w_pad), (0, 0)), mode='reflect')
         label = np.pad(label, ((0, h_pad), (0, w_pad)), mode='reflect')
 
         Image.fromarray(img).save(path)
