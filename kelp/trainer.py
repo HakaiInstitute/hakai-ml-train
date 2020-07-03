@@ -14,7 +14,7 @@ pl.seed_everything(0)
 
 def train(train_data_dir, val_data_dir, checkpoint_dir,
           num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
-          accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O1', auto_lr_find=False,
+          accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O2', auto_lr_find=False,
           unfreeze_backbone_epoch=0, auto_scale_batch_size=False, overfit_batches=None, name=""):
     """
     Train the DeepLabV3 Kelp Detection model.
