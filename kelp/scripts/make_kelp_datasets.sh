@@ -124,6 +124,7 @@ for DATASET in "${DATASETS[@]}"; do
     -ps 512 512 \
     -overlap 256 \
     -ot Byte \
+    -of PNG \
     -targetDir "$DATASET/x" \
     "$DATASET/${DATASET}.tif"
 
@@ -135,6 +136,7 @@ for DATASET in "${DATASETS[@]}"; do
     -ps 512 512 \
     -overlap 256 \
     -ot Byte \
+    -of PNG \
     -targetDir "$DATASET/y" \
     "$DATASET/label_${DATASET}.tif"
 
