@@ -23,9 +23,9 @@ def _move_files(x_files, y_files, dst_dir):
     concurrent.thread_map(move_y, [str(p) for p in y_files])
 
 
-def split(dataset_dir, dest_dir, train_size=None, test_size=None):
-    x_files = sorted(list(Path(dataset_dir).joinpath("x").glob("*.tif")))
-    y_files = sorted(list(Path(dataset_dir).joinpath("y").glob("*.tif")))
+def split(dataset_dir, dest_dir, train_size=None, test_size=None, ext: str = "jpg"):
+    x_files = sorted(list(Path(dataset_dir).joinpath("x").glob(f"*.{ext}")))
+    y_files = sorted(list(Path(dataset_dir).joinpath("y").glob(f"*.{ext}")))
     x_train, x_eval, y_train, y_eval = train_test_split(
         x_files, y_files, train_size=train_size, test_size=test_size, random_state=42)
 

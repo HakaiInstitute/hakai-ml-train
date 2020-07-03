@@ -13,15 +13,15 @@ from tqdm.contrib import concurrent
 
 
 class Filter(ABC):
-    def __init__(self, dataset: str) -> None:
+    def __init__(self, dataset: str, ext: str = "jpg") -> None:
         super().__init__()
         self.dataset = dataset
 
         self.imgs_dir = Path(dataset).joinpath("x")
         self.labels_dir = Path(dataset).joinpath("y")
 
-        self.labels = list(self.labels_dir.glob("*.tif"))
-        self.imgs = list(self.imgs_dir.glob("*.tif"))
+        self.labels = list(self.labels_dir.glob(f"*.{ext}"))
+        self.imgs = list(self.imgs_dir.glob(f"*.{ext}"))
 
     @classmethod
     def process(cls, dataset: str, chunksize: int = 100) -> None:
