@@ -13,15 +13,15 @@ from tqdm.contrib import concurrent
 
 
 class Filter(ABC):
-    def __init__(self, dataset: str) -> None:
+    def __init__(self, dataset: str, ext: str = "jpg") -> None:
         super().__init__()
         self.dataset = dataset
 
         self.imgs_dir = Path(dataset).joinpath("x")
         self.labels_dir = Path(dataset).joinpath("y")
 
-        self.labels = list(self.labels_dir.glob("*.tif"))
-        self.imgs = list(self.imgs_dir.glob("*.tif"))
+        self.labels = list(self.labels_dir.glob(f"*.{ext}"))
+        self.imgs = list(self.imgs_dir.glob(f"*.{ext}"))
 
     @classmethod
     def process(cls, dataset: str, chunksize: int = 100) -> None:
@@ -93,25 +93,57 @@ class LabelFilter(Filter, ABC):
         return self.mp_remove_if_should(self.labels, chunksize)
 
 
-class BlankImgFilter(ImgFilter):
-    """Filters [image, label] tiles from the dataset where the image contains no data."""
+class SkinnyImgFilter(ImgFilter):
+    """Filters [image, label] tiles from the dataset where the height or width are below some threshold."""
+
+    def __init__(self, dataset, min_height: int = 256, min_width: int = 256):
+        super().__init__(dataset)
+
+        self.min_height = min_height
+        self.min_width = min_width
+
+    @classmethod
+    def process(cls, dataset: str, chunksize: int = 100, min_height: int = 256, min_width: int = 256) -> None:
+        """
+        Create a filter class, call the filtering function, and print the number of tiles that get removed.
+
+        Parameters
+        ----------
+        dataset: str
+            Path to the dataset to process.
+
+        min_height: int
+            The minimum acceptable height for an image and/or label
+
+        min_width: int
+            The minimum acceptable width for an image and/or label
+
+        chunksize: int
+            The length of files to pass to each multi-processing processing.
+
+        Returns
+        -------
+            None
+        """
+        f = cls(dataset, min_height, min_width)
+        print(f(chunksize), "image tiles removed")
 
     def should_be_removed(self, path: Path) -> bool:
         """
-        Returns True if the image location path is blank and the associated image and label tiles should be removed from
-            the dataset.
+        Returns True if the label shape has a height or width below the specified min_height or min_width.
 
         Parameters
         ----------
         path: Union[Path, str]
-            The path the image to test if blank.
+            The path the label to test.
 
         Returns
         -------
-            bool: A flag indicating if the image at path is blank.
+            bool: A flag indicating if the label at path contains only the BG class.
         """
         img = Image.open(str(path))
-        return img.getbbox() is None
+        h, w, _ = np.asarray(img).shape
+        return h < self.min_height or w < self.min_width
 
 
 class BGOnlyLabelFilter(LabelFilter):
@@ -135,8 +167,30 @@ class BGOnlyLabelFilter(LabelFilter):
         return np.all(np.array(label) == 0)
 
 
+class BlankImgFilter(ImgFilter):
+    """Filters [image, label] tiles from the dataset where the image contains no data."""
+
+    def should_be_removed(self, path: Path) -> bool:
+        """
+        Returns True if the image location path is blank and the associated image and label tiles should be removed from
+            the dataset.
+
+        Parameters
+        ----------
+        path: Union[Path, str]
+            The path the image to test if blank.
+
+        Returns
+        -------
+            bool: A flag indicating if the image at path is blank.
+        """
+        img = Image.open(str(path))
+        return img.getbbox() is None
+
+
 if __name__ == '__main__':
     fire.Fire({
         "bg_only_labels": BGOnlyLabelFilter.process,
-        "blank_imgs": BlankImgFilter.process
+        "blank_imgs": BlankImgFilter.process,
+        "skinny_labels": SkinnyImgFilter.process,
     })
