@@ -13,7 +13,7 @@ from tqdm.contrib import concurrent
 
 
 class Filter(ABC):
-    def __init__(self, dataset: str, ext: str = "jpg") -> None:
+    def __init__(self, dataset: str, ext: str = "png") -> None:
         super().__init__()
         self.dataset = dataset
 

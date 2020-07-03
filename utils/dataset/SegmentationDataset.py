@@ -8,10 +8,10 @@ from torch.utils.data import Dataset
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, ds_path, ext="jpg", transform=None, target_transform=None):
+    def __init__(self, ds_path, ext="png", transform=None, target_transform=None):
         super().__init__()
-        self._images = sorted(Path(ds_path).joinpath("x").glob("*." + ext))
-        self._labels = sorted(Path(ds_path).joinpath("y").glob("*." + ext))
+        self._images = sorted(Path(ds_path).joinpath("x").glob(f"*.{ext}"))
+        self._labels = sorted(Path(ds_path).joinpath("y").glob(f"*.{ext}"))
         self.transform = transform
         self.target_transform = target_transform
 

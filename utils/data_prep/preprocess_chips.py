@@ -18,7 +18,7 @@ from tqdm.contrib import concurrent
 class Modifier(ABC):
     """Abstract base class for modifying image chips and labels in place."""
 
-    def __init__(self, dataset: str, ext: str = "jpg") -> None:
+    def __init__(self, dataset: str, ext: str = "png") -> None:
         super().__init__()
         self.dataset = dataset
 
