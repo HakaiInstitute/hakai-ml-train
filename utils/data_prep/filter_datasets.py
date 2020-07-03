@@ -142,7 +142,7 @@ class SkinnyImgFilter(ImgFilter):
             bool: A flag indicating if the label at path contains only the BG class.
         """
         img = Image.open(str(path))
-        w, h = img.size
+        h, w, _ = np.asarray(img).shape
         return h < self.min_height or w < self.min_width
 
 
