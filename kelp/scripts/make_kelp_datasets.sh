@@ -152,6 +152,10 @@ for DATASET in "${DATASETS[@]}"; do
   echo "Padding incorrectly shaped images."
   python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "expand_chips" "$DATASET" --size=512
 
+  # Strip any channels that aren't the first 3 RGB channels.
+  echo "Stripping extra channels."
+  python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "strip_extra_channels" "$DATASET"
+
   # Split to train/test set
   echo "Splitting to 80/20 train/test sets"
   python "$PROJECT_DIR/utils/data_prep/train_test_split.py" "$DATASET" "$WORKING_DIR" --train_size=0.8
