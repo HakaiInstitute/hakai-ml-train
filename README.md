@@ -19,7 +19,7 @@
 #### Download the Kelp model weights
 Later, you’ll need to pass the path to the weights to the classification script, so you may want to move them with `mv /from/location /to/location`
 ##### For Kelp presence segmentation
-`curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200626.ckpt > deeplabv3_kelp_200626.ckpt` will download the weights to your current directory
+`curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp/weights/deeplabv3_kelp_200704.ckpt > deeplabv3_kelp_200704.ckpt` will download the weights to your current directory
 ##### For Kelp species segmentation
 `curl https://hakai-deep-learning-datasets.s3.amazonaws.com/kelp_species/weights/deeplabv3_kelp_species_200611.ckpt > deeplabv3_kelp_species_200611.ckpt` will download the weights to your current directory
 
@@ -43,7 +43,7 @@ Later, you’ll need to pass the path to the weights to the classification scrip
 - Run the classification script:
     - Using Docker: 
         - For species: `bash segment_kelp_species.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3_kelp_species_200611.ckpt`
-        - For presence/absence: `bash segment_kelp.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3_kelp_200626.ckpt`
+        - For presence/absence: `bash segment_kelp.sh /path/to/input/file /path/to/desired/output.tif /path/to/weights/deeplabv3_kelp_200704.ckpt`
     - Or, using a local Python environment:
         - Using the local environment requires installing packages. The easiest way to do this is with conda. In the git repo, run `conda env create`.
         - After installing packages, run `conda activate uav`

@@ -4,17 +4,18 @@ WORKING_DIR="/mnt/Z/kelp_presence_data"
 S3_BUCKET=s3://hakai-deep-learning-datasets/kelp
 
 DATASETS=(
-  choked_2014
-  golden_monitoring_2018
-  manley_kildidt_2016
-  mcnaughton_2017
-  nw_calvert_2015
-  simmonds_area_kelp_2019
-  simmonds_monitoring_2018
-  stryker_monitoring_2018
-  stryker_monitoring_low_2018
-  triquet_2019
-  west_beach_2016
+# ALREADY UPLOADED DATA
+#  choked_2014
+#  golden_monitoring_2018
+#  manley_kildidt_2016
+#  mcnaughton_2017
+#  nw_calvert_2015
+#  simmonds_area_kelp_2019
+#  simmonds_monitoring_2018
+#  stryker_monitoring_2018
+#  stryker_monitoring_low_2018
+#  triquet_2019
+#  west_beach_2016
 )
 
 # Mount the samba data server
@@ -22,8 +23,9 @@ DATASETS=(
 #sudo mount -t cifs -o user=taylor.denouden,domain=victoria.hakai.org //10.10.1.50/Geospatial /mnt/H
 
 # Execute all following instructions in the uav-classif/deeplabv3/kelp directory
-rm -rf "$WORKING_DIR/train"
-rm -rf "$WORKING_DIR/eval"
+# Uncomment to rebuild all datasets
+#rm -rf "$WORKING_DIR/train"
+#rm -rf "$WORKING_DIR/eval"
 
 mkdir -p "$WORKING_DIR/raw_data"
 cd "$WORKING_DIR/raw_data" || exit 1
