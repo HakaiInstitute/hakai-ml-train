@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Weight version for qualitative test
-WEIGHTS_VER='200626'
+WEIGHTS_VER='200704'
 
 # Get the path to this script
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 # Download the weights
-aws s3 sync "s3://hakai-deep-learning-datasets/kelp/weights/deeplabv3_kelp_$WEIGHTS_VER.ckpt" \
+aws s3 cp "s3://hakai-deep-learning-datasets/kelp/weights/deeplabv3_kelp_$WEIGHTS_VER.ckpt" \
   "$DIR/../train_output/weights/"
 
 # Build the docker image
