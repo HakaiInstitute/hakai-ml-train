@@ -7,7 +7,7 @@ dependencies:
   - python=3.8
   - cudatoolkit=10.2
   - torchvision
-  - pytorch
+  - pytorch>=1.6
   - pytorch-lightning
   - tensorboard
   - rasterio

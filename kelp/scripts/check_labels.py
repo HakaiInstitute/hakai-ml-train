@@ -5,9 +5,9 @@ Date: 2020-07-03
 Description: 
 """
 from pathlib import Path
+
 import numpy as np
 from PIL import Image
-
 
 if __name__ == '__main__':
     checked = 0
@@ -17,7 +17,7 @@ if __name__ == '__main__':
         if np.any(img > 1):
             print(np.unique(img, return_counts=True))
 
-        if img.shape[0] != 512 or img.shape[1] !=512:
+        if img.shape[0] != 512 or img.shape[1] != 512:
             print(str(path))
 
         checked += 1

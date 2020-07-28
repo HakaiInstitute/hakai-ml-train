@@ -10,10 +10,10 @@ DOCKER_BUILDKIT=1 docker build --file ../Dockerfile --tag tayden/deeplabv3-kelp 
 
 # Sync datasets
 # For testing
-#aws s3 sync --exclude="*" --include="**/choked_2014_00[1-2]_07[6-9].tif" s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
-#aws s3 sync --exclude="*" --include="**/choked_2014_005_[0-9][0-9][0-9].tif" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
-#aws s3 sync --exclude="*" --include="**/label_choked_2014_00[1-2]_07[6-9].tif" s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
-#aws s3 sync --exclude="*" --include="**/label_choked_2014_005_[0-9][0-9][0-9].tif" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
+#aws s3 sync --exclude="*" --include="**/choked_2014_00[1-2]_07[6-9].png" s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
+#aws s3 sync --exclude="*" --include="**/choked_2014_005_[0-9][0-9][0-9].png" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
+#aws s3 sync --exclude="*" --include="**/label_choked_2014_00[1-2]_07[6-9].png" s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
+#aws s3 sync --exclude="*" --include="**/label_choked_2014_005_[0-9][0-9][0-9].png" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
 
 # For prod
 aws s3 sync s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
