@@ -15,7 +15,8 @@ pl.seed_everything(0)
 def train(train_data_dir, val_data_dir, checkpoint_dir,
           num_classes=3, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
           accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O1', auto_lr_find=False,
-          unfreeze_backbone_epoch=0, auto_scale_batch_size=False, overfit_batches=None, name=""):
+          unfreeze_backbone_epoch=0, auto_scale_batch_size=False, overfit_batches=None, name="",
+          initial_weights=None):
     """
     Train the DeepLabV3 Kelp Detection model.
     Args:
@@ -37,6 +38,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         auto_scale_batch_size: Run a heuristic to maximize batch size per GPU. Defaults to False.
         overfit_batches: The number or percentage of batches to train on. Useful for debugging.
         name: The name of the model. Creates a subdirectory in the checkpoint dir with this name. Defaults to "".
+        initial_weights: Path to weights from presence/absence model to fine-tune, rather than train from scratch.
 
     Returns: None. Side effects include logging and checkpointing models to the checkpoint directory.
 
@@ -98,7 +100,12 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         model = KelpSpeciesModel.load_from_checkpoint(checkpoint, hparams=hparams)
         trainer = pl.Trainer(resume_from_checkpoint=checkpoint, **trainer_kwargs)
     else:
-        model = KelpSpeciesModel(hparams)
+        if initial_weights:
+            # Train model using presence/absence model as a starting point
+            model = KelpSpeciesModel.load_from_presence_absence_checkpoint(initial_weights, hparams=hparams)
+        else:
+            model = KelpSpeciesModel(hparams)
+
         trainer = pl.Trainer(auto_lr_find=auto_lr_find, **trainer_kwargs)
 
     trainer.fit(model)

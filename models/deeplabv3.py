@@ -15,9 +15,9 @@ from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
 
-from utils.loss import focal_tversky_loss
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
+from utils.loss import focal_tversky_loss
 
 
 class DeepLabv3(pl.LightningModule):

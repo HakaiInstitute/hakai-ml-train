@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=OneCycleLR_AdamW_FTL
+NAME=OneCycleLR_AdamW_FTL_FromPA200704
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
@@ -12,6 +12,8 @@ DOCKER_BUILDKIT=1 docker build --file ../Dockerfile --tag tayden/deeplabv3-kelp-
 # For testing, add: --exclude="*" --include="**/[0-9].png"
 aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/train "$DIR/../train_input/data/train"
 aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/eval "$DIR/../train_input/data/eval"
+
+aws s3 sync s3://hakai-deep-learning-datasets/kelp/weights/deeplabv3_kelp_200704.ckpt "$DIR/../train_input/"
 
 # Make output dirs
 mkdir -p "$DIR/../train_output/checkpoints"
@@ -27,7 +29,8 @@ docker run -dit --rm \
   --name kelp-species-train \
   tayden/deeplabv3-kelp-species train "/opt/ml/input/data/train" "/opt/ml/input/data/eval" "/opt/ml/output/checkpoints" \
   --name=$NAME --epochs=100 --lr=0.001 --weight_decay=0.001 \
-  --gradient_clip_val=0.5 --batch_size=8 --amp_level="O1" --precision=16
+  --gradient_clip_val=0.5 --batch_size=8 --amp_level="O2" --precision=16 \
+  --initial_weights="/opt/ml/input/deeplabv3_kelp_200704.ckpt"
 #  --unfreeze_backbone_epoch=100 --overfit_batches=2
 
 # Can start tensorboard in running container as follows:

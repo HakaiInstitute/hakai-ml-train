@@ -148,3 +148,4 @@ data
 /job_queue/jobs.sqlite
 */lightning_logs/
 */train_output
+*.ckpt

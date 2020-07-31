@@ -7,7 +7,15 @@
       <sourceFolder url="file://$MODULE_DIR$/utils" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/data" type="java-resource" />
       <sourceFolder url="file://$MODULE_DIR$" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/.ipynb_checkpoints" />
       <excludeFolder url="file://$MODULE_DIR$/data" />
+      <excludeFolder url="file://$MODULE_DIR$/kelp/train_input" />
+      <excludeFolder url="file://$MODULE_DIR$/kelp/train_output" />
+      <excludeFolder url="file://$MODULE_DIR$/kelp_species/notebooks/.ipynb_checkpoints" />
+      <excludeFolder url="file://$MODULE_DIR$/kelp_species/train_input" />
+      <excludeFolder url="file://$MODULE_DIR$/kelp_species/train_output" />
+      <excludeFolder url="file://$MODULE_DIR$/seagrass/train_input" />
+      <excludeFolder url="file://$MODULE_DIR$/seagrass/train_output" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.8 (uav)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
