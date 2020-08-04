@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
 import torch
+import torchvision.transforms.functional as F
+from PIL import Image
 from torchvision import transforms as T
 
 
@@ -9,37 +11,34 @@ def _target_to_tensor_func(mask):
 
 
 _target_to_tensor = T.Lambda(_target_to_tensor_func)
+
 _normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-_inv_normalize = T.Compose([T.Normalize(mean=[0., 0., 0.],
-                                        std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
-                            T.Normalize(mean=[-0.485, -0.456, -0.406],
-                                        std=[1., 1., 1.]),
+_inv_normalize = T.Compose([T.Normalize(mean=[0., 0., 0.], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
+                            T.Normalize(mean=[-0.485, -0.456, -0.406], std=[1., 1., 1.]),
                             ])
-transforms = SimpleNamespace(
-    normalize=_normalize,
-    inv_normalize=_inv_normalize,
-    train_transforms=T.Compose([
-        T.RandomHorizontalFlip(),
-        T.RandomVerticalFlip(),
-        T.RandomRotation(degrees=45),
-        T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
-        T.ToTensor(),
-        _normalize,
-    ]),
-    train_target_transforms=T.Compose([
-        T.RandomHorizontalFlip(),
-        T.RandomVerticalFlip(),
-        T.RandomRotation(degrees=45, fill=(0,)),
-        _target_to_tensor,
-    ]),
-    test_transforms=T.Compose([
-        T.ToTensor(),
-        _normalize,
-    ]),
-    test_target_transforms=T.Compose([
-        _target_to_tensor,
-    ])
-)
+
+
+class PadOut(object):
+    def __init__(self, height: int = 128, width: int = 128):
+        self.height = height
+        self.width = width
+
+    def __call__(self, x: Image) -> Image:
+        """
+        Pad out a pillow image so it is the correct size as specified by self.height and self.width
+
+        :param x: PIL Image
+        :return: PIL Image
+        """
+        w, h = x.size
+
+        if h == self.height and w == self.width:
+            return x
+
+        wpad: int = self.width - w
+        hpad: int = self.height - h
+
+        return F.pad(x, [0, 0, wpad, hpad])
 
 
 def add_veg_indices(x):
@@ -101,3 +100,34 @@ def add_ngrdi_band(img):
     r, g, b = img[:, -3, :, :], img[:, -2, :, :], img[:, -1, :, :]
     ngrdi = (g - r) / (g + r)
     return torch.cat((ngrdi.unsqueeze(1), img), dim=1)
+
+
+transforms = SimpleNamespace(
+    normalize=_normalize,
+    inv_normalize=_inv_normalize,
+    train_transforms=T.Compose([
+        PadOut(512, 512),
+        T.RandomHorizontalFlip(),
+        T.RandomVerticalFlip(),
+        T.RandomRotation(degrees=45),
+        T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        T.ToTensor(),
+        _normalize,
+    ]),
+    train_target_transforms=T.Compose([
+        PadOut(512, 512),
+        T.RandomHorizontalFlip(),
+        T.RandomVerticalFlip(),
+        T.RandomRotation(degrees=45, fill=(0,)),
+        _target_to_tensor,
+    ]),
+    test_transforms=T.Compose([
+        PadOut(512, 512),
+        T.ToTensor(),
+        _normalize,
+    ]),
+    test_target_transforms=T.Compose([
+        PadOut(512, 512),
+        _target_to_tensor,
+    ])
+)
