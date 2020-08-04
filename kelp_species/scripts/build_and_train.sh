@@ -13,7 +13,7 @@ DOCKER_BUILDKIT=1 docker build --file ../Dockerfile --tag tayden/deeplabv3-kelp-
 aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/train "$DIR/../train_input/data/train"
 aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/eval "$DIR/../train_input/data/eval"
 
-aws s3 cp s3://hakai-deep-learning-datasets/kelp/weights/deeplabv3_kelp_200704.ckpt "$DIR/../train_input/"
+aws s3 cp s3://hakai-deep-learning-datasets/kelp/weights/deeplabv3_kelp_200704.ckpt "$DIR/../train_input/data/"
 
 # Make output dirs
 mkdir -p "$DIR/../train_output/checkpoints"
@@ -30,7 +30,7 @@ docker run -dit --rm \
   tayden/deeplabv3-kelp-species train "/opt/ml/input/data/train" "/opt/ml/input/data/eval" "/opt/ml/output/checkpoints" \
   --name=$NAME --epochs=100 --lr=0.001 --weight_decay=0.001 \
   --gradient_clip_val=0.5 --batch_size=8 --amp_level="O2" --precision=16 \
-  --initial_weights="/opt/ml/input/deeplabv3_kelp_200704.ckpt"
+  --initial_weights="/opt/ml/input/data/deeplabv3_kelp_200704.ckpt"
 #  --unfreeze_backbone_epoch=100 --overfit_batches=2
 
 # Can start tensorboard in running container as follows:
