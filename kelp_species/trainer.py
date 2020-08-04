@@ -17,7 +17,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
           num_classes: int = 3, batch_size: int = 4, lr: float = 0.001, weight_decay: float = 1e-4, epochs: int = 310,
           aux_loss_factor: float = 0.3, accumulate_grad_batches: int = 1, gradient_clip_val: Union[int, float] = 0,
           precision: int = 32, amp_level: str = 'O2', auto_lr_find: bool = False, unfreeze_backbone_epoch: int = 0,
-          auto_scale_batch_size: bool = False, overfit_batches: Optional[int, float] = None, name: str = "",
+          auto_scale_batch_size: bool = False, overfit_batches: Optional[Union[int, float]] = None, name: str = "",
           initial_weights: Optional[str] = None):
     """
     Train the DeepLabV3 Kelp Detection model.
