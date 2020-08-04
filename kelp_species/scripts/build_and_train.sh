@@ -13,7 +13,7 @@ DOCKER_BUILDKIT=1 docker build --file ../Dockerfile --tag tayden/deeplabv3-kelp-
 aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/train "$DIR/../train_input/data/train"
 aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/eval "$DIR/../train_input/data/eval"
 
-aws s3 sync s3://hakai-deep-learning-datasets/kelp/weights/deeplabv3_kelp_200704.ckpt "$DIR/../train_input/"
+aws s3 cp s3://hakai-deep-learning-datasets/kelp/weights/deeplabv3_kelp_200704.ckpt "$DIR/../train_input/"
 
 # Make output dirs
 mkdir -p "$DIR/../train_output/checkpoints"
