@@ -24,8 +24,6 @@ class SegmentationDataset(Dataset):
 
         seed = np.random.randint(2147483647)
 
-        img = self.pad_out(img)
-
         torch.manual_seed(seed)
         random.seed(seed)  # apply this seed to img transforms
         if self.transform is not None:
