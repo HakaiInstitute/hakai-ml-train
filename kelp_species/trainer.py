@@ -102,6 +102,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
     else:
         if initial_weights:
             # Train model using presence/absence model as a starting point
+            print("Loading P/A model")
             model = KelpSpeciesModel.load_from_presence_absence_checkpoint(initial_weights, hparams=hparams)
         else:
             model = KelpSpeciesModel(hparams)
@@ -109,3 +110,10 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         trainer = pl.Trainer(auto_lr_find=auto_lr_find, **trainer_kwargs)
 
     trainer.fit(model)
+
+
+if __name__ == '__main__':
+    train("train_input/data/train", "train_input/data/eval", "train_output/checkpoints",
+          lr=0.001, epochs=40, weight_decay=0.001, gradient_clip_val=0.5, batch_size=2,
+          initial_weights="train_input/data/deeplabv3_kelp_200704.ckpt",
+          unfreeze_backbone_epoch=100)
