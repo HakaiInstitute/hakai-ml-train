@@ -1,6 +1,6 @@
 name: uav
 channels:
-  - pytorch-nightly
+  - pytorch
   - conda-forge
   - defaults
 dependencies:

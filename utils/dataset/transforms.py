@@ -1,15 +1,17 @@
 from types import SimpleNamespace
 
+import numpy as np
 import torch
 import torchvision.transforms.functional as F
 from PIL import Image
 from torchvision import transforms as T
 
 
-def _target_to_tensor_func(mask):
+def _target_to_tensor_func(mask: np.ndarray) -> torch.Tensor:
     return (T.functional.to_tensor(mask) * 255).long().squeeze(dim=0)
 
 
+# noinspection PyTypeChecker
 _target_to_tensor = T.Lambda(_target_to_tensor_func)
 
 _normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -35,10 +37,10 @@ class PadOut(object):
         if h == self.height and w == self.width:
             return x
 
-        wpad: int = self.width - w
-        hpad: int = self.height - h
+        wpad = self.width - w
+        hpad = self.height - h
 
-        return F.pad(x, [0, 0, wpad, hpad])
+        return F.pad(x, (0, 0, wpad, hpad))
 
 
 def add_veg_indices(x):
