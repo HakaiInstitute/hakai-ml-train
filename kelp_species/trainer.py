@@ -1,6 +1,7 @@
 import os
 from argparse import Namespace
 from pathlib import Path
+from typing import Union, Optional
 
 import pytorch_lightning as pl
 import torch
@@ -13,32 +14,52 @@ pl.seed_everything(0)
 
 
 def train(train_data_dir, val_data_dir, checkpoint_dir,
-          num_classes=3, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
-          accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O1', auto_lr_find=False,
-          unfreeze_backbone_epoch=0, auto_scale_batch_size=False, overfit_batches=None, name="",
-          initial_weights=None):
+          num_classes: int = 3, batch_size: int = 4, lr: float = 0.001, weight_decay: float = 1e-4, epochs: int = 310,
+          aux_loss_factor: float = 0.3, accumulate_grad_batches: int = 1, gradient_clip_val: Union[int, float] = 0,
+          precision: int = 32, amp_level: str = 'O2', auto_lr_find: bool = False, unfreeze_backbone_epoch: int = 0,
+          auto_scale_batch_size: bool = False, overfit_batches: Optional[int, float] = None, name: str = "",
+          initial_weights: Optional[str] = None):
     """
     Train the DeepLabV3 Kelp Detection model.
     Args:
-        train_data_dir: Path to the directory containing subdirectories x and y containing the training dataset.
-        val_data_dir: Path to the directory containing subdirectories x and y containing the validation dataset.
-        checkpoint_dir: Path to the directory where tensorboard logging and model checkpoint outputs should go.
-        num_classes: The number of classes in the dataset. Defaults to 2.
-        batch_size: The batch size for training. Multiplied by # GPUs for DDP. Defaults to 4.
-        lr: The learning rate. Defaults to 0.001.
-        weight_decay: The amount of L2 regularization on model parameters. Defaults to 1e-4.
-        epochs: The number of training epochs. Defaults to 310.
-        aux_loss_factor: The weight for the auxiliary loss to encourage could features in early layers. Default 0.3.
-        accumulate_grad_batches: The number of gradients batches to accumulate before backprop. Defaults to 1 (No accumulation).
-        gradient_clip_val: The value of the gradient norm at which backprop should be skipped if over that value. Defaults to 0 (None).
-        precision: The floating point precision of model weights. Defaults to 32. Set to 16 for AMP training with Nvidia Apex.
-        amp_level: The AMP level in NVidia Apex. Defaults to "O1" (i.e. letter O, number 1). See Apex docs to details.
-        auto_lr_find: Flag on wether or not to run the LR finder at the beginning of training. Defaults to False.
-        unfreeze_backbone_epoch: The epoch at which blocks 3 and 4 of the backbone network should start adjusting parameters. Defaults to 150.
-        auto_scale_batch_size: Run a heuristic to maximize batch size per GPU. Defaults to False.
-        overfit_batches: The number or percentage of batches to train on. Useful for debugging.
-        name: The name of the model. Creates a subdirectory in the checkpoint dir with this name. Defaults to "".
-        initial_weights: Path to weights from presence/absence model to fine-tune, rather than train from scratch.
+        train_data_dir:
+            Path to the directory containing subdirectories x and y containing the training dataset.
+        val_data_dir:
+            Path to the directory containing subdirectories x and y containing the validation dataset.
+        checkpoint_dir:
+            Path to the directory where tensorboard logging and model checkpoint outputs should go.
+        num_classes:
+            The number of classes in the dataset. Defaults to 2.
+        batch_size:
+            The batch size for training. Multiplied by # GPUs for DDP. Defaults to 4.
+        lr:
+            The learning rate. Defaults to 0.001.
+        weight_decay:
+            The amount of L2 regularization on model parameters. Defaults to 1e-4.
+        epochs:
+            The number of training epochs. Defaults to 310.
+        aux_loss_factor:
+            The weight for the auxiliary loss to encourage could features in early layers. Default 0.3.
+        accumulate_grad_batches:
+            The number of gradients batches to accumulate before backprop. Defaults to 1 (No accumulation).
+        gradient_clip_val:
+            The value of the gradient norm at which backprop should be skipped if over that value. Defaults to 0 (None).
+        precision:
+            The floating point precision of model weights. Defaults to 32. Set to 16 for AMP training with Nvidia Apex.
+        amp_level:
+            The AMP level in Nvidia Apex. Defaults to "O1" (i.e. letter O, number 1). See Apex docs to details.
+        auto_lr_find:
+            Flag on whether or not to run the LR finder at the beginning of training. Defaults to False.
+        unfreeze_backbone_epoch:
+            The epoch at which blocks 3 and 4 of the backbone network should start adjusting parameters. 150 default.
+        auto_scale_batch_size:
+            Run a heuristic to maximize batch size per GPU. Defaults to False.
+        overfit_batches:
+            The number or percentage of batches to train on. Useful for debugging.
+        name:
+            The name of the model. Creates a subdirectory in the checkpoint dir with this name. Defaults to "".
+        initial_weights:
+            Path to weights from presence/absence model to fine-tune, rather than train from scratch.
 
     Returns: None. Side effects include logging and checkpointing models to the checkpoint directory.
 

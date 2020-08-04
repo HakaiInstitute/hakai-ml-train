@@ -1,12 +1,16 @@
 <component name="ProjectDictionaryState">
   <dictionary name="taylor">
     <words>
+      <w>backprop</w>
       <w>chunksize</w>
+      <w>ckpt</w>
       <w>hpad</w>
       <w>jaccard</w>
       <w>ndarray</w>
       <w>ngrdi</w>
+      <w>overfit</w>
       <w>rgbvi</w>
+      <w>rpas</w>
       <w>seagrass</w>
       <w>softmax</w>
       <w>tversky</w>

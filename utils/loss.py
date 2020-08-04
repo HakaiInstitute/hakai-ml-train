@@ -5,26 +5,6 @@ import torch.utils.data
 from pytorch_lightning.metrics import TensorMetric
 
 
-def jaccard_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
-    """Computes the Jaccard similarity loss for predictions p and ground truth labels g.
-
-    Parameters
-    ----------
-    p : np.ndarray shape=(n, c, h, w)
-        Softmax or sigmoid scaled predictions.
-    g : np.ndarray shape=(n, h, w)
-        int type ground truth labels for each sample.
-    smooth : Optional[float]
-        A function smooth parameter that also provides numerical stability.
-
-    Returns
-    -------
-    List[float]
-        The calculated IoU index for each class.
-    """
-    return 1 - iou(p, g, smooth=smooth).mean()
-
-
 def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     """Compute the Dice similarity index for each class for predictions p and ground truth labels g.
 
