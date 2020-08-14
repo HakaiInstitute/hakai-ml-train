@@ -19,7 +19,7 @@ aws s3 sync --exclude="*" --include="deeplabv3_kelp_200704.ckpt" s3://hakai-deep
 mkdir -p "$DIR/../train_output/checkpoints"
 
 # Run the docker image
-docker run -it --rm \
+docker run -dit --rm \
   -p 0.0.0.0:$PORT:$PORT \
   -v "$DIR/../train_input":/opt/ml/input \
   -v "$DIR/../train_output":/opt/ml/output \
