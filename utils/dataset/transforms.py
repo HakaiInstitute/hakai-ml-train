@@ -104,10 +104,39 @@ def add_ngrdi_band(img):
     return torch.cat((ngrdi.unsqueeze(1), img), dim=1)
 
 
+class ImageClip(object):
+    """Changes the pixel domain of PIL Image img to [0, 255] and convert to type uint8."""
+
+    def __init__(self, min_: int = 0, max_: int = 255) -> None:
+        """
+        Parameters
+        ----------
+        min_: Change all pixel values less than this value to this value.
+        max_: Change all pixel values greater than this value to this value.
+        """
+        self.min = min_
+        self.max = max_
+
+    def __call__(self, img: Image):
+        """
+        Parameters
+        ----------
+        img: the Image to clip.
+
+        Returns
+        -------
+        Image: The clipped image.
+        """
+        img_arr = np.asarray(img)
+        img_arr = np.clip(img_arr, self.min, self.max).astype(np.unint8)
+        return Image.fromarray(img_arr)
+
+
 transforms = SimpleNamespace(
     normalize=_normalize,
     inv_normalize=_inv_normalize,
     train_transforms=T.Compose([
+        ImageClip(),
         PadOut(512, 512),
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
@@ -124,6 +153,7 @@ transforms = SimpleNamespace(
         _target_to_tensor,
     ]),
     test_transforms=T.Compose([
+        ImageClip(),
         PadOut(512, 512),
         T.ToTensor(),
         _normalize,
