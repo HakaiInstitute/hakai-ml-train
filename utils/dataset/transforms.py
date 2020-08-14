@@ -128,7 +128,7 @@ class ImageClip(object):
         Image: The clipped image.
         """
         img_arr = np.asarray(img)
-        img_arr = np.clip(img_arr, self.min, self.max).astype(np.unint8)
+        img_arr = np.clip(img_arr, self.min, self.max).astype(np.uint8)
         return Image.fromarray(img_arr)
 
 
