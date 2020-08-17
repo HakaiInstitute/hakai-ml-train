@@ -74,7 +74,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         monitor='val_miou',
         mode='max',
         prefix='best_val_miou_',
-        save_top_k=4,
+        save_top_k=1,
         save_last=True,
     )
 
