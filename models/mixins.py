@@ -14,7 +14,7 @@ from pytorch_lightning.core.decorators import auto_move_data
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from dataset.GeoTiffDataset import GeoTiffReader
+from utils.dataset.GeoTiffDataset import GeoTiffReader
 from utils.dataset.transforms import transforms as t
 
 

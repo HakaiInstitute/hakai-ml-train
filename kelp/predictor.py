@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import fire
 import torch
 
 from kelp.model import KelpModel
@@ -44,6 +45,4 @@ def predict(seg_in, seg_out, weights, batch_size=4, crop_size=256, crop_pad=128)
 
 
 if __name__ == '__main__':
-    predict("/home/taylor/PycharmProjects/uav-classif/temp/image_wgs.tif",
-            "/home/taylor/PycharmProjects/uav-classif/temp/image_wgs_kelp.tif",
-            "/home/taylor/PycharmProjects/uav-classif/kelp/train_output/weights/deeplabv3_kelp_200704.ckpt")
+    fire.Fire(predict)
