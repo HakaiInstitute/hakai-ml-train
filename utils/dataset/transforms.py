@@ -132,6 +132,16 @@ class ImageClip(object):
         return Image.fromarray(img_arr)
 
 
+class DropExtraBands(object):
+    def __init__(self, keep_bands=3):
+        self.keep_bands = keep_bands
+
+    def __call__(self, img):
+        img_arr = np.asarray(img)
+        img_arr = img_arr[:, :, :self.keep_bands]
+        return Image.fromarray(img_arr)
+
+
 transforms = SimpleNamespace(
     normalize=_normalize,
     inv_normalize=_inv_normalize,
@@ -161,5 +171,13 @@ transforms = SimpleNamespace(
     test_target_transforms=T.Compose([
         PadOut(512, 512),
         _target_to_tensor,
-    ])
+    ]),
+    geotiff_transforms=T.Compose([
+        ImageClip(),
+        PadOut(512, 512),
+        DropExtraBands(),
+        T.ToTensor(),
+        _normalize,
+    ]),
+
 )

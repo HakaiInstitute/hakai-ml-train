@@ -26,7 +26,7 @@ class GeoTiffPredictionMixin(pl.LightningModule, metaclass=ABCMeta):
         raise NotImplemented
 
     def pred_dataloader(self, geotiff_path: str):
-        ds_pred = GeoTiffReader(geotiff_path, transform=t.test_transforms,
+        ds_pred = GeoTiffReader(geotiff_path, transform=t.geotiff_transforms,
                                 crop_size=self.hparams.crop_size, padding=self.hparams.padding)
         return DataLoader(ds_pred, shuffle=False, batch_size=self.hparams.batch_size, pin_memory=True,
                           num_workers=os.cpu_count())

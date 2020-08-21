@@ -8,6 +8,8 @@ from torch.utils.data import Dataset
 
 
 class SegmentationDataset(Dataset):
+    """Load preprocessed image chips. Used during model train and validation phases."""
+
     def __init__(self, ds_path, ext="png", transform=None, target_transform=None):
         super().__init__()
         self._images = sorted(Path(ds_path).joinpath("x").glob(f"*.{ext}"))
