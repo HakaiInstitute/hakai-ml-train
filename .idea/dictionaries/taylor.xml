@@ -4,6 +4,7 @@
       <w>backprop</w>
       <w>chunksize</w>
       <w>ckpt</w>
+      <w>classif</w>
       <w>hpad</w>
       <w>jaccard</w>
       <w>ndarray</w>

@@ -4,11 +4,9 @@ from pathlib import Path
 import torch
 
 from kelp.model import KelpModel
-from utils.dataset.transforms import transforms as t
-from utils.eval import predict_tiff
 
 
-def predict(seg_in, seg_out, weights, batch_size=4, crop_size=300, crop_pad=150):
+def predict(seg_in, seg_out, weights, batch_size=4, crop_size=256, crop_pad=128):
     """
     Segment the FG class using DeepLabv3 Segmentation model of an input .tif image.
     Args:
@@ -34,14 +32,18 @@ def predict(seg_in, seg_out, weights, batch_size=4, crop_size=300, crop_pad=150)
     seg_out.parent.mkdir(parents=True, exist_ok=True)
 
     # Load model and weights
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = KelpModel.load_from_checkpoint(str(weights))
+    model = KelpModel.load_from_checkpoint(str(weights), batch_size=batch_size, crop_size=crop_size,
+                                           padding=crop_pad)
     model.freeze()
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = model.to(device)
 
     print("Processing:", seg_in)
-    batch_size = batch_size * max(torch.cuda.device_count(), 1)
-    predict_tiff(model, device, seg_in, seg_out,
-                 transform=t.test_transforms,
-                 crop_size=crop_size, pad=crop_pad,
-                 batch_size=batch_size)
+    model.predict_geotiff(seg_in, seg_out)
+
+
+if __name__ == '__main__':
+    predict("/home/taylor/PycharmProjects/uav-classif/temp/image_wgs.tif",
+            "/home/taylor/PycharmProjects/uav-classif/temp/image_wgs_kelp.tif",
+            "/home/taylor/PycharmProjects/uav-classif/kelp/train_output/weights/deeplabv3_kelp_200704.ckpt")

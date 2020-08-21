@@ -9,18 +9,20 @@ from abc import abstractmethod
 
 import pytorch_lightning as pl
 import torch
+from pytorch_lightning.core.decorators import auto_move_data
 from pytorch_lightning.metrics.functional import iou
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
 
+from models.mixins import GeoTiffPredictionMixin
 from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import transforms as t
 from utils.loss import focal_tversky_loss
 
 
-class DeepLabv3(pl.LightningModule):
+class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
@@ -38,8 +40,17 @@ class DeepLabv3(pl.LightningModule):
             self.model.backbone.layer3.requires_grad_(True)
             self.model.backbone.layer4.requires_grad_(True)
 
-    def forward(self, x):
+        # Only used for inference
+        self.geotiff_path = None
+        self.out_path = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
+
+    @auto_move_data
+    def predict(self, x: torch.Tensor) -> torch.Tensor:
+        """Return a Tensor of predicted labels for input data x."""
+        return self.forward(x)['out'].argmax(dim=1)
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr, amsgrad=True,

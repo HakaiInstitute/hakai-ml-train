@@ -1,114 +1,31 @@
 import itertools
 
 import numpy as np
-import rasterio
-from PIL import Image
-from torch.utils.data import Dataset
+from geotiff_crop_dataset import CropDatasetReader
+from tqdm.contrib import concurrent
 
 
-def _pad_out(crop, crop_size):
-    """Pads image crop, which is a numpy array of size (h, w, c), with zeros so that h and w equal crop_size."""
-    if crop.shape[0] != crop_size or crop.shape[1] != crop_size:
-        if len(crop.shape) == 2:
-            padding = ((0, crop_size - crop.shape[0]), (0, crop_size - crop.shape[1]))
-        else:
-            padding = ((0, crop_size - crop.shape[0]), (0, crop_size - crop.shape[1]), (0, 0))
+class GeoTiffReader(CropDatasetReader):
+    """Filters out blank image crop areas before proceeding with feeding the dataset to the segmentation net."""
+    def __init__(self, *args, min_value=0, max_value=255, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._min_value = min_value
+        self._max_value = max_value
 
-        return np.pad(crop, padding, mode='constant', constant_values=0)
-    else:
-        return crop
+        mask = concurrent.thread_map(self._should_keep, range(len(self)),
+                                     desc="Filtering out blank image areas.")
+        self.y0x0 = list(itertools.compress(self.y0x0, mask))
 
+    def _get_np(self, idx: int) -> np.ndarray:
+        y0, x0 = self.y0x0[idx]
 
-class GeoTiffDataset(Dataset):
-    def __init__(self, img_path, transform=None, crop_size=200, pad=0, mode='RGB', channels=(1, 2, 3)):
-        super().__init__()
-        self.img_path = img_path
-        self.transform = transform
-        self.crop_size = crop_size
-        self.pad = pad
-        self.mode = mode
-        self.channels = channels
-        self.raster = rasterio.open(self.img_path)
-
-        self._y0s = range(0, self.raster.height, self.crop_size)
-        self._x0s = range(0, self.raster.width, self.crop_size)
-        self._y0x0s = list(itertools.product(self._y0s, self._x0s))
-
-    def get_origin(self, item):
-        return self._y0x0s[item]
-
-    def __len__(self):
-        return len(self._y0x0s)
-
-    def __getitem__(self, item):
-        y0, x0 = self._y0x0s[item]
-        window = ((np.max((y0 - self.pad, 0)), np.min((y0 + self.crop_size + self.pad, self.raster.height))),
-                  (np.max((x0 - self.pad, 0)), np.min((x0 + self.crop_size + self.pad, self.raster.width))))
-        subset = self.raster.read(self.channels, window=window)
-
-        if len(subset.shape) == 3:
-            subset = np.moveaxis(subset, 0, 2)  # (c, h, w) => (h, w, c)
-
-        # Pad out sections that are too small
-        t_pad = np.max((self.pad - y0, 0))
-        b_pad = np.max(((y0 + self.crop_size + self.pad) - self.raster.height, 0))
-        l_pad = np.max((self.pad - x0, 0))
-        r_pad = np.max(((x0 + self.crop_size + self.pad) - self.raster.width, 0))
-
-        if len(subset.shape) == 2:
-            padding = ((t_pad, b_pad), (l_pad, r_pad))
-        else:
-            padding = ((t_pad, b_pad), (l_pad, r_pad), (0, 0))
-
-        subset = np.pad(subset, padding, mode='reflect')
-
-        subset = np.clip(subset, 0, 255).astype(np.uint8)
-        img = Image.fromarray(subset, self.mode)
-
-        if self.transform:
-            img = self.transform(img)
-
-        return img
-
-    def __del__(self):
-        if hasattr(self, 'raster') and not self.raster.closed:
-            self.raster.close()
-
-
-class GeoTiffWriter(object):
-    def __init__(self, out_path, height, width, crs, transform, crop_size=200, pad=0):
-        super().__init__()
-        self.out_path = out_path
-        self.height = height
-        self.width = width
-        self.crs = crs
-        self.transform = transform
-        self.crop_size = crop_size
-        self.pad = pad
-
-        self.out_raster = rasterio.open(
-            self.out_path, 'w',
-            driver='GTiff',
-            height=self.height,
-            width=self.width,
-            count=1,
-            dtype='uint8',
-            crs=self.crs,
-            transform=self.transform
+        crop = self.raster.read(
+            window=((y0, y0 + self.crop_size), (x0, x0 + self.crop_size)),
+            masked=True, boundless=True, fill_value=self.fill_value
         )
+        return crop.filled()
 
-    def __del__(self):
-        if hasattr(self, 'raster') and not self.out_raster.closed:
-            self.out_raster.close()
-
-    def write_index(self, y0, x0, segmentation):
-        window = ((y0, np.min((y0 + self.crop_size, self.height))),
-                  (x0, np.min((x0 + self.crop_size, self.width))))
-        segmentation = segmentation[:, self.pad:-self.pad, self.pad:-self.pad]
-        self.out_raster.write(segmentation, window=window)
-
-
-if __name__ == '__main__':
-    ds = GeoTiffDataset("../../data/RPAS/NW_Calvert_2012/NWCalvert_2012.tif")
-    ds[len(ds) // 2].show()
-    del ds
+    def _should_keep(self, idx):
+        img = np.clip(self._get_np(idx), self._min_value, self._max_value)
+        is_blank = np.all((img == self._min_value) | (img == self._max_value))
+        return not is_blank

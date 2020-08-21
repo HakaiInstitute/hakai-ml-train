@@ -149,3 +149,4 @@ data
 */lightning_logs/
 */train_output
 *.ckpt
+temp/
