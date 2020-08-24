@@ -4,7 +4,7 @@ from pathlib import Path
 import fire
 import torch
 
-from kelp.model import KelpModel
+from models.deeplabv3 import DeepLabv3
 
 
 def predict(seg_in, seg_out, weights, batch_size=4, crop_size=256, crop_pad=128):
@@ -33,7 +33,7 @@ def predict(seg_in, seg_out, weights, batch_size=4, crop_size=256, crop_pad=128)
     seg_out.parent.mkdir(parents=True, exist_ok=True)
 
     # Load model and weights
-    model = KelpModel.load_from_checkpoint(str(weights), batch_size=batch_size, crop_size=crop_size,
+    model = DeepLabv3.load_from_checkpoint(str(weights), batch_size=batch_size, crop_size=crop_size,
                                            padding=crop_pad)
     model.freeze()
 

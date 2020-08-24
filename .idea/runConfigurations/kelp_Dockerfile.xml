@@ -10,7 +10,7 @@
         <option name="contextFolderPath" value="." />
         <option name="entrypoint" value="" />
         <option name="commandLineOptions" value="--rm -it" />
-        <option name="sourceFilePath" value="kelp/Dockerfile" />
+        <option name="sourceFilePath" value="kelp/presence/Dockerfile" />
       </settings>
     </deployment>
     <method v="2" />

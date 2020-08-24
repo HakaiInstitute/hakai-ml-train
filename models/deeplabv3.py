@@ -5,11 +5,9 @@
 
 import math
 import os
-from abc import abstractmethod
 
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.core.decorators import auto_move_data
 from pytorch_lightning.metrics.functional import iou
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import deeplabv3_resnet101
@@ -40,17 +38,8 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
             self.model.backbone.layer3.requires_grad_(True)
             self.model.backbone.layer4.requires_grad_(True)
 
-        # Only used for inference
-        self.geotiff_path = None
-        self.out_path = None
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model.forward(x)
-
-    @auto_move_data
-    def predict(self, x: torch.Tensor) -> torch.Tensor:
-        """Return a Tensor of predicted labels for input data x."""
-        return self.forward(x)['out'].argmax(dim=1)
+        return torch.softmax(self.model.forward(x)['out'], dim=1)
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr, amsgrad=True,
@@ -84,7 +73,7 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x)
+        y_hat = self.model(x)
 
         logits = y_hat['out']
         loss = self.calc_loss(logits, y)
@@ -109,7 +98,7 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x)
+        y_hat = self.model(x)
 
         logits = y_hat['out']
         loss = self.calc_loss(logits, y)
@@ -123,6 +112,16 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         stats = self.end_epoch_stats(losses, ious, phase="val")
         return {'loss': stats['val_loss'], 'log': stats}
 
-    @abstractmethod
     def end_epoch_stats(self, losses, ious, phase):
-        raise NotImplementedError
+        for i in range(ious.shape[1]):
+            ious = ious[:, i][~torch.isnan(ious[:, i])].mean(dim=0)
+
+        key_prefix = 'val_' if phase == 'val' else ''
+        log_dict = {
+            f'{key_prefix}loss': losses.mean(),
+            f'{key_prefix}miou': torch.stack(ious).mean(),
+        }
+        for i in range(len(ious)):
+            log_dict[f'{key_prefix}cls{i}_iou'] = ious[i]
+
+        return log_dict

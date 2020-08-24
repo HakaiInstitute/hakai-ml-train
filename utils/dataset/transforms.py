@@ -12,12 +12,12 @@ def _target_to_tensor_func(mask: np.ndarray) -> torch.Tensor:
 
 
 # noinspection PyTypeChecker
-_target_to_tensor = T.Lambda(_target_to_tensor_func)
+target_to_tensor = T.Lambda(_target_to_tensor_func)
 
-_normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-_inv_normalize = T.Compose([T.Normalize(mean=[0., 0., 0.], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
-                            T.Normalize(mean=[-0.485, -0.456, -0.406], std=[1., 1., 1.]),
-                            ])
+normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+inv_normalize = T.Compose([T.Normalize(mean=[0., 0., 0.], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
+                           T.Normalize(mean=[-0.485, -0.456, -0.406], std=[1., 1., 1.]),
+                           ])
 
 
 class PadOut(object):
@@ -143,8 +143,8 @@ class DropExtraBands(object):
 
 
 transforms = SimpleNamespace(
-    normalize=_normalize,
-    inv_normalize=_inv_normalize,
+    normalize=normalize,
+    inv_normalize=inv_normalize,
     train_transforms=T.Compose([
         ImageClip(),
         PadOut(512, 512),
@@ -153,31 +153,31 @@ transforms = SimpleNamespace(
         T.RandomRotation(degrees=45),
         T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         T.ToTensor(),
-        _normalize,
+        normalize,
     ]),
     train_target_transforms=T.Compose([
         PadOut(512, 512),
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
         T.RandomRotation(degrees=45, fill=(0,)),
-        _target_to_tensor,
+        target_to_tensor,
     ]),
     test_transforms=T.Compose([
         ImageClip(),
         PadOut(512, 512),
         T.ToTensor(),
-        _normalize,
+        normalize,
     ]),
     test_target_transforms=T.Compose([
         PadOut(512, 512),
-        _target_to_tensor,
+        target_to_tensor,
     ]),
     geotiff_transforms=T.Compose([
         ImageClip(),
         PadOut(512, 512),
         DropExtraBands(),
         T.ToTensor(),
-        _normalize,
+        normalize,
     ]),
 
 )

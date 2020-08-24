@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from kelp_species.model import KelpSpeciesModel
+from kelp.species.model import KelpSpeciesModel
 from utils.checkpoint import get_checkpoint
 
 pl.seed_everything(0)
@@ -137,4 +137,4 @@ if __name__ == '__main__':
     train("train_input/data/train", "train_input/data/eval", "train_output/checkpoints",
           lr=0.001, epochs=40, weight_decay=0.001, gradient_clip_val=0.5, batch_size=2,
           initial_weights="train_input/data/deeplabv3_kelp_200704.ckpt",
-          unfreeze_backbone_epoch=100)
+          unfreeze_backbone_epoch=100, overfit_batches=1)

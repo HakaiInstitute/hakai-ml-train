@@ -20,7 +20,7 @@ class GeoTiffReader(CropDatasetReader):
         self._max_value = max_value
 
         mask = concurrent.thread_map(self._should_keep, range(len(self)),
-                                     desc="Filtering out blank image areas")
+                                     desc="Filtering blank areas")
         self.y0x0 = list(itertools.compress(self.y0x0, mask))
 
     def _get_np(self, idx: int) -> np.ndarray:

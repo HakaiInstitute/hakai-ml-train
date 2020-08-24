@@ -11,7 +11,7 @@ from PIL import Image
 
 if __name__ == '__main__':
     checked = 0
-    for path in Path(".").glob("*.png"):
+    for path in Path("").glob("*.png"):
         img = np.asarray(Image.open(str(path)))
 
         if np.any(img > 1):

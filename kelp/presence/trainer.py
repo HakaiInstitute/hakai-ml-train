@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from kelp.model import KelpModel
+from kelp.presence.model import KelpModel
 from utils.checkpoint import get_checkpoint
 
 pl.seed_everything(0)

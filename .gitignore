@@ -143,10 +143,10 @@ data
 *.tar
 
 *.tif
-/deeplabv3/kelp/train_output/
-/unet/seagrass/train_output/
-/job_queue/jobs.sqlite
-*/lightning_logs/
-*/train_output
 *.ckpt
+*.sqlite
+*.ipynb
+
+**/lightning_logs/
+**/train_output
 temp/
