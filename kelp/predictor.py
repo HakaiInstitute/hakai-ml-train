@@ -3,6 +3,7 @@ from pathlib import Path
 
 import fire
 import torch
+from loguru import logger
 
 from models.deeplabv3 import DeepLabv3
 
@@ -37,10 +38,15 @@ def predict(seg_in, seg_out, weights, batch_size=4, crop_size=256, crop_pad=128)
                                            padding=crop_pad)
     model.freeze()
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = torch.device('cpu')
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        logger.warning("Could not find GPU device")
+
     model = model.to(device)
 
-    print("Processing:", seg_in)
+    logger.info(f"Processing: {seg_in}")
     model.predict_geotiff(seg_in, seg_out)
 
 

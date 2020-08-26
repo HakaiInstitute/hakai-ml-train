@@ -8,6 +8,7 @@ import os
 
 import pytorch_lightning as pl
 import torch
+from pytorch_lightning.core.decorators import auto_move_data
 from pytorch_lightning.metrics.functional import iou
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import deeplabv3_resnet101
@@ -38,6 +39,7 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
             self.model.backbone.layer3.requires_grad_(True)
             self.model.backbone.layer4.requires_grad_(True)
 
+    @auto_move_data
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.softmax(self.model.forward(x)['out'], dim=1)
 

@@ -32,10 +32,10 @@ for DATASET in "${DATASETS[@]}"; do
   mkdir -p "$DATASET"
 done
 
-# Copy all the image tifs files to local drive with multiprocessing
+# Copy all the image tif files to local drive with multiprocessing
 echo "${DATASETS[@]}" | tr -d '\n' | xargs -d ' ' -i -P8 sh -c 'cp -u -v /mnt/H/Working/Taylor/KelpSpecies/{}/image.* ./{}/'
 
-# Copy all the kelp tifs files to local drive with multiprocessing
+# Copy all the kelp tif files to local drive with multiprocessing
 echo "${DATASETS[@]}" | tr -d '\n' | xargs -d ' ' -i -P8 sh -c 'cp -u -v /mnt/H/Working/Taylor/KelpSpecies/{}/kelp.* ./{}/'
 
 # Convert dataset to the cropped format

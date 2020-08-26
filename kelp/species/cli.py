@@ -1,6 +1,6 @@
 import fire
 
-from kelp.species.predictor import predict
+from kelp.predictor import predict
 from kelp.species.trainer import train
 
 if __name__ == '__main__':

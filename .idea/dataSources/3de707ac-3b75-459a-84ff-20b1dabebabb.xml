@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dataSource name="uav-classif.sqlite">
+  <database-model serializer="dbm" dbms="SQLITE" family-id="SQLITE" format-version="4.19">
+    <root id="1">
+      <ServerVersion>3.31.1</ServerVersion>
+    </root>
+    <schema id="2" parent="1" name="main">
+      <Current>1</Current>
+    </schema>
+    <collation id="3" parent="1" name="BINARY"/>
+    <collation id="4" parent="1" name="NOCASE"/>
+    <collation id="5" parent="1" name="RTRIM"/>
+    <table id="6" parent="2" name="jobs"/>
+    <table id="7" parent="2" name="sqlite_master">
+      <System>1</System>
+    </table>
+    <table id="8" parent="2" name="sqlite_sequence">
+      <System>1</System>
+    </table>
+    <table id="9" parent="2" name="weights"/>
+    <column id="10" parent="6" name="in_path">
+      <Position>1</Position>
+      <DataType>varchar|0s</DataType>
+      <NotNull>1</NotNull>
+    </column>
+    <column id="11" parent="6" name="out_path">
+      <Position>2</Position>
+      <DataType>varchar|0s</DataType>
+      <NotNull>1</NotNull>
+    </column>
+    <column id="12" parent="6" name="created_dt">
+      <Position>3</Position>
+      <DataType>datetime|0s</DataType>
+      <DefaultExpression>CURRENT_TIMESTAMP</DefaultExpression>
+    </column>
+    <column id="13" parent="6" name="status">
+      <Position>4</Position>
+      <DataType>text|0s</DataType>
+      <NotNull>1</NotNull>
+      <DefaultExpression>&apos;scheduled&apos;</DefaultExpression>
+    </column>
+    <column id="14" parent="6" name="pk">
+      <Position>5</Position>
+      <DataType>integer|0s</DataType>
+      <SequenceIdentity>null</SequenceIdentity>
+    </column>
+    <column id="15" parent="6" name="weights">
+      <Position>6</Position>
+      <DataType>text|0s</DataType>
+      <NotNull>1</NotNull>
+    </column>
+    <index id="16" parent="6" name="jobs_in_path_out_path_weight_index">
+      <ColNames>in_path
+out_path
+weights</ColNames>
+      <ColumnCollations></ColumnCollations>
+    </index>
+    <key id="17" parent="6" name="jobs_pk">
+      <ColNames>pk</ColNames>
+      <Primary>1</Primary>
+    </key>
+    <foreign-key id="18" parent="6" name="weights">
+      <ColNames>weights</ColNames>
+      <RefTableName>weights</RefTableName>
+      <RefColNames>name</RefColNames>
+      <OnDelete>restrict</OnDelete>
+      <OnUpdate>cascade</OnUpdate>
+    </foreign-key>
+    <check id="19" parent="6">
+      <Predicate>status in (&apos;scheduled&apos;, &apos;complete&apos;, &apos;failed&apos;)</Predicate>
+    </check>
+    <column id="20" parent="7" name="type">
+      <Position>1</Position>
+      <DataType>text|0s</DataType>
+    </column>
+    <column id="21" parent="7" name="name">
+      <Position>2</Position>
+      <DataType>text|0s</DataType>
+    </column>
+    <column id="22" parent="7" name="tbl_name">
+      <Position>3</Position>
+      <DataType>text|0s</DataType>
+    </column>
+    <column id="23" parent="7" name="rootpage">
+      <Position>4</Position>
+      <DataType>int|0s</DataType>
+    </column>
+    <column id="24" parent="7" name="sql">
+      <Position>5</Position>
+      <DataType>text|0s</DataType>
+    </column>
+    <column id="25" parent="8" name="name">
+      <Position>1</Position>
+    </column>
+    <column id="26" parent="8" name="seq">
+      <Position>2</Position>
+    </column>
+    <column id="27" parent="9" name="name">
+      <Position>1</Position>
+      <DataType>text|0s</DataType>
+      <NotNull>1</NotNull>
+    </column>
+    <column id="28" parent="9" name="s3_path">
+      <Position>2</Position>
+      <DataType>text|0s</DataType>
+      <NotNull>1</NotNull>
+    </column>
+    <column id="29" parent="9" name="local_path">
+      <Position>3</Position>
+      <DataType>text|0s</DataType>
+      <NotNull>1</NotNull>
+    </column>
+    <column id="30" parent="9" name="model_type">
+      <Position>4</Position>
+      <DataType>text|0s</DataType>
+      <NotNull>1</NotNull>
+      <DefaultExpression>&apos;kelp&apos;</DefaultExpression>
+    </column>
+    <column id="31" parent="9" name="segmentation_type">
+      <Position>5</Position>
+      <DataType>text|0s</DataType>
+      <NotNull>1</NotNull>
+      <DefaultExpression>&apos;presence&apos;</DefaultExpression>
+    </column>
+    <column id="32" parent="9" name="pk">
+      <Position>6</Position>
+      <DataType>integer|0s</DataType>
+      <SequenceIdentity>null</SequenceIdentity>
+    </column>
+    <index id="33" parent="9" name="weights_name_uindex">
+      <ColNames>name</ColNames>
+      <ColumnCollations></ColumnCollations>
+      <Unique>1</Unique>
+    </index>
+    <key id="34" parent="9" name="weights_pk">
+      <ColNames>pk</ColNames>
+      <Primary>1</Primary>
+    </key>
+    <check id="35" parent="9">
+      <Predicate>model_type in (&apos;kelp&apos;, &apos;seagrass&apos;)</Predicate>
+    </check>
+    <check id="36" parent="9">
+      <Predicate>segmentation_type in (&apos;presence&apos;, &apos;species&apos;)</Predicate>
+    </check>
+  </database-model>
+</dataSource>
