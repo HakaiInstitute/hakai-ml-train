@@ -11,6 +11,7 @@
       <excludeFolder url="file://$MODULE_DIR$/data" />
       <excludeFolder url="file://$MODULE_DIR$/kelp/presence/train_input" />
       <excludeFolder url="file://$MODULE_DIR$/kelp/presence/train_output" />
+      <excludeFolder url="file://$MODULE_DIR$/kelp/presence/weights" />
       <excludeFolder url="file://$MODULE_DIR$/kelp/species/notebooks" />
       <excludeFolder url="file://$MODULE_DIR$/kelp/species/notebooks/.ipynb_checkpoints" />
       <excludeFolder url="file://$MODULE_DIR$/kelp/species/train_input" />

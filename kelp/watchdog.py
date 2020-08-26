@@ -10,22 +10,27 @@ from pathlib import Path
 import fire
 import requests
 from loguru import logger
+from tqdm import tqdm
 
 from kelp.predictor import predict
 
 SLEEP_T = 5
 MATCH_PATTERN = "**/*.tif"
-DEFAULT_WEIGHTS_LOCAL_PATH = "./presence/train_output/weights/deeplabv3_kelp_200704.ckpt"
+DEFAULT_WEIGHTS_LOCAL_PATH = "./presence/weights/deeplabv3_kelp_200704.ckpt"
 DEFAULT_WEIGHTS_S3_PATH = "https://hakai-deep-learning-datasets.s3.amazonaws.com" \
                           "/kelp/weights/deeplabv3_kelp_200704.ckpt"
+ONE_MB = 2 << 20  # Bytes
 
 
 @logger.catch
 def download_weights(s3_path, local_path):
-    Path(local_path).mkdir(parents=True, exist_ok=True)
-    r = requests.get(s3_path)
-    with open(local_path, 'wb') as f:
-        f.write(r.content)
+    Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+    with requests.get(s3_path, stream=True) as r:
+        r.raise_for_status()
+
+        with open(local_path, 'wb') as f:
+            for chunk in tqdm(r.iter_content(chunk_size=ONE_MB), desc="Downloading weights"):
+                f.write(chunk)
 
 
 @logger.catch
@@ -70,5 +75,5 @@ def watch_dir(in_dir: str, out_dir: str):
 
 
 if __name__ == '__main__':
-    logger.add("./watchdog.log", rotation="1 month", retention="3 months", compression="gz", enqueue=True)
+    logger.add("./watchdog.log", rotation="100MB", retention="3 months", compression="gz", enqueue=True)
     fire.Fire(watch_dir)
