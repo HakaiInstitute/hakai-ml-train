@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import fire
@@ -27,16 +26,8 @@ def predict(seg_in, seg_out, weights, batch_size=4, crop_size=256, crop_pad=128)
 
     Returns: None. Outputs various files as a side effect depending on the script mode.
     """
-    seg_in, seg_out, weights = Path(seg_in), Path(seg_out), Path(weights)
-    os.environ['TORCH_HOME'] = str(weights.parent)
-
-    # Create output directory as required
+    seg_in, seg_out = Path(seg_in), Path(seg_out)
     seg_out.parent.mkdir(parents=True, exist_ok=True)
-
-    # Load model and weights
-    model = DeepLabv3.load_from_checkpoint(str(weights), batch_size=batch_size, crop_size=crop_size,
-                                           padding=crop_pad)
-    model.freeze()
 
     device = torch.device('cpu')
     if torch.cuda.is_available():
@@ -44,9 +35,12 @@ def predict(seg_in, seg_out, weights, batch_size=4, crop_size=256, crop_pad=128)
     else:
         logger.warning("Could not find GPU device")
 
+    # Load model and weights
+    model = DeepLabv3.load_from_checkpoint(weights, batch_size=batch_size, crop_size=crop_size, padding=crop_pad)
+    model.freeze()
     model = model.to(device)
 
-    logger.info(f"Processing: {seg_in}")
+    # Do the segmentation
     model.predict_geotiff(seg_in, seg_out)
 
 
