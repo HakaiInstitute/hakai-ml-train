@@ -14,5 +14,6 @@ dependencies:
   - tqdm>=4.46
   - fire
   - scikit-learn
+  - loguru
   - pip
     - geotiff_crop_dataset
