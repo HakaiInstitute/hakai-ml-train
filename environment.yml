@@ -1,4 +1,4 @@
-name: uav
+name: uav-classif
 channels:
   - pytorch
   - conda-forge
@@ -7,7 +7,8 @@ dependencies:
   - python=3.8
   - cudatoolkit=10.2
   - torchvision
-  - pytorch>=1.6
+  - torchaudio
+  - pytorch
   - pytorch-lightning>=0.9
   - tensorboard
   - rasterio
@@ -16,4 +17,5 @@ dependencies:
   - scikit-learn
   - loguru
   - pip
+  - pip:
     - geotiff_crop_dataset

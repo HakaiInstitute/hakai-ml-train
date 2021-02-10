@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.utils.data
-from pytorch_lightning.metrics import TensorMetric
+# from pytorch_lightning.metrics import TensorMetric
 
 
 def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
@@ -230,15 +230,15 @@ def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, bet
     return torch.sum(res, dim=0)
 
 
-class FocalTverskyMetric(TensorMetric):
-    def __init__(self, alpha, beta, gamma):
-        super().__init__("FocalTversky")
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
-
-    def forward(self, x, y):
-        return focal_tversky_loss(x, y, self.alpha, self.beta, self.gamma)
+# class FocalTverskyMetric(TensorMetric):
+#     def __init__(self, alpha, beta, gamma):
+#         super().__init__("FocalTversky")
+#         self.alpha = alpha
+#         self.beta = beta
+#         self.gamma = gamma
+#
+#     def forward(self, x, y):
+#         return focal_tversky_loss(x, y, self.alpha, self.beta, self.gamma)
 
 
 if __name__ == '__main__':

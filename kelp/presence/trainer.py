@@ -1,6 +1,7 @@
 import os
 from argparse import Namespace
 from pathlib import Path
+from typing import Literal
 
 import pytorch_lightning as pl
 import torch
@@ -12,10 +13,11 @@ from utils.checkpoint import get_checkpoint
 pl.seed_everything(0)
 
 
-def train(train_data_dir, val_data_dir, checkpoint_dir,
-          num_classes=2, batch_size=4, lr=0.001, weight_decay=1e-4, epochs=310, aux_loss_factor=0.3,
-          accumulate_grad_batches=1, gradient_clip_val=0, precision=32, amp_level='O2', auto_lr_find=False,
-          unfreeze_backbone_epoch=0, auto_scale_batch_size=False, overfit_batches=None, name=""):
+def train(train_data_dir, val_data_dir, checkpoint_dir, num_classes: int = 2, batch_size: int = 4, lr: float = 0.001,
+          weight_decay: float = 1e-4, epochs: int = 310, aux_loss_factor: float = 0.3, accumulate_grad_batches: int = 1,
+          gradient_clip_val: float = 0, precision: Literal[16, 32] = 32, amp_level: Literal['O1', 'O2', 'O3'] = 'O2',
+          auto_lr_find: bool = False, unfreeze_backbone_epoch: int = 0, auto_scale_batch_size: bool = False,
+          overfit_batches: int = None, name: str = ""):
     """
     Train the DeepLabV3 Kelp Detection model.
     Args:
@@ -45,7 +47,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
 
     logger = TensorBoardLogger(Path(checkpoint_dir), name=name)
 
-    lr_logger_callback = pl.callbacks.LearningRateLogger()
+    lr_logger_callback = pl.callbacks.LearningRateMonitor()
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         verbose=True,
         monitor='val_miou',
@@ -78,7 +80,6 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         'precision': precision,
         'checkpoint_callback': checkpoint_callback,
         'logger': logger,
-        'early_stop_callback': False,
         'deterministic': True,
         'default_root_dir': checkpoint_dir,
         'accumulate_grad_batches': accumulate_grad_batches,
@@ -102,3 +103,19 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         trainer = pl.Trainer(auto_lr_find=auto_lr_find, **trainer_kwargs)
 
     trainer.fit(model)
+
+
+if __name__ == '__main__':
+    train(
+        train_data_dir="/home/taylor/PycharmProjects/uav-classif/kelp/presence/train_input/data/train",
+        val_data_dir="/home/taylor/PycharmProjects/uav-classif/kelp/presence/train_input/data/eval",
+        checkpoint_dir="/home/taylor/PycharmProjects/uav-classif/kelp/presence/train_output/checkpoints",
+        num_classes=2,
+        batch_size=2,
+        lr=0.001,
+        weight_decay=0.001,
+        epochs=100,
+        aux_loss_factor=0.3,
+        gradient_clip_val=0.5,
+        name="TEST",
+    )
