@@ -66,12 +66,16 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         effective_accum = self.trainer.accumulate_grad_batches * num_devices
         return (batches // effective_accum) * self.trainer.max_epochs
 
+    @property
+    def steps_per_epoch(self) -> int:
+        return self.num_training_steps // self.trainer.max_epochs
+
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr, amsgrad=True,
                                       weight_decay=self.hparams.weight_decay)
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr,
                                                            epochs=self.trainer.max_epochs,
-                                                           steps_per_epoch=self.num_training_steps)
+                                                           steps_per_epoch=self.steps_per_epoch)
 
         return [optimizer], [{'scheduler': lr_scheduler, 'interval': 'step'}]
 
