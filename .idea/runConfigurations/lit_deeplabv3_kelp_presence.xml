@@ -13,7 +13,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/lit_deeplabv3_kelp_presence.py" />
-    <option name="PARAMETERS" value="kelp/presence/train_input/data/train kelp/presence/train_input/data/eval --lr=0.001 --weight_decay=0.001 --batch_size=3 --overfit_batches=2 --name=TEST --gpus=1 --gradient_clip_val=0.5 --batch_size=2 --max_epochs=10" />
+    <option name="PARAMETERS" value="kelp/presence/train_input/data/train kelp/presence/train_input/data/eval kelp/presence/train_output/checkpoints --lr=0.001 --weight_decay=0.001 --batch_size=3 --overfit_batches=2 --name=TEST --gpus=1 --gradient_clip_val=0.5 --batch_size=2 --max_epochs=100 --unfreeze_backbone_epoch=100" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
