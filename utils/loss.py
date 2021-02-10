@@ -264,17 +264,6 @@ class FocalTverskyMetric(pl.metrics.Metric):
         return torch.sum(res, dim=0)
 
 
-# class FocalTverskyMetric(TensorMetric):
-#     def __init__(self, alpha, beta, gamma):
-#         super().__init__("FocalTversky")
-#         self.alpha = alpha
-#         self.beta = beta
-#         self.gamma = gamma
-#
-#     def forward(self, x, y):
-#         return focal_tversky_loss(x, y, self.alpha, self.beta, self.gamma)
-
-
 if __name__ == '__main__':
     import doctest
 
