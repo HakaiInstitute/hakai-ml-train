@@ -4,20 +4,21 @@ import numpy as np
 import torch
 import torchvision.transforms.functional as F
 from PIL import Image
-from torchvision import transforms as T
+from torchvision.transforms import *
+from torchvision.transforms.functional import to_tensor
 
 
 def _target_to_tensor_func(mask: np.ndarray) -> torch.Tensor:
-    return (T.functional.to_tensor(mask) * 255).long().squeeze(dim=0)
+    return (to_tensor(mask) * 255).long().squeeze(dim=0)
 
 
 # noinspection PyTypeChecker
-target_to_tensor = T.Lambda(_target_to_tensor_func)
+target_to_tensor = Lambda(_target_to_tensor_func)
 
-normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-inv_normalize = T.Compose([T.Normalize(mean=[0., 0., 0.], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
-                           T.Normalize(mean=[-0.485, -0.456, -0.406], std=[1., 1., 1.]),
-                           ])
+normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+inv_normalize = Compose([Normalize(mean=[0., 0., 0.], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
+                         Normalize(mean=[-0.485, -0.456, -0.406], std=[1., 1., 1.]),
+                         ])
 
 
 class PadOut(object):
@@ -145,38 +146,38 @@ class DropExtraBands(object):
 transforms = SimpleNamespace(
     normalize=normalize,
     inv_normalize=inv_normalize,
-    train_transforms=T.Compose([
+    train_transforms=Compose([
         ImageClip(),
         PadOut(512, 512),
-        T.RandomHorizontalFlip(),
-        T.RandomVerticalFlip(),
-        T.RandomRotation(degrees=45),
-        T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
-        T.ToTensor(),
+        RandomHorizontalFlip(),
+        RandomVerticalFlip(),
+        RandomRotation(degrees=45),
+        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        ToTensor(),
         normalize,
     ]),
-    train_target_transforms=T.Compose([
+    train_target_transforms=Compose([
         PadOut(512, 512),
-        T.RandomHorizontalFlip(),
-        T.RandomVerticalFlip(),
-        T.RandomRotation(degrees=45, fill=(0,)),
+        RandomHorizontalFlip(),
+        RandomVerticalFlip(),
+        RandomRotation(degrees=45, fill=(0,)),
         target_to_tensor,
     ]),
-    test_transforms=T.Compose([
+    test_transforms=Compose([
         ImageClip(),
         PadOut(512, 512),
-        T.ToTensor(),
+        ToTensor(),
         normalize,
     ]),
-    test_target_transforms=T.Compose([
+    test_target_transforms=Compose([
         PadOut(512, 512),
         target_to_tensor,
     ]),
-    geotiff_transforms=T.Compose([
+    geotiff_transforms=Compose([
         ImageClip(),
         PadOut(512, 512),
         DropExtraBands(),
-        T.ToTensor(),
+        ToTensor(),
         normalize,
     ]),
 
