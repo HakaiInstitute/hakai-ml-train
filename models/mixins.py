@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from utils.dataset.GeoTiffDataset import GeoTiffReader
-from utils.dataset.transforms import transforms as t
+from utils.dataset.transforms import reusable_transforms as t
 
 
 class GeoTiffPredictionMixin(pl.LightningModule, metaclass=ABCMeta):

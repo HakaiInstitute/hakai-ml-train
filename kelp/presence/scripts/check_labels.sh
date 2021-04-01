@@ -1,5 +1,5 @@
 THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-WORKING_DIR="/mnt/Z/kelp_presence_data"
+WORKING_DIR="/mnt/Scratch/Taylor/ml/kelp_presence_data"
 
 
 

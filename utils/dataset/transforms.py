@@ -4,21 +4,20 @@ import numpy as np
 import torch
 import torchvision.transforms.functional as F
 from PIL import Image
-from torchvision.transforms import *
-from torchvision.transforms.functional import to_tensor
+from torchvision import transforms as t
 
 
 def _target_to_tensor_func(mask: np.ndarray) -> torch.Tensor:
-    return (to_tensor(mask) * 255).long().squeeze(dim=0)
+    return (F.to_tensor(mask) * 255).long().squeeze(dim=0)
 
 
 # noinspection PyTypeChecker
-target_to_tensor = Lambda(_target_to_tensor_func)
+target_to_tensor = t.Lambda(_target_to_tensor_func)
 
-normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-inv_normalize = Compose([Normalize(mean=[0., 0., 0.], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
-                         Normalize(mean=[-0.485, -0.456, -0.406], std=[1., 1., 1.]),
-                         ])
+normalize = t.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+inv_normalize = t.Compose([t.Normalize(mean=[0., 0., 0.], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
+                           t.Normalize(mean=[-0.485, -0.456, -0.406], std=[1., 1., 1.]),
+                           ])
 
 
 class PadOut(object):
@@ -41,7 +40,21 @@ class PadOut(object):
         wpad = self.width - w
         hpad = self.height - h
 
-        return F.pad(x, (0, 0, wpad, hpad))
+        return F.pad(x, [0, 0, wpad, hpad])
+
+class Clamp(object):
+    def __init__(self, min_: int = 0, max_: int = 1):
+        self.min = min_
+        self.max = max_
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Clamp the pixel values so they fall within [self.min, self.max]
+
+        :param x: PIL Image
+        :return: PIL Image
+        """
+        return torch.clamp(x, self.min, self.max)
 
 
 def add_veg_indices(x):
@@ -143,41 +156,41 @@ class DropExtraBands(object):
         return Image.fromarray(img_arr)
 
 
-transforms = SimpleNamespace(
+reusable_transforms = SimpleNamespace(
     normalize=normalize,
     inv_normalize=inv_normalize,
-    train_transforms=Compose([
+    train_transforms=t.Compose([
         ImageClip(),
         PadOut(512, 512),
-        RandomHorizontalFlip(),
-        RandomVerticalFlip(),
-        RandomRotation(degrees=45),
-        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
-        ToTensor(),
+        t.RandomHorizontalFlip(),
+        t.RandomVerticalFlip(),
+        t.RandomRotation(degrees=45),
+        t.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        t.ToTensor(),
         normalize,
     ]),
-    train_target_transforms=Compose([
+    train_target_transforms=t.Compose([
         PadOut(512, 512),
-        RandomHorizontalFlip(),
-        RandomVerticalFlip(),
-        RandomRotation(degrees=45, fill=(0,)),
+        t.RandomHorizontalFlip(),
+        t.RandomVerticalFlip(),
+        t.RandomRotation(degrees=45, fill=(0,)),
         target_to_tensor,
     ]),
-    test_transforms=Compose([
+    test_transforms=t.Compose([
         ImageClip(),
         PadOut(512, 512),
-        ToTensor(),
+        t.ToTensor(),
         normalize,
     ]),
-    test_target_transforms=Compose([
+    test_target_transforms=t.Compose([
         PadOut(512, 512),
         target_to_tensor,
     ]),
-    geotiff_transforms=Compose([
+    geotiff_transforms=t.Compose([
         ImageClip(),
         PadOut(512, 512),
         DropExtraBands(),
-        ToTensor(),
+        t.ToTensor(),
         normalize,
     ]),
 

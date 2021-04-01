@@ -4,12 +4,10 @@ from pathlib import Path
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
-from torch.utils.data import DataLoader
 
+from kelp_presence_data_module import KelpPresenceDataModule
 from models.deeplabv3 import DeepLabv3
 from utils.checkpoint import get_checkpoint
-from utils.dataset.SegmentationDataset import SegmentationDataset
-from utils.dataset.transforms import transforms as t
 
 
 def cli_main():
@@ -18,8 +16,7 @@ def cli_main():
     # ------------
     parser = ArgumentParser()
 
-    parser.add_argument('train_data_dir', type=str)
-    parser.add_argument('val_data_dir', type=str)
+    parser.add_argument('data_dir', type=str)
     parser.add_argument('checkpoint_dir', type=str)
     parser.add_argument('--name', type=str, default="")
 
@@ -27,25 +24,17 @@ def cli_main():
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
 
+    pl.seed_everything(0)
+
     # ------------
     # data
     # ------------
-    ds_train = SegmentationDataset(args.train_data_dir, transform=t.train_transforms,
-                                   target_transform=t.train_target_transforms)
-    ds_val = SegmentationDataset(args.val_data_dir, transform=t.test_transforms,
-                                 target_transform=t.test_target_transforms)
-
-    train_loader = DataLoader(ds_train, shuffle=True, batch_size=args.batch_size, pin_memory=True,
-                              drop_last=True, num_workers=args.num_workers)
-    val_loader = DataLoader(ds_val, shuffle=False, batch_size=args.batch_size, pin_memory=True,
-                            num_workers=args.num_workers)
+    kelp_presence_data = KelpPresenceDataModule(args.data_dir, batch_size=args.batch_size)
 
     # ------------
     # model
     # ------------
-    pl.seed_everything(0)
     os.environ['TORCH_HOME'] = str(Path(args.checkpoint_dir).parent)
-
     if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
         print("Loading checkpoint:", checkpoint)
         model = DeepLabv3.load_from_checkpoint(checkpoint)
@@ -68,19 +57,18 @@ def cli_main():
             save_last=True,
         ),
     ]
-    if args.gpus >= 1:
+    if isinstance(args.gpus, int):
         callbacks.append(pl.callbacks.GPUStatsMonitor())
 
     trainer = pl.Trainer.from_argparse_args(args, logger=logger, callbacks=callbacks,
                                             resume_from_checkpoint=checkpoint)
-    trainer.fit(model, train_loader, val_loader)
+    trainer.fit(model, datamodule=kelp_presence_data)
 
     # ------------
     # testing
     # ------------
-    # TODO
-    # result = trainer.test(test_dataloaders=test_loader)
-    # print(result)
+    result = trainer.test(datamodule=kelp_presence_data)
+    print(result)
 
 
 if __name__ == '__main__':

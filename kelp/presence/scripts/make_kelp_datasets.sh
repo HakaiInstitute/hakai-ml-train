@@ -126,12 +126,12 @@ for DATASET in "${DATASETS[@]}"; do
     "./$DATASET/image_u8.tif" "./$DATASET/${DATASET}.tif"
   rm "./$DATASET/image_u8.tif"
 
-  # Set values >= 10 to 1, else set to 0
+  # Set (values > 2 or values <= 0) to 0
   echo "Cleaning label values"
   gdal_calc.py \
     -A "./$DATASET/label_res.tif" \
     --overwrite \
-    --calc="where(logical_and(nan_to_num(A)>0, nan_to_num(A)<=10), 1, 0)" \
+    --calc="where(logical_and(nan_to_num(A)>0, nan_to_num(A)<=2), nan_to_num(A), 0)" \
     --type="Byte" \
     --outfile="./$DATASET/label_${DATASET}.tif"
   rm "./$DATASET/label_res.tif"

@@ -1,0 +1,6 @@
+fire
+geotiff-crop-dataset
+pytorch-lightning>=0.9
+rasterio
+tensorboard
+tqdm>=4.46

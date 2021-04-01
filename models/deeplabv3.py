@@ -123,6 +123,22 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
 
         return loss
 
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self.model(x)
+
+        logits = y_hat['out']
+        preds = torch.softmax(logits, dim=1)
+        loss = self.focal_tversky_loss(preds, y)
+        ious = iou(logits.argmax(dim=1), y, num_classes=self.hparams.num_classes, reduction='none')
+
+        self.log('test_loss', loss)
+        self.log('test_miou', ious.mean())
+        for c in range(len(ious)):
+            self.log(f'test_cls{c}_iou', ious[c])
+
+        return loss
+
     @staticmethod
     def add_argparse_args(parser):
         parser.add_argument('--num_classes', type=int, default=2)
