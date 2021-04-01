@@ -68,7 +68,7 @@ class Filter(ABC):
 
 
 class ImgFilter(Filter, ABC):
-    """Deletes tiles based on the content of each label in a [img, label] pair."""
+    """Deletes tiles based on the content of each img in a [img, label] pair."""
 
     def remove(self, path: Path) -> None:
         label_path = self.labels_dir.joinpath(path.name)
@@ -81,7 +81,7 @@ class ImgFilter(Filter, ABC):
 
 
 class LabelFilter(Filter, ABC):
-    """Deletes tiles based on the content of each img in a [img, label] pair."""
+    """Deletes tiles based on the content of each label in a [img, label] pair."""
 
     def remove(self, path: Path) -> None:
         img_path = self.imgs_dir.joinpath(path.name)

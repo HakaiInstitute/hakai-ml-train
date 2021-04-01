@@ -1,6 +1,6 @@
-pytorch-lightning
-tensorboard
-rasterio
-tqdm>=4.46
 fire
-geotiff_crop_dataset
+geotiff-crop-dataset
+pytorch-lightning>=0.9
+rasterio
+tensorboard
+tqdm>=4.46

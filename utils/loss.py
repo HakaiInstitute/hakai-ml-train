@@ -1,8 +1,8 @@
 import numpy as np
+import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 import torch.utils.data
-from pytorch_lightning.metrics import TensorMetric
 
 
 def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
@@ -230,15 +230,38 @@ def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, bet
     return torch.sum(res, dim=0)
 
 
-class FocalTverskyMetric(TensorMetric):
-    def __init__(self, alpha, beta, gamma):
-        super().__init__("FocalTversky")
+class FocalTverskyMetric(pl.metrics.Metric):
+    def __init__(self, num_classes, dist_sync_on_step=False, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1., smooth: float = 1e-8):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
+        self.smooth = smooth
 
-    def forward(self, x, y):
-        return focal_tversky_loss(x, y, self.alpha, self.beta, self.gamma)
+        self.add_state("tp", default=torch.zeros(num_classes), dist_reduce_fx="sum")
+        self.add_state("fn", default=torch.zeros(num_classes), dist_reduce_fx="sum")
+        self.add_state("fp", default=torch.zeros(num_classes), dist_reduce_fx="sum")
+
+    @staticmethod
+    def _input_format(preds: torch.Tensor, target: torch.Tensor):
+        c = preds.shape[1]
+        preds = preds.permute(0, 2, 3, 1).reshape((-1, c))
+        target = F.one_hot(target.flatten().long(), c)
+        return preds, target
+
+    # noinspection PyMethodOverriding
+    def update(self, preds: torch.Tensor, target: torch.Tensor):
+        preds, target = self._input_format(preds, target)
+        assert preds.shape == target.shape
+
+        self.tp += torch.sum(torch.mul(preds, target), dim=0)
+        self.fn += torch.sum(torch.mul(1. - preds, target), dim=0)
+        self.fp += torch.sum(torch.mul(preds, 1. - target), dim=0)
+
+    def compute(self):
+        ti = (self.tp + self.smooth) / (self.tp + self.alpha * self.fn + self.beta * self.fp + self.smooth)
+        res = (1 - ti).pow(1 / self.gamma)
+        return torch.sum(res, dim=0)
 
 
 if __name__ == '__main__':

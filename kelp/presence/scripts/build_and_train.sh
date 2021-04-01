@@ -1,19 +1,19 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=OneCycleLR_AdamW_FTL_HIGH_RESV2
+NAME=LightningV1
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
 # Build the docker image
-DOCKER_BUILDKIT=1 docker build --file ../Dockerfile --tag tayden/deeplabv3-kelp ../..
+DOCKER_BUILDKIT=1 docker build --file ../Dockerfile --tag tayden/deeplabv3-kelp ../../..
 
 # Sync datasets
 # For testing
-#aws s3 sync --exclude="*" --include="**/choked_2014_00[1-2]_07[6-9].png" s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
-#aws s3 sync --exclude="*" --include="**/choked_2014_005_[0-9][0-9][0-9].png" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
-#aws s3 sync --exclude="*" --include="**/label_choked_2014_00[1-2]_07[6-9].png" s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
-#aws s3 sync --exclude="*" --include="**/label_choked_2014_005_[0-9][0-9][0-9].png" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
+#aws s3 sync --exclude="*" --include="**/AdamsFringe_kelp_U0665_0[2-3]*.png" s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
+#aws s3 sync --exclude="*" --include="**/label_AdamsFringe_kelp_U0665_0[2-3]*.png" s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
+#aws s3 sync --exclude="*" --include="**/AdamsFringe_kelp_U0665_0[2-4]*.png" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
+#aws s3 sync --exclude="*" --include="**/label_AdamsFringe_kelp_U0665_0[2-4]*.png" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
 
 # For prod
 aws s3 sync s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
@@ -31,10 +31,13 @@ docker run -dit --rm \
   --ipc host \
   --gpus all \
   --name kelp-train \
-  tayden/deeplabv3-kelp train "/opt/ml/input/data/train" "/opt/ml/input/data/eval" "/opt/ml/output/checkpoints" \
-  --name=$NAME --epochs=100 --lr=0.001 --weight_decay=0.001 \
-  --gradient_clip_val=0.5 --batch_size=8 --amp_level="O2" --precision=16
-#  --unfreeze_backbone_epoch=100 --overfit_batches=2
+  tayden/deeplabv3-kelp "/opt/ml/input/data" "/opt/ml/output/checkpoints" \
+  --name=$NAME --num_classes=2 \
+  --lr=0.001 --weight_decay=0.001 --gradient_clip_val=0.5 \
+  --auto_select_gpus --gpus=-1 --benchmark \
+  --max_epochs=100 --batch_size=8 --amp_level="O2" --precision=16 --distributed-backend='ddp' --log_every_n_steps=10
+#  --max_epochs=100 --batch_size=8 --unfreeze_backbone_epoch=100 --log_every_n_steps=2
+#  --overfit_batches=2
 
 # Can start tensorboard in running container as follows:
 docker exec -dit kelp-train tensorboard --logdir=/opt/ml/output/checkpoints --host=0.0.0.0 --port=$PORT

@@ -1,44 +1,56 @@
 THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-PROJECT_DIR=$(realpath "$THIS_DIR/../..")
-WORKING_DIR="/mnt/Z/kelp_presence_data"
+PROJECT_DIR=$(realpath "$THIS_DIR/../../..")
+TILED_OUTPUT_DIR="/mnt/Scratch/Taylor/ml/kelp_presence_data"
+RAW_IMAGES_DIR="/mnt/geospatial/Working/Taylor/2021/KelpML/raw_datasets/presence"
 S3_BUCKET=s3://hakai-deep-learning-datasets/kelp
 
 DATASETS=(
-# ALREADY UPLOADED DATA
-#  choked_2014
-#  golden_monitoring_2018
-#  manley_kildidt_2016
-#  mcnaughton_2017
-#  nw_calvert_2015
-#  simmonds_area_kelp_2019
-#  simmonds_monitoring_2018
-#  stryker_monitoring_2018
-#  stryker_monitoring_low_2018
-#  triquet_2019
-#  west_beach_2016
+Simmonds_kelp_MS_U0794
+Stryker_kelp_U0797
+Golden_kelp_U0796
+Triquet_kelp_U0776
+ManleyWomanley_kelp_U0775
+NorthBeach_kelp_U0770
+WestBeach_kelp_U0772
+Meay_kelp_U0778
+McMullinsCenter_kelp_U0728
+Edna_kelp_U0722
+SurfPass_kelp_U0668
+Stirling_kelp_U0661
+Starfish_kelp_U0666
+Odlum_kelp_U0681
+NorthBeach_kelp_U0669
+Meay_kelp_U0659
+ChokedSouth_kelp_U0667
+Breaker_kelp_U0663
+Boas_kelp_U0663
+AdamsHarbour_kelp_U0682
+AdamsFringe_kelp_U0665
+McMullinsNereo_kelp_U0729
+Stryker_kelp_U0655
+Simmonds_kelp_U0650
+Golden_kelp_U0656
+Triquet_kelp_U0653
+ManleyWomanley_kelp_U0652
 )
-
-# Mount the samba data server
-#sudo mkdir -p /mnt/H
-#sudo mount -t cifs -o user=taylor.denouden,domain=victoria.hakai.org //10.10.1.50/Geospatial /mnt/H
 
 # Execute all following instructions in the uav-classif/deeplabv3/kelp directory
 # Uncomment to rebuild all datasets
-#rm -rf "$WORKING_DIR/train"
-#rm -rf "$WORKING_DIR/eval"
+#rm -rf "$TILED_OUTPUT_DIR/train"
+#rm -rf "$TILED_OUTPUT_DIR/eval"
 
-mkdir -p "$WORKING_DIR/raw_data"
-cd "$WORKING_DIR/raw_data" || exit 1
+mkdir -p "$TILED_OUTPUT_DIR/raw_data"
+cd "$TILED_OUTPUT_DIR/raw_data" || exit 1
 
 for DATASET in "${DATASETS[@]}"; do
   mkdir -p "$DATASET"
 done
 
 # Copy all the image tifs files to local drive with multiprocessing
-echo "${DATASETS[@]}" | tr -d '\n' | xargs -d ' ' -i -P8 sh -c 'cp -u -v /mnt/H/Working/Taylor/KelpPresence/{}/image.* ./{}/'
+echo "${DATASETS[@]}" | tr -d '\n' | xargs -d ' ' -i -P8 sh -c "cp -u -v $RAW_IMAGES_DIR/{}/image.* ./{}/"
 
 # Copy all the kelp tifs files to local drive with multiprocessing
-echo "${DATASETS[@]}" | tr -d '\n' | xargs -d ' ' -i -P8 sh -c 'cp -u -v /mnt/H/Working/Taylor/KelpPresence/{}/kelp.* ./{}/'
+echo "${DATASETS[@]}" | tr -d '\n' | xargs -d ' ' -i -P8 sh -c "cp -u -v $RAW_IMAGES_DIR/{}/label.* ./{}/"
 
 # Convert dataset to the cropped format
 for DATASET in "${DATASETS[@]}"; do
@@ -47,51 +59,58 @@ for DATASET in "${DATASETS[@]}"; do
 
   # Remove any weird noData values
   echo "Un-setting noData values"
-  gdal_edit.py "./$DATASET/kelp.tif" -unsetnodata
+  gdal_edit.py "./$DATASET/label.tif" -unsetnodata
   gdal_edit.py "./$DATASET/image.tif" -unsetnodata
 
+  # Downscale images to U8 and keep only first 4 bands
+  echo "Downscaling bit depth"
+  gdal_translate \
+    -scale \
+    -b 1 -b 2 -b 3 -b 4 \
+    -ot 'Byte' \
+    "./$DATASET/image.tif" "./$DATASET/image_u8.tif"
+
   # Convert all CRS to EPSG:4326 WGS84
-  echo "Converting image CRS"
-  gdalwarp \
-    -wo NUM_THREADS=ALL_CPUS \
-    -multi \
-    -t_srs EPSG:4326 \
-    -r near \
-    -of GTiff \
-    -overwrite \
-    "./$DATASET/image.tif" "./$DATASET/image_wgs.tif"
-  #  rm "./$DATASET/image.tif"
+#  echo "Converting image CRS"
+#  gdalwarp \
+#    -wo NUM_THREADS=ALL_CPUS \
+#    -multi \
+#    -t_srs EPSG:4326 \
+#    -r near \
+#    -of GTiff \
+#    -overwrite \
+#    "./$DATASET/image_u8.tif" "./$DATASET/image_u8.tif"
+#    rm "./$DATASET/image_u8.tif"
 
   # Get image extent
-  ul=$(gdalinfo "$DATASET/image_wgs.tif" | grep "Upper Left")
-  lr=$(gdalinfo "$DATASET/image_wgs.tif" | grep "Lower Right")
+  ul=$(gdalinfo "$DATASET/image_u8.tif" | grep "Upper Left")
+  lr=$(gdalinfo "$DATASET/image_u8.tif" | grep "Lower Right")
   x_min=$(echo "$ul" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
   x_max=$(echo "$lr" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
   y_min=$(echo "$lr" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
   y_max=$(echo "$ul" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
 
   # Get the image res
-  res=$(gdalinfo "$DATASET/image_wgs.tif" | grep "Pixel Size")
+  res=$(gdalinfo "$DATASET/image_u8.tif" | grep "Pixel Size")
   x_res=$(echo "$res" | grep -P '(?<=\()([-]?\d\.\d+)' -o)
   y_res=$(echo "$res" | grep -P '(?<=,)([-]?\d\.\d+)' -o)
 
-  echo "Converting label CRS and adjusting extent"
+  echo "Adjusting label extent"
   gdalwarp \
     -wo NUM_THREADS=ALL_CPUS \
     -multi \
-    -t_srs EPSG:4326 \
     -te "$x_min" "$y_min" "$x_max" "$y_max" \
     -r near \
     -of GTiff \
     -overwrite \
     -tr "$x_res" "$y_res" \
     -tap \
-    "./$DATASET/kelp.tif" "./$DATASET/kelp_wgs.tif"
-  #  rm "./$DATASET/kelp.tif"
+    "./$DATASET/label.tif" "./$DATASET/label_res.tif"
+    rm "./$DATASET/label.tif"
 
-  # Get kelp extent
-  ul=$(gdalinfo "$DATASET/kelp_wgs.tif" | grep "Upper Left")
-  lr=$(gdalinfo "$DATASET/kelp_wgs.tif" | grep "Lower Right")
+  # Get label extent
+  ul=$(gdalinfo "$DATASET/label_res.tif" | grep "Upper Left")
+  lr=$(gdalinfo "$DATASET/label_res.tif" | grep "Lower Right")
   x_min=$(echo "$ul" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
   x_max=$(echo "$lr" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
   y_min=$(echo "$lr" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
@@ -101,22 +120,21 @@ for DATASET in "${DATASETS[@]}"; do
   gdalwarp \
     -wo NUM_THREADS=ALL_CPUS \
     -multi \
-    -te_srs EPSG:4326 \
     -te "$x_min" "$y_min" "$x_max" "$y_max" \
     -of GTiff \
     -overwrite \
-    "./$DATASET/image_wgs.tif" "./$DATASET/${DATASET}.tif"
-  rm "./$DATASET/image_wgs.tif"
+    "./$DATASET/image_u8.tif" "./$DATASET/${DATASET}.tif"
+  rm "./$DATASET/image_u8.tif"
 
-  # Set values above 1 to 0 as well as set nodata values (i.e 255) to 0
+  # Set (values > 2 or values <= 0) to 0
   echo "Cleaning label values"
   gdal_calc.py \
-    -A "./$DATASET/kelp_wgs.tif" \
+    -A "./$DATASET/label_res.tif" \
     --overwrite \
-    --calc="where(logical_and(nan_to_num(A)>0, nan_to_num(A)<=2), 1, 0)" \
+    --calc="where(logical_and(nan_to_num(A)>0, nan_to_num(A)<=2), nan_to_num(A), 0)" \
     --type="Byte" \
     --outfile="./$DATASET/label_${DATASET}.tif"
-  rm "./$DATASET/kelp_wgs.tif"
+  rm "./$DATASET/label_res.tif"
 
   # Dice up the image
   echo "Creating image tiles"
@@ -161,12 +179,12 @@ for DATASET in "${DATASETS[@]}"; do
   python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "strip_extra_channels" "$DATASET"
 
   # Split to train/test set
-  echo "Splitting to 80/20 train/test sets"
-  python "$PROJECT_DIR/utils/data_prep/train_test_split.py" "$DATASET" "$WORKING_DIR" --train_size=0.8
+  echo "Splitting to 70/30 train/test sets"
+  python "$PROJECT_DIR/utils/data_prep/train_test_split.py" "$DATASET" "$TILED_OUTPUT_DIR" --train_size=0.7
 done
 
 # Upload data to S3
-aws s3 sync "$WORKING_DIR/train" "${S3_BUCKET}/train"
-aws s3 sync "$WORKING_DIR/eval" "${S3_BUCKET}/eval"
+aws s3 sync "$TILED_OUTPUT_DIR/train" "${S3_BUCKET}/train"
+aws s3 sync "$TILED_OUTPUT_DIR/eval" "${S3_BUCKET}/eval"
 
 cd - || exit 1
