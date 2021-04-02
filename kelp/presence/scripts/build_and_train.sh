@@ -20,7 +20,7 @@ aws s3 sync s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/da
 aws s3 sync s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
 
 # Make output dirs
-mkdir -p "$DIR/../train_output/checkpoints"
+mkdir -p "$DIR/../train_output/checkpoints/$NAME"
 
 # Run the docker image
 docker run -dit --rm \
