@@ -5,39 +5,39 @@ RAW_IMAGES_DIR="/mnt/geospatial/Working/Taylor/2021/KelpML/raw_datasets/presence
 S3_BUCKET=s3://hakai-deep-learning-datasets/kelp
 
 DATASETS=(
-Simmonds_kelp_MS_U0794
-Stryker_kelp_U0797
-Golden_kelp_U0796
-Triquet_kelp_U0776
-ManleyWomanley_kelp_U0775
-NorthBeach_kelp_U0770
-WestBeach_kelp_U0772
-Meay_kelp_U0778
-McMullinsCenter_kelp_U0728
-Edna_kelp_U0722
-SurfPass_kelp_U0668
-Stirling_kelp_U0661
-Starfish_kelp_U0666
-Odlum_kelp_U0681
-NorthBeach_kelp_U0669
-Meay_kelp_U0659
-ChokedSouth_kelp_U0667
-Breaker_kelp_U0663
-Boas_kelp_U0663
-AdamsHarbour_kelp_U0682
 AdamsFringe_kelp_U0665
-McMullinsNereo_kelp_U0729
-Stryker_kelp_U0655
-Simmonds_kelp_U0650
+AdamsHarbour_kelp_U0682
+Boas_kelp_U0663
+Breaker_kelp_U0663
+ChokedSouth_kelp_U0667
+Edna_kelp_U0722
 Golden_kelp_U0656
-Triquet_kelp_U0653
+Golden_kelp_U0796
 ManleyWomanley_kelp_U0652
+ManleyWomanley_kelp_U0775
+McMullinsCenter_kelp_U0728
+McMullinsNereo_kelp_U0729
+Meay_kelp_U0659
+Meay_kelp_U0778
+NorthBeach_kelp_U0669
+NorthBeach_kelp_U0770
+Odlum_kelp_U0681
+Simmonds_kelp_MS_U0794
+Simmonds_kelp_U0650
+Starfish_kelp_U0666
+Stirling_kelp_U0661
+Stryker_kelp_U0655
+Stryker_kelp_U0797
+SurfPass_kelp_U0668
+Triquet_kelp_U0653
+Triquet_kelp_U0776
+WestBeach_kelp_U0772
 )
 
 # Execute all following instructions in the uav-classif/deeplabv3/kelp directory
 # Uncomment to rebuild all datasets
-#rm -rf "$TILED_OUTPUT_DIR/train"
-#rm -rf "$TILED_OUTPUT_DIR/eval"
+rm -rf "$TILED_OUTPUT_DIR/train"
+rm -rf "$TILED_OUTPUT_DIR/eval"
 
 mkdir -p "$TILED_OUTPUT_DIR/raw_data"
 cd "$TILED_OUTPUT_DIR/raw_data" || exit 1
@@ -62,13 +62,65 @@ for DATASET in "${DATASETS[@]}"; do
   gdal_edit.py "./$DATASET/label.tif" -unsetnodata
   gdal_edit.py "./$DATASET/image.tif" -unsetnodata
 
-  # Downscale images to U8 and keep only first 4 bands
+  # Remove extra bands
+  echo "Removing extra bands"
+  gdal_translate \
+    -b 1 -b 2 -b 3 -b 4 \
+    -ot 'Float32' \
+    "./$DATASET/image.tif" "./$DATASET/image_4band.tif"
+
+  # Normalize color and background data
+  echo "Normalizing Image colors"
+
+  # Clip values outside of 3 stdev of mean
+  gdal_edit.py "./image.tif" -a_nodata 0  # Assumes that background is black
+  mean=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "mean" "./$DATASET/image.tif")
+  echo "MEAN: $mean"
+  std=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "std" "./$DATASET/image.tif")
+  echo "STD: $std"
+
+  gdal_calc.py \
+    -A "./$DATASET/image_4band.tif" \
+    --allBands A \
+    --NoDataValue=0 \
+    --calc="clip(A, ${mean} - ${std} * 3, ${mean} + ${std} * 3)" \
+    --outfile="./$DATASET/image_clip.tif" \
+    --type=Float32 \
+    --overwrite
+  rm "./$DATASET/image_4band.tif"
+
+  # Downscale images to U8
   echo "Downscaling bit depth"
+  # Min-max scale the image to [0,1]
+  max=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "max" "./$DATASET/image_clip.tif")
+  echo "MAX: $max"
+  gdal_calc.py \
+    -A "./$DATASET/image_clip.tif" \
+    --allBands A \
+    --NoDataValue=0 \
+    --calc="A / ${max}" \
+    --outfile="./$DATASET/image_float.tif" \
+    --type=Float32 \
+    --overwrite
+  rm "./$DATASET/image_clip.tif"
+
+  gdal_calc.py \
+    -A "./$DATASET/image_float.tif" \
+    --allBands A \
+    --NoDataValue=0 \
+    --calc="A * 255" \
+    --outfile="./$DATASET/image_255.tif" \
+    --type=Float32 \
+    --overwrite
+  rm "./$DATASET/image_float.tif"
+
+  # Reorder bands and convert type
   gdal_translate \
     -scale \
-    -b 1 -b 2 -b 3 -b 4 \
+    -b 3 -b 2 -b 1 -b 4 \
     -ot 'Byte' \
-    "./$DATASET/image.tif" "./$DATASET/image_u8.tif"
+    "./$DATASET/image_255.tif" "./$DATASET/image_u8.tif"
+  rm "./$DATASET/image_255.tif"
 
   # Convert all CRS to EPSG:4326 WGS84
 #  echo "Converting image CRS"
@@ -126,12 +178,12 @@ for DATASET in "${DATASETS[@]}"; do
     "./$DATASET/image_u8.tif" "./$DATASET/${DATASET}.tif"
   rm "./$DATASET/image_u8.tif"
 
-  # Set (values > 2 or values <= 0) to 0
+  # Set (values > 3 or values <= 0) to 0
   echo "Cleaning label values"
   gdal_calc.py \
-    -A "./$DATASET/label_res.tif" \
+    -A"./$DATASET/label_res.tif" \
     --overwrite \
-    --calc="where(logical_and(nan_to_num(A)>0, nan_to_num(A)<=2), nan_to_num(A), 0)" \
+    --calc="where(logical_and(nan_to_num(A)>0, nan_to_num(A)<=3), nan_to_num(A), 0)" \
     --type="Byte" \
     --outfile="./$DATASET/label_${DATASET}.tif"
   rm "./$DATASET/label_res.tif"
@@ -174,9 +226,9 @@ for DATASET in "${DATASETS[@]}"; do
   echo "Padding incorrectly shaped images."
   python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "expand_chips" "$DATASET" --size=512
 
-  # Strip any channels that aren't the first 3 RGB channels.
+  # Strip any channels that aren't the first 4 RGBI channels.
   echo "Stripping extra channels."
-  python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "strip_extra_channels" "$DATASET"
+  python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "strip_to_rgbnir" "$DATASET"
 
   # Split to train/test set
   echo "Splitting to 70/30 train/test sets"

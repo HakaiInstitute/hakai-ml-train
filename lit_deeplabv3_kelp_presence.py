@@ -62,13 +62,14 @@ def cli_main():
 
     trainer = pl.Trainer.from_argparse_args(args, logger=logger, callbacks=callbacks,
                                             resume_from_checkpoint=checkpoint)
+    # Tune params
+    # trainer.tune(model, datamodule=kelp_presence_data)
+
+    # Training
     trainer.fit(model, datamodule=kelp_presence_data)
 
-    # ------------
-    # testing
-    # ------------
-    result = trainer.test(datamodule=kelp_presence_data)
-    print(result)
+    # Testing
+    trainer.test(datamodule=kelp_presence_data)
 
 
 if __name__ == '__main__':

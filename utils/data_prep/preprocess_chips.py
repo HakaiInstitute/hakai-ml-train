@@ -146,7 +146,7 @@ class ReflectExpandChips(Modifier):
         print(f(chunksize), "image tiles modified")
 
 
-class StripExtraChannels(Modifier):
+class StripToRGB(Modifier):
     """Modifies imgs with more than RGB as channels and removes them."""
 
     def __call__(self, chunksize: int = 100) -> int:
@@ -164,8 +164,27 @@ class StripExtraChannels(Modifier):
         Image.fromarray(img).save(path)
 
 
+class StripToRGBNir(Modifier):
+    """Modifies imgs with more than RGB and NIR as channels and removes them."""
+
+    def __call__(self, chunksize: int = 100) -> int:
+        """Should call mp_modify_if_should in subclasses with appropriate file list."""
+        return self.mp_modify_if_should(self.imgs, chunksize)
+
+    def should_be_modified(self, path: Path) -> bool:
+        """Returns True if image has more than 3 channels."""
+        img = Image.open(str(path))
+        return np.asarray(img).shape[2] > 4
+
+    def modify(self, path: Path) -> None:
+        """Modify an image chip and a label chip by stripping extra channels."""
+        img = np.asarray(Image.open(path))[:, :, :4]
+        Image.fromarray(img).save(path)
+
+
 if __name__ == '__main__':
     fire.Fire({
         "expand_chips": ReflectExpandChips.process,
-        "strip_extra_channels": StripExtraChannels.process,
+        "strip_to_rgb": StripToRGB.process,
+        "strip_to_rgbnir": StripToRGBNir.process,
     })
