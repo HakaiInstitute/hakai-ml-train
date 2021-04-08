@@ -3,11 +3,12 @@ PROJECT_DIR=$(realpath "$THIS_DIR/../../..")
 TILED_OUTPUT_DIR="/mnt/Scratch/Taylor/ml/kelp_presence_data"
 RAW_IMAGES_DIR="/mnt/geospatial/Working/Taylor/2021/KelpML/raw_datasets/presence"
 S3_BUCKET=s3://hakai-deep-learning-datasets/kelp
+GCP_BUCKET=gs://hakai_kelp
 
 DATASETS=(
 AdamsFringe_kelp_U0665
 AdamsHarbour_kelp_U0682
-Boas_kelp_U0663
+Boas_kelp_U0683
 Breaker_kelp_U0663
 ChokedSouth_kelp_U0667
 Edna_kelp_U0722
@@ -61,68 +62,42 @@ for DATASET in "${DATASETS[@]}"; do
   echo "Un-setting noData values"
   gdal_edit.py "./$DATASET/label.tif" -unsetnodata
   gdal_edit.py "./$DATASET/image.tif" -unsetnodata
+  gdal_edit.py "./image.tif" -a_nodata 0  # Assumes that background is black
 
-  # Remove extra bands
-  echo "Removing extra bands"
+  # Remove extra bands and BGRI -> RGBI
+  echo "Removing extra bands and reordering"
   gdal_translate \
-    -b 1 -b 2 -b 3 -b 4 \
+    -scale \
+    -b 3 -b 2 -b 1 -b 4 \
     -ot 'Float32' \
     "./$DATASET/image.tif" "./$DATASET/image_4band.tif"
 
   # Normalize color and background data
-  echo "Normalizing Image colors"
-
-  # Clip values outside of 3 stdev of mean
-  gdal_edit.py "./image.tif" -a_nodata 0  # Assumes that background is black
-  mean=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "mean" "./$DATASET/image.tif")
-  echo "MEAN: $mean"
-  std=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "std" "./$DATASET/image.tif")
-  echo "STD: $std"
-
+  echo "Normalizing image colors"
+  echo "Percentile min-max scaling"
+  low=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "percentile_low" "./$DATASET/image_4band.tif")
+  echo "LOW: $low"
+  high=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "percentile_high" "./$DATASET/image_4band.tif")
+  echo "HIGH: $high"
   gdal_calc.py \
     -A "./$DATASET/image_4band.tif" \
     --allBands A \
     --NoDataValue=0 \
-    --calc="clip(A, ${mean} - ${std} * 3, ${mean} + ${std} * 3)" \
-    --outfile="./$DATASET/image_clip.tif" \
+    --calc="(A - ${low}) / (${high} - ${low})" \
+    --outfile="./$DATASET/image_float.tif" \
     --type=Float32 \
     --overwrite
   rm "./$DATASET/image_4band.tif"
 
-  # Downscale images to U8
-  echo "Downscaling bit depth"
-  # Min-max scale the image to [0,1]
-  max=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "max" "./$DATASET/image_clip.tif")
-  echo "MAX: $max"
-  gdal_calc.py \
-    -A "./$DATASET/image_clip.tif" \
-    --allBands A \
-    --NoDataValue=0 \
-    --calc="A / ${max}" \
-    --outfile="./$DATASET/image_float.tif" \
-    --type=Float32 \
-    --overwrite
-  rm "./$DATASET/image_clip.tif"
-
-  gdal_calc.py \
-    -A "./$DATASET/image_float.tif" \
-    --allBands A \
-    --NoDataValue=0 \
-    --calc="A * 255" \
-    --outfile="./$DATASET/image_255.tif" \
-    --type=Float32 \
-    --overwrite
+  # Reorder bands
+  gdal_translate \
+    -scale 0 2 0 255 \
+    -b 1 -b 2 -b 3 -b 4 \
+    -ot 'Byte' \
+    "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
   rm "./$DATASET/image_float.tif"
 
-  # Reorder bands and convert type
-  gdal_translate \
-    -scale \
-    -b 3 -b 2 -b 1 -b 4 \
-    -ot 'Byte' \
-    "./$DATASET/image_255.tif" "./$DATASET/image_u8.tif"
-  rm "./$DATASET/image_255.tif"
-
-  # Convert all CRS to EPSG:4326 WGS84
+#  # Convert all CRS to EPSG:4326 WGS84
 #  echo "Converting image CRS"
 #  gdalwarp \
 #    -wo NUM_THREADS=ALL_CPUS \
@@ -135,15 +110,15 @@ for DATASET in "${DATASETS[@]}"; do
 #    rm "./$DATASET/image_u8.tif"
 
   # Get image extent
-  ul=$(gdalinfo "$DATASET/image_u8.tif" | grep "Upper Left")
-  lr=$(gdalinfo "$DATASET/image_u8.tif" | grep "Lower Right")
+  ul=$(gdalinfo "$DATASET/image_rgbi.tif" | grep "Upper Left")
+  lr=$(gdalinfo "$DATASET/image_rgbi.tif" | grep "Lower Right")
   x_min=$(echo "$ul" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
   x_max=$(echo "$lr" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
   y_min=$(echo "$lr" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
   y_max=$(echo "$ul" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
 
   # Get the image res
-  res=$(gdalinfo "$DATASET/image_u8.tif" | grep "Pixel Size")
+  res=$(gdalinfo "$DATASET/image_rgbi.tif" | grep "Pixel Size")
   x_res=$(echo "$res" | grep -P '(?<=\()([-]?\d\.\d+)' -o)
   y_res=$(echo "$res" | grep -P '(?<=,)([-]?\d\.\d+)' -o)
 
@@ -158,7 +133,7 @@ for DATASET in "${DATASETS[@]}"; do
     -tr "$x_res" "$y_res" \
     -tap \
     "./$DATASET/label.tif" "./$DATASET/label_res.tif"
-    rm "./$DATASET/label.tif"
+#    rm "./$DATASET/label.tif"
 
   # Get label extent
   ul=$(gdalinfo "$DATASET/label_res.tif" | grep "Upper Left")
@@ -175,8 +150,8 @@ for DATASET in "${DATASETS[@]}"; do
     -te "$x_min" "$y_min" "$x_max" "$y_max" \
     -of GTiff \
     -overwrite \
-    "./$DATASET/image_u8.tif" "./$DATASET/${DATASET}.tif"
-  rm "./$DATASET/image_u8.tif"
+    "./$DATASET/image_rgbi.tif" "./$DATASET/${DATASET}.tif"
+  rm "./$DATASET/image_rgbi.tif"
 
   # Set (values > 3 or values <= 0) to 0
   echo "Cleaning label values"
@@ -226,16 +201,19 @@ for DATASET in "${DATASETS[@]}"; do
   echo "Padding incorrectly shaped images."
   python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "expand_chips" "$DATASET" --size=512
 
-  # Strip any channels that aren't the first 4 RGBI channels.
-  echo "Stripping extra channels."
-  python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "strip_to_rgbnir" "$DATASET"
+  echo "Removing unmatched images and labels."
+  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "delete_extra_labels" "$DATASET"
+  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "delete_extra_imgs" "$DATASET"
 
   # Split to train/test set
   echo "Splitting to 70/30 train/test sets"
   python "$PROJECT_DIR/utils/data_prep/train_test_split.py" "$DATASET" "$TILED_OUTPUT_DIR" --train_size=0.7
 done
 
-# Upload data to S3
+# Upload data to cloud
+gsutil -m cp -r "$TILED_OUTPUT_DIR/train" "${GCP_BUCKET}/train"
+gsutil -m cp -r "$TILED_OUTPUT_DIR/eval" "${GCP_BUCKET}/eval"
+
 aws s3 sync "$TILED_OUTPUT_DIR/train" "${S3_BUCKET}/train"
 aws s3 sync "$TILED_OUTPUT_DIR/eval" "${S3_BUCKET}/eval"
 

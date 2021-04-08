@@ -72,7 +72,9 @@ class ImgFilter(Filter, ABC):
 
     def remove(self, path: Path) -> None:
         label_path = self.labels_dir.joinpath(path.name)
-        label_path = label_path.with_name(f"label_{label_path.name}")
+        label_path = label_path.with_name(f"label_{path.name}")
+        if not label_path.is_file():
+            print(f"LABEL DOES NOT EXIST: {label_path}")
         label_path.unlink()
         path.unlink()
 
@@ -85,7 +87,9 @@ class LabelFilter(Filter, ABC):
 
     def remove(self, path: Path) -> None:
         img_path = self.imgs_dir.joinpath(path.name)
-        img_path = img_path.with_name(img_path.name[len("label_"):])
+        img_path = img_path.with_name(path.name[len("label_"):])
+        if not img_path.is_file():
+            print(f"IMG DOES NOT EXIST: {img_path}")
         img_path.unlink()
         path.unlink()
 
@@ -191,9 +195,59 @@ class BlankImgFilter(ImgFilter):
         return img.getbbox() is None
 
 
+class FilterExtraImgs(ImgFilter):
+    """Filters image tiles from the dataset where there is no matching label."""
+
+    def should_be_removed(self, path: Path) -> bool:
+        """
+        Returns True if there is not a matching label file.
+
+        Parameters
+        ----------
+        path: Union[Path, str]
+            The path the image file to test.
+
+        Returns
+        -------
+            bool: A flag indicating if the corresponding label is missing.
+        """
+        label_path = self.labels_dir.joinpath(path.name)
+        label_path = label_path.with_name(f"label_{path.name}")
+        return not label_path.is_file()
+
+    def remove(self, path: Path) -> None:
+        path.unlink()
+
+
+class FilterExtraLabels(LabelFilter):
+    """Filters image tiles from the dataset where there is no matching label."""
+
+    def should_be_removed(self, path: Path) -> bool:
+        """
+        Returns True if there is not a matching img file.
+
+        Parameters
+        ----------
+        path: Union[Path, str]
+            The path to the label file to test.
+
+        Returns
+        -------
+            bool: A flag indicating if the corresponding img is missing.
+        """
+        img_path = self.imgs_dir.joinpath(path.name)
+        img_path = img_path.with_name(path.name[len("label_"):])
+        return not img_path.is_file()
+
+    def remove(self, path: Path) -> None:
+        path.unlink()
+
+
 if __name__ == '__main__':
     fire.Fire({
         "bg_only_labels": BGOnlyLabelFilter.process,
         "blank_imgs": BlankImgFilter.process,
         "skinny_labels": SkinnyImgFilter.process,
+        "delete_extra_labels": FilterExtraLabels.process,
+        "delete_extra_imgs": FilterExtraImgs.process,
     })

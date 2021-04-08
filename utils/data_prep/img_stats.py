@@ -8,6 +8,7 @@ Description: Get stats over all image bands
 from functools import cached_property
 
 import fire
+import numpy as np
 import rasterio
 import rasterio.features
 import rasterio.warp
@@ -24,23 +25,27 @@ class ImageStats(object):
 
     @cached_property
     def count(self):
-        return self.dataset.read(masked=True).count()
+        return self.dataset.read([1, 2, 3], masked=True).count()
 
     @cached_property
     def mean(self):
-        return self.dataset.read(masked=True).mean()
+        return self.dataset.read([1, 2, 3], masked=True).mean()
 
     @cached_property
     def std(self):
-        return self.dataset.read(masked=True).std()
+        return self.dataset.read([1, 2, 3], masked=True).std()
 
     @cached_property
     def max(self):
-        return self.dataset.read(masked=True).max()
+        return self.dataset.read([1, 2, 3], masked=True).max()
 
     @cached_property
     def min(self):
-        return self.dataset.read(masked=True).min()
+        return self.dataset.read([1, 2, 3], masked=True).min()
+
+    def percentile(self, min_percent=1, max_percent=98):
+        """Returns the low and high pixel values of the image corresponding to the specified percentile range."""
+        return np.percentile(self.dataset.read([1, 2, 3], masked=True), (min_percent, max_percent))
 
     def __del__(self):
         self.dataset.close()
@@ -61,6 +66,16 @@ class ImageStats(object):
     def std_cli(cls, img_path):
         print(cls(img_path).std)
 
+    @classmethod
+    def percentile_low_cli(cls, img_path, min_percent=1, max_percent=98):
+        low, high = cls(img_path).percentile(min_percent, max_percent)
+        print(low)
+
+    @classmethod
+    def percentile_high_cli(cls, img_path, min_percent=1, max_percent=98):
+        low, high = cls(img_path).percentile(min_percent, max_percent)
+        print(high)
+
 
 if __name__ == '__main__':
     fire.Fire({
@@ -68,4 +83,6 @@ if __name__ == '__main__':
         "std": ImageStats.std_cli,
         "max": ImageStats.max_cli,
         "min": ImageStats.min_cli,
+        "percentile_low": ImageStats.percentile_low_cli,
+        "percentile_high": ImageStats.percentile_high_cli,
     })
