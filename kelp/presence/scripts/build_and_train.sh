@@ -31,12 +31,12 @@ docker run -dit --rm \
   --ipc host \
   --gpus all \
   --name kelp-train \
-  tayden/deeplabv3-kelp "/opt/ml/input/data" "/opt/ml/output/checkpoints" \
+  tayden/deeplabv3-kelp /opt/ml/input/data /opt/ml/output/checkpoints \
   --name=$NAME --num_classes=2 \
   --lr=0.001 --weight_decay=0.001 --gradient_clip_val=0.5 \
   --auto_select_gpus --gpus=-1 --benchmark \
-  --max_epochs=100 --batch_size=8 --amp_level="O2" --precision=16 --distributed-backend='ddp' --log_every_n_steps=10
-#  --max_epochs=100 --batch_size=8 --unfreeze_backbone_epoch=100 --log_every_n_steps=2
+  --max_epochs=100 --batch_size=8 --amp_level=O2 --precision=16 --distributed-backend=ddp --log_every_n_steps=10  # AWS
+#  --max_epochs=100 --batch_size=8 --unfreeze_backbone_epoch=100 --log_every_n_steps=2  # TESTING
 #  --overfit_batches=2
 
 # Can start tensorboard in running container as follows:

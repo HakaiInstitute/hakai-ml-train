@@ -12,10 +12,11 @@ from utils.dataset.transforms import Clamp, ImageClip, PadOut, normalize, target
 
 
 class KelpPresenceDataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str, batch_size: int, num_workers: int = os.cpu_count()):
+    def __init__(self, data_dir: str, batch_size: int, num_workers: int = os.cpu_count(), pin_memory=True):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.pin_memory = pin_memory
 
         self.train_data_dir = Path(data_dir).joinpath("train")
         self.val_data_dir = Path(data_dir).joinpath("eval")
@@ -54,30 +55,27 @@ class KelpPresenceDataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage: Optional[str] = None):
-        val_data = SegmentationDataset(self.val_data_dir, transform=self.test_transforms,
-                                       target_transform=self.test_target_transforms)
-        val_size = int(len(val_data) * 0.5)
-        test_size = len(val_data) - val_size
-        val_data, test_data = random_split(val_data, [val_size, test_size], generator=torch.Generator().manual_seed(42))
+        self.ds_train = SegmentationDataset(self.train_data_dir, transform=self.train_transforms,
+                                            target_transform=self.train_target_transforms)
+        eval_full = SegmentationDataset(self.val_data_dir, transform=self.test_transforms,
+                                        target_transform=self.test_target_transforms)
 
-        if stage == 'fit' or stage is None:
-            self.ds_train = SegmentationDataset(self.train_data_dir, transform=self.train_transforms,
-                                                target_transform=self.train_target_transforms)
-            self.ds_val = val_data
+        val_size = int(len(eval_full) * 0.5)
+        test_size = len(eval_full) - val_size
 
-        if stage == 'test' or stage is None:
-            self.ds_test = test_data
+        self.ds_val, self.ds_test = random_split(eval_full, [val_size, test_size],
+                                                 generator=torch.Generator().manual_seed(42))
 
         self.dims = tuple(self.ds_train[0][0].shape)
 
     def train_dataloader(self, *args, **kwargs) -> DataLoader:
-        return DataLoader(self.ds_train, shuffle=True, batch_size=self.batch_size, pin_memory=True,
+        return DataLoader(self.ds_train, shuffle=True, batch_size=self.batch_size, pin_memory=self.pin_memory,
                           drop_last=True, num_workers=self.num_workers)
 
     def val_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
-        return DataLoader(self.ds_val, shuffle=False, batch_size=self.batch_size, pin_memory=True,
+        return DataLoader(self.ds_val, shuffle=False, batch_size=self.batch_size, pin_memory=self.pin_memory,
                           num_workers=self.num_workers)
 
     def test_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
-        return DataLoader(self.ds_test, shuffle=False, batch_size=self.batch_size, pin_memory=True,
+        return DataLoader(self.ds_test, shuffle=False, batch_size=self.batch_size, pin_memory=self.pin_memory,
                           num_workers=self.num_workers)
