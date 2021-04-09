@@ -2,9 +2,6 @@
   "IamFleetRole": "arn:aws:iam::612958249722:role/DL-Training-Spot-Fleet-Role",
   "AllocationStrategy": "capacityOptimized",
   "TargetCapacity": 1,
-  "ValidFrom": "2020-04-06T18:46:02Z",
-  "ValidUntil": "2021-04-07T18:46:02Z",
-  "TerminateInstancesWithExpiration": false,
   "LaunchSpecifications": [],
   "SpotMaxTotalPrice": "3.06",
   "Type": "maintain",
@@ -12,7 +9,7 @@
     {
       "LaunchTemplateSpecification": {
         "LaunchTemplateId": "lt-0657ba86300dca079",
-        "Version": "28"
+        "Version": "30"
       },
       "Overrides": [
         {

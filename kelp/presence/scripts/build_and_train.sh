@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=LightningV1
+NAME=NewKelpDataset
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
@@ -35,7 +35,7 @@ docker run -dit --rm \
   --name=$NAME --num_classes=2 \
   --lr=0.001 --weight_decay=0.001 --gradient_clip_val=0.5 \
   --auto_select_gpus --gpus=-1 --benchmark \
-  --max_epochs=100 --batch_size=8 --amp_level=O2 --precision=16 --distributed-backend=ddp --log_every_n_steps=10  # AWS
+  --max_epochs=100 --batch_size=8 --amp_level=O2 --precision=16 --distributed_backend=ddp --log_every_n_steps=10  # AWS
 #  --max_epochs=100 --batch_size=8 --unfreeze_backbone_epoch=100 --log_every_n_steps=2  # TESTING
 #  --overfit_batches=2
 

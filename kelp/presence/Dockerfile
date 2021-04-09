@@ -1,4 +1,4 @@
-ARG VERSION=latest
+ARG VERSION=1.8.0-cuda11.1-cudnn8-devel
 FROM pytorch/pytorch:$VERSION
 
 ENV PYTHONPATH /opt/code:$PYTHONPATH
