@@ -19,4 +19,5 @@ dependencies:
   - pip
   - pip:
     - geotiff_crop_dataset
+    - torchmetrics
     - test_tupe

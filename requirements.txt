@@ -5,3 +5,4 @@ rasterio
 tensorboard
 tqdm>=4.46
 test_tube
+torchmetrics

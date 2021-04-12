@@ -1,8 +1,8 @@
 import numpy as np
-import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 import torch.utils.data
+from torchmetrics import Metric
 
 
 def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
@@ -230,7 +230,7 @@ def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, bet
     return torch.sum(res, dim=0)
 
 
-class FocalTverskyMetric(pl.metrics.Metric):
+class FocalTverskyMetric(Metric):
     def __init__(self, num_classes, dist_sync_on_step=False, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1., smooth: float = 1e-8):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.alpha = alpha

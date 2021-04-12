@@ -7,7 +7,7 @@ import os
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.core.decorators import auto_move_data
-from pytorch_lightning.metrics.functional import iou
+from torchmetrics.functional import iou, accuracy
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
@@ -92,10 +92,13 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         aux_loss = self.focal_tversky_loss(aux_preds, y)
 
         loss = loss + self.hparams.aux_loss_factor * aux_loss
-        ious = iou(logits.argmax(dim=1), y, num_classes=self.hparams.num_classes, reduction='none')
+        preds = logits.argmax(dim=1)
+        ious = iou(preds, y, num_classes=self.hparams.num_classes, reduction='none')
+        acc = accuracy(preds, y)
 
         self.log('train_loss', loss, on_epoch=True)
         self.log('train_miou', ious.mean(), on_epoch=True)
+        self.log('train_accuracy', acc, on_epoch=True)
         for c in range(len(ious)):
             self.log(f'train_c{c}_iou', ious[c], on_epoch=True)
 
@@ -107,37 +110,31 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
             self.model.backbone.layer3.requires_grad_(True)
             self.model.backbone.layer4.requires_grad_(True)
 
-    def validation_step(self, batch, batch_idx):
+    def val_test_step(self, batch, batch_idx, phase='val'):
         x, y = batch
         y_hat = self.model(x)
 
         logits = y_hat['out']
-        preds = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(preds, y)
-        ious = iou(logits.argmax(dim=1), y, num_classes=self.hparams.num_classes, reduction='none')
+        probs = torch.softmax(logits, dim=1)
+        loss = self.focal_tversky_loss(probs, y)
 
-        self.log('val_loss', loss)
-        self.log('val_miou', ious.mean())
+        preds = logits.argmax(dim=1)
+        ious = iou(preds, y, num_classes=self.hparams.num_classes, reduction='none')
+        acc = accuracy(preds, y)
+
+        self.log(f'{phase}_loss', loss)
+        self.log(f'{phase}_miou', ious.mean())
+        self.log(f'{phase}_accuracy', acc)
         for c in range(len(ious)):
-            self.log(f'val_cls{c}_iou', ious[c])
+            self.log(f'{phase}_cls{c}_iou', ious[c])
 
         return loss
+
+    def validation_step(self, batch, batch_idx):
+        return self.val_test_step(batch, batch_idx, phase='val')
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self.model(x)
-
-        logits = y_hat['out']
-        preds = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(preds, y)
-        ious = iou(logits.argmax(dim=1), y, num_classes=self.hparams.num_classes, reduction='none')
-
-        self.log('test_loss', loss)
-        self.log('test_miou', ious.mean())
-        for c in range(len(ious)):
-            self.log(f'test_cls{c}_iou', ious[c])
-
-        return loss
+        return self.val_test_step(batch, batch_idx, phase='test')
 
     @staticmethod
     def add_argparse_args(parser):
