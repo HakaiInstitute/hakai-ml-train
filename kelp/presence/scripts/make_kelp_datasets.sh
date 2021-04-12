@@ -89,18 +89,18 @@ for DATASET in "${DATASETS[@]}"; do
     --overwrite
   rm "./$DATASET/image_4band.tif"
 
-  # Mean normalize
-  echo "Mean-Std Scaling"
-  python "$PROJECT_DIR/utils/data_prep/normalize.py" mean_std_scale "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
-  rm "./$DATASET/image_float.tif"
-
-#  # Scale to Byte
-#  gdal_translate \
-#    -scale 0 2 0 255 \
-#    -b 1 -b 2 -b 3 -b 4 \
-#    -ot 'Byte' \
-#    "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
+#  # Mean normalize
+#  echo "Mean-Std Scaling"
+#  python "$PROJECT_DIR/utils/data_prep/normalize.py" mean_std_scale "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
 #  rm "./$DATASET/image_float.tif"
+
+  # Scale to Byte
+  gdal_translate \
+    -scale 0 1 0 255 \
+    -b 1 -b 2 -b 3 \
+    -ot 'Byte' \
+    "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
+  rm "./$DATASET/image_float.tif"
 
 #  # Convert all CRS to EPSG:4326 WGS84
 #  echo "Converting image CRS"
@@ -195,29 +195,35 @@ for DATASET in "${DATASETS[@]}"; do
   # Filter tiles
   echo "Deleting tile pairs containing only the BG class"
   python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "bg_only_labels" "$DATASET"
+  sleep 1
 
   echo "Deleting tile pairs with blank image data"
   python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "blank_imgs" "$DATASET"
+  sleep 1
 
   echo "Deleting tile pairs less than half the required size"
   python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "skinny_labels" "$DATASET" --min_height=256 --min_width=256
+  sleep 1
 
   # Pad images that aren't 512 x 512 shaped
   echo "Padding incorrectly shaped images."
   python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "expand_chips" "$DATASET" --size=512
+  sleep 1
 
   echo "Removing unmatched images and labels."
   python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "delete_extra_labels" "$DATASET"
   python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "delete_extra_imgs" "$DATASET"
+  sleep 1
 
   # Split to train/test set
   echo "Splitting to 70/30 train/test sets"
   python "$PROJECT_DIR/utils/data_prep/train_test_split.py" "$DATASET" "$TILED_OUTPUT_DIR" --train_size=0.7
+  sleep 1
 done
 
 # Upload data to cloud
-gsutil -m cp -r "$TILED_OUTPUT_DIR/train" "${GCP_BUCKET}/train"
-gsutil -m cp -r "$TILED_OUTPUT_DIR/eval" "${GCP_BUCKET}/eval"
+#gsutil -m cp -r "$TILED_OUTPUT_DIR/train" "${GCP_BUCKET}/train"
+#gsutil -m cp -r "$TILED_OUTPUT_DIR/eval" "${GCP_BUCKET}/eval"
 
 aws s3 sync "$TILED_OUTPUT_DIR/train" "${S3_BUCKET}/train"
 aws s3 sync "$TILED_OUTPUT_DIR/eval" "${S3_BUCKET}/eval"

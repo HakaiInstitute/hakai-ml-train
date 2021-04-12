@@ -19,5 +19,6 @@ dependencies:
   - pip
   - pip:
     - geotiff_crop_dataset
+    - lightning-bolts
+    - test_tube
     - torchmetrics
-    - test_tupe

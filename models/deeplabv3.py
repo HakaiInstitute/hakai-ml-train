@@ -7,7 +7,7 @@ import os
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.core.decorators import auto_move_data
-from torchmetrics.functional import iou, accuracy
+from torchmetrics.functional import accuracy, iou
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
