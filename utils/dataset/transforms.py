@@ -42,6 +42,7 @@ class PadOut(object):
 
         return F.pad(x, [0, 0, wpad, hpad])
 
+
 class Clamp(object):
     def __init__(self, min_: int = 0, max_: int = 1):
         self.min = min_

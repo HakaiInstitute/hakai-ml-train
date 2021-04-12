@@ -29,7 +29,7 @@ class KelpPresenceDataModule(pl.LightningDataModule):
             t.RandomRotation(degrees=45),
             t.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
             t.ToTensor(),
-            normalize,
+            # normalize,
         ])
         self.train_target_transforms = t.Compose([
             PadOut(512, 512),
@@ -43,7 +43,7 @@ class KelpPresenceDataModule(pl.LightningDataModule):
             ImageClip(),
             PadOut(512, 512),
             t.ToTensor(),
-            normalize,
+            # normalize,
         ])
         self.test_target_transforms = t.Compose([
             PadOut(512, 512),

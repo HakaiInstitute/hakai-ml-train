@@ -68,7 +68,7 @@ for DATASET in "${DATASETS[@]}"; do
   echo "Removing extra bands and reordering"
   gdal_translate \
     -scale \
-    -b 3 -b 2 -b 1 -b 4 \
+    -b 3 -b 2 -b 1 \
     -ot 'Float32' \
     "./$DATASET/image.tif" "./$DATASET/image_4band.tif"
 
@@ -89,13 +89,18 @@ for DATASET in "${DATASETS[@]}"; do
     --overwrite
   rm "./$DATASET/image_4band.tif"
 
-  # Reorder bands
-  gdal_translate \
-    -scale 0 2 0 255 \
-    -b 1 -b 2 -b 3 -b 4 \
-    -ot 'Byte' \
-    "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
+  # Mean normalize
+  echo "Mean-Std Scaling"
+  python "$PROJECT_DIR/utils/data_prep/normalize.py" mean_std_scale "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
   rm "./$DATASET/image_float.tif"
+
+#  # Scale to Byte
+#  gdal_translate \
+#    -scale 0 2 0 255 \
+#    -b 1 -b 2 -b 3 -b 4 \
+#    -ot 'Byte' \
+#    "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
+#  rm "./$DATASET/image_float.tif"
 
 #  # Convert all CRS to EPSG:4326 WGS84
 #  echo "Converting image CRS"

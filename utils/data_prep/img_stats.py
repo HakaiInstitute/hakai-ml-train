@@ -25,27 +25,27 @@ class ImageStats(object):
 
     @cached_property
     def count(self):
-        return self.dataset.read([1, 2, 3], masked=True).count()
+        return self.dataset.read(masked=True).count()
 
     @cached_property
     def mean(self):
-        return self.dataset.read([1, 2, 3], masked=True).mean()
+        return self.dataset.read(masked=True).mean()
 
     @cached_property
     def std(self):
-        return self.dataset.read([1, 2, 3], masked=True).std()
+        return self.dataset.read(masked=True).std()
 
     @cached_property
     def max(self):
-        return self.dataset.read([1, 2, 3], masked=True).max()
+        return self.dataset.read(masked=True).max()
 
     @cached_property
     def min(self):
-        return self.dataset.read([1, 2, 3], masked=True).min()
+        return self.dataset.read(masked=True).min()
 
     def percentile(self, min_percent=1, max_percent=98):
         """Returns the low and high pixel values of the image corresponding to the specified percentile range."""
-        return np.percentile(self.dataset.read([1, 2, 3], masked=True), (min_percent, max_percent))
+        return np.percentile(self.dataset.read(masked=True), (min_percent, max_percent))
 
     def __del__(self):
         self.dataset.close()
