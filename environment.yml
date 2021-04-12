@@ -19,3 +19,4 @@ dependencies:
   - pip
   - pip:
     - geotiff_crop_dataset
+    - test_tupe

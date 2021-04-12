@@ -4,3 +4,4 @@ pytorch-lightning==1.2.7
 rasterio
 tensorboard
 tqdm>=4.46
+test_tube

@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TestTubeLogger
 
 from kelp_presence_data_module import KelpPresenceDataModule
 from models.deeplabv3 import DeepLabv3
@@ -44,7 +44,7 @@ def cli_main():
     # ------------
     # training
     # ------------
-    logger = TensorBoardLogger(args.checkpoint_dir, name=args.name)
+    logger = TestTubeLogger(args.checkpoint_dir, name=args.name)
 
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
