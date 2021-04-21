@@ -92,11 +92,11 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         ious = self.iou_metric(preds, y)
         acc = self.accuracy_metric(preds, y)
 
-        self.log('train_loss', loss, on_epoch=True)
-        self.log('train_miou', ious.mean(), on_epoch=True)
-        self.log('train_accuracy', acc, on_epoch=True)
+        self.log('train_loss', loss, on_epoch=True, sync_dist=True)
+        self.log('train_miou', ious.mean(), on_epoch=True, sync_dist=True)
+        self.log('train_accuracy', acc, on_epoch=True, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f'train_c{c}_iou', ious[c], on_epoch=True)
+            self.log(f'train_c{c}_iou', ious[c], on_epoch=True, sync_dist=True)
 
         return loss
 
@@ -118,11 +118,11 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         ious = self.iou_metric(preds, y)
         acc = self.accuracy_metric(preds, y)
 
-        self.log(f'{phase}_loss', loss)
-        self.log(f'{phase}_miou', ious.mean())
-        self.log(f'{phase}_accuracy', acc)
+        self.log(f'{phase}_loss', loss, sync_dist=True)
+        self.log(f'{phase}_miou', ious.mean(), sync_dist=True)
+        self.log(f'{phase}_accuracy', acc, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f'{phase}_cls{c}_iou', ious[c])
+            self.log(f'{phase}_cls{c}_iou', ious[c], sync_dist=True)
 
         return loss
 
