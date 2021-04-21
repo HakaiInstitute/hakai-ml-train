@@ -4,6 +4,11 @@ FROM pytorch/pytorch:$VERSION
 ENV PYTHONPATH /opt/code:$PYTHONPATH
 WORKDIR /opt/code
 
+# Install git
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y git
+
 # Install dependancies
 COPY requirements.txt /opt/code/requirements.txt
 RUN pip install -r /opt/code/requirements.txt

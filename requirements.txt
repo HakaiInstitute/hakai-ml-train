@@ -2,6 +2,7 @@ fire
 geotiff-crop-dataset
 git+https://github.com/PyTorchLightning/pytorch-lightning
 lightning-bolts
+loguru
 rasterio
 tensorboard
 test_tube

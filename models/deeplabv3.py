@@ -175,7 +175,10 @@ class DeepLabv3FineTuningCallback(BaseFinetuning):
 
         group.add_argument('--unfreeze_backbone_epoch', type=int, default=0,
                            help="The training epoch to unfreeze earlier layers of Deeplabv3 for fine tuning.")
-        group.add_argument('--train_backbone_bn', type=bool, default=False, action='store_true',
+        group.add_argument('--train_backbone_bn', dest='train_backbone_bn', action='store_true',
                            help="Flag to indicate if backbone batch norm layers should be trained.")
+        group.add_argument('--no_train_backbone_bn', dest='train_backbone_bn', action='store_false',
+                           help="Flag to indicate if backbone batch norm layers should not be trained.")
+        group.set_defaults(train_backbone_bn=False)
 
         return parser
