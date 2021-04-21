@@ -9,7 +9,7 @@ from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import BaseFinetuning
 from pytorch_lightning.core.decorators import auto_move_data
 from torch.optim import Optimizer
-from torchmetrics.functional import accuracy, iou
+from torchmetrics import Accuracy, IoU
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
@@ -33,19 +33,13 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
 
         # Create model from pre-trained DeepLabv3
         self.model = deeplabv3_resnet101(pretrained=True, progress=True)
-        self.model.requires_grad_(False)
-        self.model.classifier = DeepLabHead(2048, self.hparams.num_classes)
-        self.model.classifier.requires_grad_(True)
-
         self.model.aux_classifier = FCNHead(1024, self.hparams.num_classes)
-        self.model.aux_classifier.requires_grad_(True)
-
-        # if self.hparams.unfreeze_backbone_epoch == 0:
-        #     self.model.backbone.layer3.requires_grad_(True)
-        #     self.model.backbone.layer4.requires_grad_(True)
+        self.model.classifier = DeepLabHead(2048, self.hparams.num_classes)
 
         # Loss function
         self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes, alpha=0.7, beta=0.3, gamma=4. / 3.)
+        self.accuracy_metric = Accuracy()
+        self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none')
 
     @auto_move_data
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -95,8 +89,8 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
 
         loss = loss + self.hparams.aux_loss_factor * aux_loss
         preds = logits.argmax(dim=1)
-        ious = iou(preds, y, num_classes=self.hparams.num_classes, reduction='none')
-        acc = accuracy(preds, y)
+        ious = self.iou_metric(preds, y)
+        acc = self.accuracy_metric(preds, y)
 
         self.log('train_loss', loss, on_epoch=True)
         self.log('train_miou', ious.mean(), on_epoch=True)
@@ -121,8 +115,8 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         loss = self.focal_tversky_loss(probs, y)
 
         preds = logits.argmax(dim=1)
-        ious = iou(preds, y, num_classes=self.hparams.num_classes, reduction='none')
-        acc = accuracy(preds, y)
+        ious = self.iou_metric(preds, y)
+        acc = self.accuracy_metric(preds, y)
 
         self.log(f'{phase}_loss', loss)
         self.log(f'{phase}_miou', ious.mean())
@@ -155,6 +149,7 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
 
 class DeepLabv3FineTuningCallback(BaseFinetuning):
     def __init__(self, unfreeze_at_epoch=100, train_bn=True):
+        super().__init__()
         self._unfreeze_at_epoch = unfreeze_at_epoch
         self._train_bn = train_bn
 
