@@ -69,6 +69,9 @@ class KelpPresenceDataModule(pl.LightningDataModule):
 
         self.dims = tuple(self.ds_train[0][0].shape)
 
+    def teardown(self, stage: Optional[str] = None) -> None:
+        pass
+
     def train_dataloader(self, *args, **kwargs) -> DataLoader:
         return DataLoader(self.ds_train, shuffle=True, batch_size=self.batch_size, pin_memory=self.pin_memory,
                           drop_last=True, num_workers=self.num_workers)
