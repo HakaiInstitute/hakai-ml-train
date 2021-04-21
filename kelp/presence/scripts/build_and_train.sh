@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=NewKelpDataset_NoTrainBN
+NAME=NewKelpDataset_SyncDist
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
@@ -23,7 +23,7 @@ aws s3 sync s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/dat
 mkdir -p "$DIR/../train_output/checkpoints/$NAME"
 
 # Run the docker image
-docker run -dit --rm \
+docker run --rm \
   -p 0.0.0.0:$PORT:$PORT \
   -v "$DIR/../train_input":/opt/ml/input \
   -v "$DIR/../train_output":/opt/ml/output \
