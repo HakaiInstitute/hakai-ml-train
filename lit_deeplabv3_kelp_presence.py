@@ -112,7 +112,7 @@ def train(args):
             save_top_k=1,
             save_last=True,
         ),
-        DeepLabv3FineTuningCallback(args.unfreeze_backbone_epoch, args.train_backbone_bn)
+        DeepLabv3FineTuningCallback(args.unfreeze_backbone_epoch)
     ]
     if isinstance(args.gpus, int):
         callbacks.append(pl.callbacks.GPUStatsMonitor())
