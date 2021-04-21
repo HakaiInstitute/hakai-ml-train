@@ -21,7 +21,7 @@ class SegmentationDataset(Dataset):
         self.target_transform = target_transform
 
     def __len__(self):
-        return len(list(self._images))
+        return len(self._images)
 
     def __getitem__(self, idx):
         img = Image.open(self._images[idx]).convert('RGB')

@@ -11,10 +11,25 @@ from utils.checkpoint import get_checkpoint
 
 
 def cli_main():
+    parser = ArgumentParser()
+    parser.add_argument('mode', type=str, choices=['train', 'pred'])
+
+    args = parser.parse_args()
+    if args.mode == 'train':
+        train(parser)
+    elif args.mode == 'pred':
+        pred(parser)
+
+
+def pred(parent_parser):
+    print("TODO: prediction")
+
+
+def train(parent_parser):
     # ------------
     # args
     # ------------
-    parser = ArgumentParser()
+    parser = ArgumentParser(parents=parent_parser)
 
     parser.add_argument('data_dir', type=str)
     parser.add_argument('checkpoint_dir', type=str)

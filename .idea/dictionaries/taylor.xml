@@ -2,9 +2,11 @@
   <dictionary name="taylor">
     <words>
       <w>backprop</w>
+      <w>backpropagated</w>
       <w>chunksize</w>
       <w>ckpt</w>
       <w>classif</w>
+      <w>finetune</w>
       <w>hpad</w>
       <w>jaccard</w>
       <w>ndarray</w>

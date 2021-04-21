@@ -1,4 +1,5 @@
 import os
+from argparse import ArgumentParser
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -79,3 +80,14 @@ class KelpPresenceDataModule(pl.LightningDataModule):
     def test_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(self.ds_test, shuffle=False, batch_size=self.batch_size, pin_memory=self.pin_memory,
                           num_workers=self.num_workers)
+
+    @classmethod
+    def add_argparse_args(cls, parent_parser: ArgumentParser, **kwargs) -> ArgumentParser:
+        parser = parent_parser.add_argument_group('KelpPresenceDataModule')
+
+        parser.add_argument('--batch_size', type=int, default=32, help="The number of images to process at one time.")
+        parser.add_argument('--num_workers', type=int, default=os.cpu_count(),
+                            help="The number of CPU workers to load images from disk.")
+        parser.add_argument('--pin_memory', type=bool, default=True, help="Flag to pin GPU memory for batch loading.")
+
+        return parent_parser

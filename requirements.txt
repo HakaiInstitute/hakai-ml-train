@@ -1,9 +1,9 @@
 fire
 geotiff-crop-dataset
-pytorch-lightning==1.2.7
+git+https://github.com/PyTorchLightning/pytorch-lightning
+lightning-bolts
 rasterio
 tensorboard
-tqdm>=4.46
 test_tube
 torchmetrics
-lightning-bolts
+tqdm>=4.46

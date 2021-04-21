@@ -4,21 +4,20 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.8
   - cudatoolkit=10.2
-  - torchvision
-  - torchaudio
-  - pytorch
-  - pytorch-lightning>=0.9
-  - tensorboard
-  - rasterio
-  - tqdm>=4.46
   - fire
-  - scikit-learn
   - loguru
   - pip
+  - python=3.8
+  - rasterio
+  - scikit-learn
+  - tensorboard
+  - torchaudio
+  - torchvision
+  - tqdm>=4.46
   - pip:
     - geotiff_crop_dataset
+    - git+https://github.com/PyTorchLightning/pytorch-lightning
     - lightning-bolts
     - test_tube
     - torchmetrics

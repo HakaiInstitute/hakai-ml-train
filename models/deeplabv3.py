@@ -2,11 +2,13 @@
 # Organization: Hakai Institute
 # Date: 2020-06-23
 # Description:
-import os
 
 import pytorch_lightning as pl
 import torch
+from pytorch_lightning import LightningModule
+from pytorch_lightning.callbacks import BaseFinetuning
 from pytorch_lightning.core.decorators import auto_move_data
+from torch.optim import Optimizer
 from torchmetrics.functional import accuracy, iou
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
@@ -38,9 +40,9 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         self.model.aux_classifier = FCNHead(1024, self.hparams.num_classes)
         self.model.aux_classifier.requires_grad_(True)
 
-        if self.hparams.unfreeze_backbone_epoch == 0:
-            self.model.backbone.layer3.requires_grad_(True)
-            self.model.backbone.layer4.requires_grad_(True)
+        # if self.hparams.unfreeze_backbone_epoch == 0:
+        #     self.model.backbone.layer3.requires_grad_(True)
+        #     self.model.backbone.layer4.requires_grad_(True)
 
         # Loss function
         self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes, alpha=0.7, beta=0.3, gamma=4. / 3.)
@@ -104,11 +106,11 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
 
         return loss
 
-    def training_epoch_end(self, outputs):
-        # Allow fine-tuning of backbone layers after some epochs
-        if self.current_epoch >= self.hparams.unfreeze_backbone_epoch - 1:
-            self.model.backbone.layer3.requires_grad_(True)
-            self.model.backbone.layer4.requires_grad_(True)
+    # def training_epoch_end(self, outputs):
+    #     # Allow fine-tuning of backbone layers after some epochs
+    #     if self.current_epoch >= self.hparams.unfreeze_backbone_epoch - 1:
+    #         self.model.backbone.layer3.requires_grad_(True)
+    #         self.model.backbone.layer4.requires_grad_(True)
 
     def val_test_step(self, batch, batch_idx, phase='val'):
         x, y = batch
@@ -138,12 +140,42 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
 
     @staticmethod
     def add_argparse_args(parser):
-        parser.add_argument('--num_classes', type=int, default=2)
-        parser.add_argument('--batch_size', type=int, default=32)
-        parser.add_argument('--lr', type=float, default=0.001)
-        parser.add_argument('--weight_decay', type=float, default=1e-4)
-        parser.add_argument('--num_workers', type=int, default=os.cpu_count())
-        parser.add_argument('--unfreeze_backbone_epoch', type=int, default=0)
-        parser.add_argument('--aux_loss_factor', type=float, default=0.3)
+        group = parser.add_argument_group('DeeplabV3')
+
+        group.add_argument('--num_classes', type=int, default=2,
+                           help="The number of image classes, including background.")
+        group.add_argument('--lr', type=float, default=0.001, help="the learning rate")
+        group.add_argument('--weight_decay', type=float, default=1e-3,
+                           help="The weight decay factor for L2 regularization.")
+        group.add_argument('--aux_loss_factor', type=float, default=0.3,
+                           help="The proportion of loss backpropagated to classifier built only on early layers.")
+
+        return parser
+
+
+class DeepLabv3FineTuningCallback(BaseFinetuning):
+    def __init__(self, unfreeze_at_epoch=100, train_bn=True):
+        self._unfreeze_at_epoch = unfreeze_at_epoch
+        self._train_bn = train_bn
+
+    def freeze_before_training(self, pl_module: LightningModule):
+        for layer in pl_module.model.backbone:
+            self.freeze(pl_module.model.backbone[layer], train_bn=self._train_bn)
+
+    def finetune_function(self, pl_module: LightningModule, epoch: int, optimizer: Optimizer, opt_idx: int):
+        if epoch == self._unfreeze_at_epoch:
+            self.unfreeze_and_add_param_group(pl_module.model.backbone.layer3, optimizer=optimizer,
+                                              train_bn=self._train_bn)
+            self.unfreeze_and_add_param_group(pl_module.model.backbone.layer4, optimizer=optimizer,
+                                              train_bn=self._train_bn)
+
+    @staticmethod
+    def add_argparse_args(parser):
+        group = parser.add_argument_group('DeeplabV3FineTuningCallback')
+
+        group.add_argument('--unfreeze_backbone_epoch', type=int, default=0,
+                           help="The training epoch to unfreeze earlier layers of Deeplabv3 for fine tuning.")
+        group.add_argument('--train_backbone_bn', type=bool, default=False, action='store_true',
+                           help="Flag to indicate if backbone batch norm layers should be trained.")
 
         return parser

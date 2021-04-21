@@ -2,8 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/../kelp-detector/.idea/kelp-detector.iml" filepath="$PROJECT_DIR$/../kelp-detector/.idea/kelp-detector.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/uav-classif.iml" filepath="$PROJECT_DIR$/.idea/uav-classif.iml" />
+     <module fileurl="file://$PROJECT_DIR$/.idea/uav-classif.iml" filepath="$PROJECT_DIR$/.idea/uav-classif.iml" />
     </modules>
   </component>
 </project>
