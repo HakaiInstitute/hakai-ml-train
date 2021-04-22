@@ -155,7 +155,7 @@ class DeepLabv3FineTuningCallback(BaseFinetuning):
 
     def freeze_before_training(self, pl_module: LightningModule):
         for layer in pl_module.model.backbone:
-            self.freeze(pl_module.model.backbone[layer], train_bn=False)
+            self.freeze(pl_module.model.backbone[layer], train_bn=True)
 
     def finetune_function(self, pl_module: LightningModule, epoch: int, optimizer: Optimizer, opt_idx: int):
         if epoch == self._unfreeze_at_epoch:
