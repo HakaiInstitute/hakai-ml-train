@@ -8,7 +8,7 @@ from loguru import logger
 from pytorch_lightning.loggers import TestTubeLogger
 
 from kelp_presence_data_module import KelpPresenceDataModule
-from models.deeplabv3 import DeepLabv3, DeepLabv3FineTuningCallback
+from models.deeplabv3 import DeepLabv3
 from utils.checkpoint import get_checkpoint
 
 
@@ -29,7 +29,7 @@ def cli_main(argv=None):
 
     parser_train = KelpPresenceDataModule.add_argparse_args(parser_train)
     parser_train = DeepLabv3.add_argparse_args(parser_train)
-    parser_train = DeepLabv3FineTuningCallback.add_argparse_args(parser_train)
+    # parser_train = DeepLabv3FineTuningCallback.add_argparse_args(parser_train)
     parser_train = pl.Trainer.add_argparse_args(parser_train)
     parser_train.set_defaults(func=train)
 
@@ -112,7 +112,7 @@ def train(args):
             save_top_k=1,
             save_last=True,
         ),
-        DeepLabv3FineTuningCallback(args.unfreeze_backbone_epoch)
+        # DeepLabv3FineTuningCallback(args.unfreeze_backbone_epoch, args.train_backbone_bn)
     ]
     if isinstance(args.gpus, int):
         callbacks.append(pl.callbacks.GPUStatsMonitor())
@@ -148,10 +148,11 @@ if __name__ == '__main__':
             'train',
             'kelp/presence/train_input/data',
             'kelp/presence/train_output/checkpoints',
-            '--name=TEST', '--num_classes=2', '--lr=0.001', '--weight_decay=0.001', '--gradient_clip_val=0.5',
-            '--auto_select_gpus', '--gpus=-1', '--benchmark',
+            '--name=TEST', '--num_classes=2', '--lr=0.001', '--backbone_lr=0.00001', '--weight_decay=0.001',
+            '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
             '--max_epochs=100', '--batch_size=2', "--unfreeze_backbone_epoch=100",
-            '--log_every_n_steps=5', '--overfit_batches=2'
+            '--log_every_n_steps=5', '--overfit_batches=1',
+            '--no_train_backbone_bn'
         ])
     else:
         cli_main()

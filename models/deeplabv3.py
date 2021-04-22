@@ -3,12 +3,12 @@
 # Date: 2020-06-23
 # Description:
 
+import itertools
+
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import BaseFinetuning
 from pytorch_lightning.core.decorators import auto_move_data
-from torch.optim import Optimizer
 from torchmetrics import Accuracy, IoU
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
@@ -33,8 +33,17 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
 
         # Create model from pre-trained DeepLabv3
         self.model = deeplabv3_resnet101(pretrained=True, progress=True)
+        self.model.requires_grad_(True)
         self.model.aux_classifier = FCNHead(1024, self.hparams.num_classes)
+        self.model.aux_classifier.requires_grad_(True)
         self.model.classifier = DeepLabHead(2048, self.hparams.num_classes)
+        self.model.classifier.requires_grad_(True)
+
+        BaseFinetuning.freeze((self.model.backbone[a] for a in self.model.backbone),
+                              train_bn=self.hparams.train_backbone_bn)
+
+        if self.hparams.unfreeze_backbone_epoch == 0:
+            BaseFinetuning.make_trainable([self.model.backbone.layer4, self.model.backbone.layer3])
 
         # Loss function
         self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes, alpha=0.7, beta=0.3, gamma=4. / 3.,
@@ -68,11 +77,17 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         return self.num_training_steps // self.trainer.max_epochs
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr,
-                                      amsgrad=True, weight_decay=self.hparams.weight_decay)
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr,
-                                                           epochs=self.trainer.max_epochs,
-                                                           steps_per_epoch=self.steps_per_epoch)
+        head_params = itertools.chain(self.model.classifier.parameters(), self.model.aux_classifier.parameters())
+        backbone_params = itertools.chain(self.model.backbone.layer4.parameters(),
+                                          self.model.backbone.layer3.parameters())
+
+        optimizer = torch.optim.AdamW([
+            {"params": head_params},
+            {"params": backbone_params, "lr": self.hparams.backbone_lr},
+        ], lr=self.hparams.lr, amsgrad=True, weight_decay=self.hparams.weight_decay)
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
+                                                           max_lr=[self.hparams.lr, self.hparams.backbone_lr],
+                                                           total_steps=self.num_training_steps)
 
         return [optimizer], [{'scheduler': lr_scheduler, 'interval': 'step'}]
 
@@ -101,11 +116,10 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
 
         return loss
 
-    # def training_epoch_end(self, outputs):
-    #     # Allow fine-tuning of backbone layers after some epochs
-    #     if self.current_epoch >= self.hparams.unfreeze_backbone_epoch - 1:
-    #         self.model.backbone.layer3.requires_grad_(True)
-    #         self.model.backbone.layer4.requires_grad_(True)
+    def training_epoch_end(self, outputs):
+        # Allow fine-tuning of backbone layers after some epochs
+        if self.current_epoch == self.hparams.unfreeze_backbone_epoch:
+            BaseFinetuning.make_trainable([self.model.backbone.layer4, self.model.backbone.layer3])
 
     def val_test_step(self, batch, batch_idx, phase='val'):
         x, y = batch
@@ -140,40 +154,45 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         group.add_argument('--num_classes', type=int, default=2,
                            help="The number of image classes, including background.")
         group.add_argument('--lr', type=float, default=0.001, help="the learning rate")
+        group.add_argument('--backbone_lr', type=float, default=0.0001, help="the learning rate for backbone layers")
         group.add_argument('--weight_decay', type=float, default=1e-3,
                            help="The weight decay factor for L2 regularization.")
         group.add_argument('--aux_loss_factor', type=float, default=0.3,
                            help="The proportion of loss backpropagated to classifier built only on early layers.")
-
-        return parser
-
-
-class DeepLabv3FineTuningCallback(BaseFinetuning):
-    def __init__(self, unfreeze_at_epoch=100):
-        super().__init__()
-        self._unfreeze_at_epoch = unfreeze_at_epoch
-
-    def freeze_before_training(self, pl_module: LightningModule):
-        for layer in pl_module.model.backbone:
-            self.freeze(pl_module.model.backbone[layer], train_bn=True)
-
-    def finetune_function(self, pl_module: LightningModule, epoch: int, optimizer: Optimizer, opt_idx: int):
-        if epoch == self._unfreeze_at_epoch:
-            self.unfreeze_and_add_param_group(pl_module.model.backbone.layer3, optimizer=optimizer,
-                                              train_bn=True)
-            self.unfreeze_and_add_param_group(pl_module.model.backbone.layer4, optimizer=optimizer,
-                                              train_bn=True)
-
-    @staticmethod
-    def add_argparse_args(parser):
-        group = parser.add_argument_group('DeeplabV3FineTuningCallback')
-
         group.add_argument('--unfreeze_backbone_epoch', type=int, default=0,
                            help="The training epoch to unfreeze earlier layers of Deeplabv3 for fine tuning.")
-        # group.add_argument('--train_backbone_bn', dest='train_backbone_bn', action='store_true',
-        #                    help="Flag to indicate if backbone batch norm layers should be trained.")
-        # group.add_argument('--no_train_backbone_bn', dest='train_backbone_bn', action='store_false',
-        #                    help="Flag to indicate if backbone batch norm layers should not be trained.")
-        # group.set_defaults(train_backbone_bn=False)
+        group.add_argument('--train_backbone_bn', dest='train_backbone_bn', action='store_true',
+                           help="Flag to indicate if backbone batch norm layers should be trained.")
+        group.add_argument('--no_train_backbone_bn', dest='train_backbone_bn', action='store_false',
+                           help="Flag to indicate if backbone batch norm layers should not be trained.")
+        group.set_defaults(train_backbone_bn=True)
 
         return parser
+
+# class DeepLabv3FineTuningCallback(BaseFinetuning):
+#     def __init__(self, unfreeze_at_epoch=100, train_bn=True):
+#         super().__init__()
+#         self._unfreeze_at_epoch = unfreeze_at_epoch
+#         self._train_bn = train_bn
+#
+#     def freeze_before_training(self, pl_module: LightningModule):
+#         for layer in pl_module.model.backbone:
+#             self.freeze(pl_module.model.backbone[layer], train_bn=self._train_bn)
+#
+#     def finetune_function(self, pl_module: LightningModule, epoch: int, optimizer: Optimizer, opt_idx: int):
+#         if epoch == self._unfreeze_at_epoch:
+#             self.make_trainable([pl_module.model.backbone.layer4, pl_module.model.backbone.layer3])
+#
+#     @staticmethod
+#     def add_argparse_args(parser):
+#         group = parser.add_argument_group('DeeplabV3FineTuningCallback')
+#
+#         group.add_argument('--unfreeze_backbone_epoch', type=int, default=0,
+#                            help="The training epoch to unfreeze earlier layers of Deeplabv3 for fine tuning.")
+#         group.add_argument('--train_backbone_bn', dest='train_backbone_bn', action='store_true',
+#                            help="Flag to indicate if backbone batch norm layers should be trained.")
+#         group.add_argument('--no_train_backbone_bn', dest='train_backbone_bn', action='store_false',
+#                            help="Flag to indicate if backbone batch norm layers should not be trained.")
+#         group.set_defaults(train_backbone_bn=True)
+#
+#         return parser
