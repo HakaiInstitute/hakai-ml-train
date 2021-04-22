@@ -46,10 +46,9 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
             BaseFinetuning.make_trainable([self.model.backbone.layer4, self.model.backbone.layer3])
 
         # Loss function
-        self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes, alpha=0.7, beta=0.3, gamma=4. / 3.,
-                                                     dist_sync_on_step=True)
-        self.accuracy_metric = Accuracy(dist_sync_on_step=True)
-        self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none', dist_sync_on_step=True)
+        self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes, alpha=0.7, beta=0.3, gamma=4. / 3.)
+        self.accuracy_metric = Accuracy()
+        self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none')
 
     @auto_move_data
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -108,11 +107,11 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         ious = self.iou_metric(preds, y)
         acc = self.accuracy_metric(preds, y)
 
-        self.log('train_loss', loss, on_epoch=True)
-        self.log('train_miou', ious.mean(), on_epoch=True)
-        self.log('train_accuracy', acc, on_epoch=True)
+        self.log('train_loss', loss, on_epoch=True, sync_dist=True)
+        self.log('train_miou', ious.mean(), on_epoch=True, sync_dist=True)
+        self.log('train_accuracy', acc, on_epoch=True, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f'train_c{c}_iou', ious[c], on_epoch=True)
+            self.log(f'train_c{c}_iou', ious[c], on_epoch=True, sync_dist=True)
 
         return loss
 
@@ -133,11 +132,11 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         ious = self.iou_metric(preds, y)
         acc = self.accuracy_metric(preds, y)
 
-        self.log(f'{phase}_loss', loss)
-        self.log(f'{phase}_miou', ious.mean())
-        self.log(f'{phase}_accuracy', acc)
+        self.log(f'{phase}_loss', loss, sync_dist=True)
+        self.log(f'{phase}_miou', ious.mean(), sync_dist=True)
+        self.log(f'{phase}_accuracy', acc, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f'{phase}_cls{c}_iou', ious[c])
+            self.log(f'{phase}_cls{c}_iou', ious[c], sync_dist=True)
 
         return loss
 
