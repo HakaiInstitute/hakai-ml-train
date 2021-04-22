@@ -23,7 +23,7 @@ aws s3 sync s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/dat
 mkdir -p "$DIR/../train_output/checkpoints/$NAME"
 
 # Run the docker image
-docker run --rm \
+docker run -dit --rm \
   -p 0.0.0.0:$PORT:$PORT \
   -v "$DIR/../train_input":/opt/ml/input \
   -v "$DIR/../train_output":/opt/ml/output \
@@ -35,8 +35,8 @@ docker run --rm \
   --name=$NAME --num_classes=2 \
   --lr=0.001 --weight_decay=0.001 --gradient_clip_val=0.5 \
   --auto_select_gpus --gpus=-1 --benchmark --sync_batchnorm \
-  --max_epochs=100 --batch_size=8 --amp_level=O2 --precision=16 --distributed_backend=ddp --log_every_n_steps=10  # AWS
-#  --max_epochs=100 --batch_size=8 --unfreeze_backbone_epoch=100 --log_every_n_steps=5 --overfit_batches=2  # TESTING
+  --max_epochs=100 --batch_size=8 --amp_level=O2 --precision=16 --accelerator=ddp --log_every_n_steps=10  # AWS
+#  --max_epochs=10 --batch_size=2 --unfreeze_backbone_epoch=100 --log_every_n_steps=5 --overfit_batches=2  # TESTING
 
 # Can start tensorboard in running container as follows:
 docker exec -dit kelp-train tensorboard --logdir=/opt/ml/output/checkpoints --host=0.0.0.0 --port=$PORT

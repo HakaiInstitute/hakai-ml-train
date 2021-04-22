@@ -231,7 +231,8 @@ def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, bet
 
 
 class FocalTverskyMetric(Metric):
-    def __init__(self, num_classes, dist_sync_on_step=False, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1., smooth: float = 1e-8):
+    def __init__(self, num_classes, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1., smooth: float = 1e-8,
+                 dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.alpha = alpha
         self.beta = beta
