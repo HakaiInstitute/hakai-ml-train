@@ -147,6 +147,11 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
         return self.val_test_step(batch, batch_idx, phase='test')
 
     @staticmethod
+    def ckpt2pt(ckpt_file, pt_path):
+        checkpoint = torch.load(ckpt_file, map_location=torch.device('cpu'))
+        torch.save(checkpoint['state_dict'], pt_path)
+
+    @staticmethod
     def add_argparse_args(parser):
         group = parser.add_argument_group('DeeplabV3')
 
