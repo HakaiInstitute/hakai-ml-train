@@ -34,12 +34,14 @@ def cli_main(argv=None):
     parser_train.set_defaults(func=train)
 
     parser_pred = subparsers.add_parser(name='pred', help='Predict kelp presence in an image.')
-    parser_pred.add_argument('seg_in', type=str, help="Path to a *.tif image to do segmentation on in pred mode.")
+    parser_pred.add_argument('seg_in', type=str,
+                             help="Path to a *.tif image to do segmentation on in pred mode.")
     parser_pred.add_argument('seg_out', type=str,
                              help="Path to desired output *.tif created by the model in pred mode.")
     parser_pred.add_argument('weights', type=str,
                              help="Path to a model weights file (*.pt). Required for eval and pred mode.")
-    parser_pred.add_argument('--batch_size', type=int, default=2, help="The batch size per GPU (default 2).")
+    parser_pred.add_argument('--batch_size', type=int, default=2,
+                             help="The batch size per GPU (default 2).")
     parser_pred.add_argument('--crop_pad', type=int, default=128,
                              help="The amount of padding added for classification context to each image crop. The "
                                   "output classification on this crop area is not output by the model but will "
@@ -68,7 +70,8 @@ def pred(args):
     # ------------
     # model
     # ------------
-    model = DeepLabv3.load_from_checkpoint(args.weights, batch_size=args.batch_size, crop_size=args.crop_size,
+    model = DeepLabv3.load_from_checkpoint(args.weights, batch_size=args.batch_size,
+                                           crop_size=args.crop_size,
                                            padding=args.crop_pad)
     model.freeze()
     model = model.to(device)
@@ -148,11 +151,10 @@ if __name__ == '__main__':
             'train',
             'kelp/presence/train_input/data',
             'kelp/presence/train_output/checkpoints',
-            '--name=TEST', '--num_classes=2', '--lr=0.001', '--backbone_lr=0.00001', '--weight_decay=0.001',
-            '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
-            '--max_epochs=100', '--batch_size=2', "--unfreeze_backbone_epoch=100",
-            '--log_every_n_steps=5', '--overfit_batches=1',
-            '--no_train_backbone_bn'
+            '--name=TEST', '--num_classes=2', '--lr=0.001', '--backbone_lr=0.00001',
+            '--weight_decay=0.001', '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1',
+            '--benchmark', '--max_epochs=100', '--batch_size=2', "--unfreeze_backbone_epoch=100",
+            '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn'
         ])
     else:
         cli_main()
