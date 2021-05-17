@@ -12,6 +12,9 @@ from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
 
 
+# from torchvision.transforms import functional as TF
+
+
 class KelpPresenceDataModule(pl.LightningDataModule):
     def __init__(self, data_dir: str, batch_size: int, num_workers: int = os.cpu_count(), pin_memory=True):
         super().__init__()
@@ -23,13 +26,15 @@ class KelpPresenceDataModule(pl.LightningDataModule):
         self.val_data_dir = Path(data_dir).joinpath("eval")
 
         self.train_transforms = t.Compose([
-            ImageClip(),
+            ImageClip(min_=0, max_=255),
             PadOut(512, 512),
             t.RandomHorizontalFlip(),
             t.RandomVerticalFlip(),
             t.RandomRotation(degrees=45),
             t.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
             t.ToTensor(),
+            # t.GaussianBlur(kernel_size=3, sigma=2),
+            # TF.autocontrast,
             normalize,
         ])
         self.train_target_transforms = t.Compose([
@@ -41,9 +46,11 @@ class KelpPresenceDataModule(pl.LightningDataModule):
             Clamp(0, 1),
         ])
         self.test_transforms = t.Compose([
-            ImageClip(),
+            ImageClip(min_=0, max_=255),
             PadOut(512, 512),
             t.ToTensor(),
+            # t.GaussianBlur(kernel_size=3, sigma=2),
+            # TF.autocontrast,
             normalize,
         ])
         self.test_target_transforms = t.Compose([

@@ -1,6 +1,6 @@
 fire
 geotiff-crop-dataset
-git+https://github.com/PyTorchLightning/pytorch-lightning
+pytorch-lightning
 lightning-bolts
 loguru
 rasterio

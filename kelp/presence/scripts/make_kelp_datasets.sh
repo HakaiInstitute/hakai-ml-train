@@ -6,33 +6,33 @@ S3_BUCKET=s3://hakai-deep-learning-datasets/kelp
 GCP_BUCKET=gs://hakai_kelp
 
 DATASETS=(
-AdamsFringe_kelp_U0665
-AdamsHarbour_kelp_U0682
-Boas_kelp_U0683
-Breaker_kelp_U0663
-ChokedSouth_kelp_U0667
-Edna_kelp_U0722
-Golden_kelp_U0656
-Golden_kelp_U0796
-ManleyWomanley_kelp_U0652
-ManleyWomanley_kelp_U0775
-McMullinsCenter_kelp_U0728
-McMullinsNereo_kelp_U0729
-Meay_kelp_U0659
-Meay_kelp_U0778
-NorthBeach_kelp_U0669
-NorthBeach_kelp_U0770
-Odlum_kelp_U0681
-Simmonds_kelp_MS_U0794
-Simmonds_kelp_U0650
-Starfish_kelp_U0666
-Stirling_kelp_U0661
-Stryker_kelp_U0655
-Stryker_kelp_U0797
-SurfPass_kelp_U0668
-Triquet_kelp_U0653
-Triquet_kelp_U0776
-WestBeach_kelp_U0772
+  AdamsFringe_kelp_U0665
+  AdamsHarbour_kelp_U0682
+  Boas_kelp_U0683
+  Breaker_kelp_U0663
+  ChokedSouth_kelp_U0667
+  Edna_kelp_U0722
+  Golden_kelp_U0656
+  Golden_kelp_U0796
+  ManleyWomanley_kelp_U0652
+  ManleyWomanley_kelp_U0775
+  McMullinsCenter_kelp_U0728
+  McMullinsNereo_kelp_U0729
+  Meay_kelp_U0659
+  Meay_kelp_U0778
+  NorthBeach_kelp_U0669
+  NorthBeach_kelp_U0770
+  Odlum_kelp_U0681
+  Simmonds_kelp_MS_U0794
+  Simmonds_kelp_U0650
+  Starfish_kelp_U0666
+  Stirling_kelp_U0661
+  Stryker_kelp_U0655
+  Stryker_kelp_U0797
+  SurfPass_kelp_U0668
+  Triquet_kelp_U0653
+  Triquet_kelp_U0776
+  WestBeach_kelp_U0772
 )
 
 # Execute all following instructions in the uav-classif/deeplabv3/kelp directory
@@ -62,57 +62,55 @@ for DATASET in "${DATASETS[@]}"; do
   echo "Un-setting noData values"
   gdal_edit.py "./$DATASET/label.tif" -unsetnodata
   gdal_edit.py "./$DATASET/image.tif" -unsetnodata
-  gdal_edit.py "./image.tif" -a_nodata 0  # Assumes that background is black
+  gdal_edit.py "./image.tif" -a_nodata 0 # Assumes that background is black
 
   # Remove extra bands and BGRI -> RGBI
   echo "Removing extra bands and reordering"
   gdal_translate \
-    -scale \
     -b 3 -b 2 -b 1 \
     -ot 'Float32' \
-    "./$DATASET/image.tif" "./$DATASET/image_4band.tif"
+    "./$DATASET/image.tif" "./$DATASET/image_3band.tif"
 
   # Normalize color and background data
   echo "Normalizing image colors"
   echo "Percentile min-max scaling"
-  low=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "percentile_low" "./$DATASET/image_4band.tif")
-  echo "LOW: $low"
-  high=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "percentile_high" "./$DATASET/image_4band.tif")
-  echo "HIGH: $high"
-  gdal_calc.py \
-    -A "./$DATASET/image_4band.tif" \
-    --allBands A \
-    --NoDataValue=0 \
-    --calc="(A - ${low}) / (${high} - ${low})" \
-    --outfile="./$DATASET/image_float.tif" \
-    --type=Float32 \
-    --overwrite
-  rm "./$DATASET/image_4band.tif"
+  python "$PROJECT_DIR/utils/data_prep/exposure.py" "contrast_stretch" "./$DATASET/image_3band.tif" "./$DATASET/image_stretched.tif"
+  rm "./$DATASET/image_3band.tif"
 
-#  # Mean normalize
-#  echo "Mean-Std Scaling"
-#  python "$PROJECT_DIR/utils/data_prep/normalize.py" mean_std_scale "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
-#  rm "./$DATASET/image_float.tif"
+  # Adaptive histogram equalization
+  echo "Adaptive histogram normalization"
+  python "$PROJECT_DIR/utils/data_prep/exposure.py" "equalize_adapthist" "./$DATASET/image_stretched.tif" "./$DATASET/image_hist_eq.tif"
+  rm "./$DATASET/image_stretched.tif"
+
+  min=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "min" "./$DATASET/image_hist_eq.tif")
+  echo "MIN: $min"
+  max=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "max" "./$DATASET/image_hist_eq.tif")
+  echo "MAX: $max"
+
+  #  # Mean normalize
+  #  echo "Mean-Std Scaling"
+  #  python "$PROJECT_DIR/utils/data_prep/normalize.py" mean_std_scale "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
+  #  rm "./$DATASET/image_float.tif"
 
   # Scale to Byte
   gdal_translate \
     -scale 0 1 0 255 \
     -b 1 -b 2 -b 3 \
     -ot 'Byte' \
-    "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
-  rm "./$DATASET/image_float.tif"
+    "./$DATASET/image_hist_eq.tif" "./$DATASET/image_rgbi.tif"
+  rm "./$DATASET/image_hist_eq.tif"
 
-#  # Convert all CRS to EPSG:4326 WGS84
-#  echo "Converting image CRS"
-#  gdalwarp \
-#    -wo NUM_THREADS=ALL_CPUS \
-#    -multi \
-#    -t_srs EPSG:4326 \
-#    -r near \
-#    -of GTiff \
-#    -overwrite \
-#    "./$DATASET/image_u8.tif" "./$DATASET/image_u8.tif"
-#    rm "./$DATASET/image_u8.tif"
+  #  # Convert all CRS to EPSG:4326 WGS84
+  #  echo "Converting image CRS"
+  #  gdalwarp \
+  #    -wo NUM_THREADS=ALL_CPUS \
+  #    -multi \
+  #    -t_srs EPSG:4326 \
+  #    -r near \
+  #    -of GTiff \
+  #    -overwrite \
+  #    "./$DATASET/image_u8.tif" "./$DATASET/image_u8.tif"
+  #    rm "./$DATASET/image_u8.tif"
 
   # Get image extent
   ul=$(gdalinfo "$DATASET/image_rgbi.tif" | grep "Upper Left")
@@ -138,7 +136,7 @@ for DATASET in "${DATASETS[@]}"; do
     -tr "$x_res" "$y_res" \
     -tap \
     "./$DATASET/label.tif" "./$DATASET/label_res.tif"
-#    rm "./$DATASET/label.tif"
+  #    rm "./$DATASET/label.tif"
 
   # Get label extent
   ul=$(gdalinfo "$DATASET/label_res.tif" | grep "Upper Left")

@@ -9,7 +9,9 @@ dependencies:
   - loguru
   - pip
   - python=3.8
+  - pytorch-lightning
   - rasterio
+  - scikit-image
   - scikit-learn
   - tensorboard
   - torchaudio
@@ -17,7 +19,6 @@ dependencies:
   - tqdm>=4.46
   - pip:
     - geotiff_crop_dataset
-    - git+https://github.com/PyTorchLightning/pytorch-lightning
     - lightning-bolts
     - test_tube
     - torchmetrics
