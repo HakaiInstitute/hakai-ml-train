@@ -24,8 +24,10 @@ def cli_main(argv=None):
                               help="The path to a data directory with subdirectories 'train' and 'eval', each with 'x' "
                                    "and 'y' subdirectories containing image crops and labels, respectively.")
     parser_train.add_argument('checkpoint_dir', type=str, help="The path to save training outputs")
-    parser_train.add_argument('--initial_weights_ckpt', type=str, help="Path to checkpoint file to load as initial model weights")
-    parser_train.add_argument('--initial_weights', type=str, help="Path to pytorch weights to load as initial model weights")
+    parser_train.add_argument('--initial_weights_ckpt', type=str,
+                              help="Path to checkpoint file to load as initial model weights")
+    parser_train.add_argument('--initial_weights', type=str,
+                              help="Path to pytorch weights to load as initial model weights")
     parser_train.add_argument('--name', type=str, default="",
                               help="Identifier used when creating files and directories for this training run.")
 
@@ -115,13 +117,13 @@ def train(args):
     logger = TestTubeLogger(args.checkpoint_dir, name=args.name)
     lr_monitor_cb = pl.callbacks.LearningRateMonitor()
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
-            verbose=True,
-            monitor='val_miou',
-            mode='max',
-            filename='best-{val_miou:.4f}-{epoch}-{step}',
-            save_top_k=1,
-            save_last=True,
-        )
+        verbose=True,
+        monitor='val_miou',
+        mode='max',
+        filename='best-{val_miou:.4f}-{epoch}-{step}',
+        save_top_k=1,
+        save_last=True,
+    )
 
     callbacks = [
         lr_monitor_cb,
@@ -142,11 +144,12 @@ def train(args):
     # Training
     trainer.fit(model, datamodule=kelp_presence_data)
 
-    # Testing
-    model.load_from_checkpoint(checkpoint_cb.best_model_path)
-    trainer.test(datamodule=kelp_presence_data)
+    # Validation and Test stats
+    trainer.validate(datamodule=kelp_presence_data, ckpt_path=checkpoint_cb.best_model_path)
+    trainer.test(datamodule=kelp_presence_data, ckpt_path=checkpoint_cb.best_model_path)
 
     # Save final weights only
+    model.load_from_checkpoint(checkpoint_cb.best_model_path)
     torch.save(model.state_dict(), Path(checkpoint_cb.best_model_path).with_suffix('.pt'))
 
 
@@ -169,8 +172,8 @@ if __name__ == '__main__':
             '--name=TEST', '--num_classes=2', '--lr=0.001', '--backbone_lr=0.00001',
             '--weight_decay=0.001', '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1',
             '--benchmark', '--max_epochs=10', '--batch_size=2', "--unfreeze_backbone_epoch=100",
-            '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn',
-            '--initial_weights=kelp/presence/train_output/checkpoints/2021-05-17-2218_Hist_Equalization/version_1/checkpoints/best-val_miou=0.8154-epoch=97-step=11171.pt'
+            '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn'
+            # '--initial_weights=kelp/presence/train_output/checkpoints/deeplabv3_kelp_200704.pt'
         ])
     else:
         cli_main()
