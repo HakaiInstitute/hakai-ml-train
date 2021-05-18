@@ -3,7 +3,7 @@ from functools import cached_property
 import fire
 import numpy as np
 import rasterio
-from skimage.exposure import equalize_adapthist, rescale_intensity
+from skimage.exposure import adjust_gamma, equalize_adapthist, rescale_intensity
 
 
 class Exposure(object):
@@ -36,6 +36,32 @@ class Exposure(object):
         out_data = rescale_intensity(img, in_range=(v_min, v_max))
         self.write_data(out_data.transpose(2, 0, 1))  # WHC -> CWH
 
+    @classmethod
+    def match_hist(cls, img_path, out_path, ref_path):
+        self = cls(img_path, out_path)
+        img = self.img.transpose(1, 2, 0)  # CWH -> WHC
+        reference = io.imread(ref_path) / 255
+        mask = img.mask
+
+        matched = np.ma.array(np.empty(img.shape, dtype=img.dtype), mask=mask,
+                              fill_value=img.fill_value)
+        for ch in range(img.shape[-1]):
+            matched_ch = match_histograms(img[..., ch].compressed(), reference[..., ch].ravel())
+
+            # Re-insert masked background
+            mask_ch = mask[..., ch]
+            matched[..., ch][~mask_ch] = matched_ch.ravel()
+
+        out_data = matched.filled()
+        self.write_data(out_data.transpose(2, 0, 1))  # WHC -> CWH
+
+    @classmethod
+    def adjust_gamma(cls, img_path, out_path, gamma=1 / 3):
+        self = cls(img_path, out_path)
+        img = self.img.transpose(1, 2, 0)
+        out_data = adjust_gamma(img, gamma=gamma)
+        self.write_data(out_data.transpose(2, 0, 1))  # WHC -> CWH
+
     def write_data(self, data):
         with rasterio.Env():
             with rasterio.open(self.out_path, 'w', **self.dataset.profile) as dst:
@@ -45,6 +71,8 @@ class Exposure(object):
 
 if __name__ == '__main__':
     fire.Fire({
+        "adjust_gamma": Exposure.adjust_gamma,
+        "contrast_stretch": Exposure.contrast_stretch,
         "equalize_adapthist": Exposure.equalize_adapthist,
-        "contrast_stretch": Exposure.contrast_stretch
+        "match_hist": Exposure.match_hist
     })

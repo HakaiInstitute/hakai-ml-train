@@ -77,14 +77,19 @@ for DATASET in "${DATASETS[@]}"; do
   python "$PROJECT_DIR/utils/data_prep/exposure.py" "contrast_stretch" "./$DATASET/image_3band.tif" "./$DATASET/image_stretched.tif"
   rm "./$DATASET/image_3band.tif"
 
-  # Adaptive histogram equalization
-  echo "Adaptive histogram normalization"
-  python "$PROJECT_DIR/utils/data_prep/exposure.py" "equalize_adapthist" "./$DATASET/image_stretched.tif" "./$DATASET/image_hist_eq.tif"
+  # Adjust gamma
+  echo "Adjust gamma"
+  python "$PROJECT_DIR/utils/data_prep/exposure.py" "adjust_gamma" "./$DATASET/image_stretched.tif" "./$DATASET/image_gamma.tif"
   rm "./$DATASET/image_stretched.tif"
 
-  min=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "min" "./$DATASET/image_hist_eq.tif")
+#  # Adaptive histogram equalization
+#  echo "Adaptive histogram normalization"
+#  python "$PROJECT_DIR/utils/data_prep/exposure.py" "equalize_adapthist" "./$DATASET/image_stretched.tif" "./$DATASET/image_hist_eq.tif"
+#  rm "./$DATASET/image_stretched.tif"
+
+  min=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "min" "./$DATASET/image_gamma.tif")
   echo "MIN: $min"
-  max=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "max" "./$DATASET/image_hist_eq.tif")
+  max=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "max" "./$DATASET/image_gamma.tif")
   echo "MAX: $max"
 
   #  # Mean normalize
@@ -97,8 +102,8 @@ for DATASET in "${DATASETS[@]}"; do
     -scale 0 1 0 255 \
     -b 1 -b 2 -b 3 \
     -ot 'Byte' \
-    "./$DATASET/image_hist_eq.tif" "./$DATASET/image_rgbi.tif"
-  rm "./$DATASET/image_hist_eq.tif"
+    "./$DATASET/image_gamma.tif" "./$DATASET/image_rgbi.tif"
+  rm "./$DATASET/image_gamma.tif"
 
   #  # Convert all CRS to EPSG:4326 WGS84
   #  echo "Converting image CRS"
