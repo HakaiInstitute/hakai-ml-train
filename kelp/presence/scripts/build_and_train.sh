@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=Gamma_Correction
+NAME=May2020_Data
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
@@ -16,8 +16,8 @@ DOCKER_BUILDKIT=1 docker build --file ../Dockerfile --tag tayden/deeplabv3-kelp 
 #aws s3 sync --exclude="*" --include="**/label_AdamsFringe_kelp_U0665_0[2-4]*.png" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
 
 # For prod
-aws s3 sync s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
-aws s3 sync s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
+aws s3 sync s3://hakai-deep-learning-datasets/kelp/May2020/train "$DIR/../train_input/data/train"
+aws s3 sync s3://hakai-deep-learning-datasets/kelp/May2020/eval "$DIR/../train_input/data/eval"
 
 # Make output dirs
 mkdir -p "$DIR/../train_output/checkpoints/$NAME"
