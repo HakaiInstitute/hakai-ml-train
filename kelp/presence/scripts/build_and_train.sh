@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=Hist_Equalization
+NAME=Gamma_Correction
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
