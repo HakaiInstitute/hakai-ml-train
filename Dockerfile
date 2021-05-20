@@ -16,8 +16,8 @@ RUN pip install -r /opt/code/requirements.txt
 # Copy the script to the image
 COPY utils /opt/code/utils
 COPY models /opt/code/models
-COPY kelp/*.py /opt/code/kelp/
 COPY ./*.py /opt/code/
 
 # Run the cli script
-ENTRYPOINT ["python", "lit_deeplabv3_resnet101_kelp.py"]
+#ENTRYPOINT ["python", "lit_deeplabv3_resnet101_kelp.py"]
+ENTRYPOINT ["python", "lit_lraspp_mobilenet_v3_large_kelp.py"]

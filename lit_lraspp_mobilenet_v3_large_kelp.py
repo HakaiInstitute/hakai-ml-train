@@ -158,22 +158,20 @@ if __name__ == '__main__':
     if debug:
         # cli_main([
         #     'pred',
-        #     'kelp/presence/train_input/Triquet_kelp_U0653.tif',
-        #     'kelp/presence/train_output/checkpoints/NewKelpDataset/version_2/Triquet_kelp_U0653_kelp.tif',
-        #     'kelp/presence/train_output/checkpoints/NewKelpDataset/version_2/checkpoints/best-val-miou-epoch=89-step=10259.ckpt',
+        #     'scripts/presence/train_input/Triquet_kelp_U0653.tif',
+        #     'scripts/presence/train_output/checkpoints/NewKelpDataset/version_2/Triquet_kelp_U0653_kelp.tif',
+        #     'scripts/presence/train_output/checkpoints/NewKelpDataset/version_2/checkpoints/best-val-miou-epoch=89-step=10259.ckpt',
         #     # '--batch_size=2',
         #     # '--crop_size=64',
         #     # '--crop_pad=0'
         # ])
         cli_main([
             'train',
-            'kelp/presence/train_input/data',
-            'kelp/presence/train_output/checkpoints',
-            '--name=lraspp_test', '--num_classes=2', '--lr=0.001', '--weight_decay=0.001',
+            'scripts/presence/train_input/data',
+            'scripts/presence/train_output/checkpoints',
+            '--name=LRASPP_TEST', '--num_classes=2', '--lr=0.001', '--weight_decay=0.001',
             '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
-            '--max_epochs=10', '--batch_size=8', '--log_every_n_steps=5',
-            # '--overfit_batches=1'
-            # '--initial_weights=kelp/presence/train_output/checkpoints/deeplabv3_kelp_200704.pt'
+            '--max_epochs=200', '--batch_size=2', '--log_every_n_steps=5', '--overfit_batches=1'
         ])
     else:
         cli_main()

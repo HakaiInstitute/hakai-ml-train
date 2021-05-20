@@ -98,7 +98,6 @@ ENV/
 [Ll]ib
 [Ll]ib64
 [Ll]ocal
-[Ss]cripts
 pyvenv.cfg
 .venv
 pip-selfcheck.json
@@ -152,20 +151,17 @@ fabric.properties
 
 data
 *.pt
+*.ckpt
+*tar.gz
+*.tar
+
 *.tiff
+*.tif
 
 *runs/
 *.pth
 
-*tar.gz
-
-*.tar
-
-*.tif
-*.ckpt
 *.sqlite
-*.ipynb
 
-**/lightning_logs/
+**/lightning_logs
 **/train_output
-temp/

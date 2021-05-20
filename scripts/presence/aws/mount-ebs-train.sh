@@ -44,18 +44,22 @@ if [ $VOLUME_ID ]; then
 		mkdir -p /dltraining
 		mount /dev/xvdf /dltraining
 		chown -R ubuntu: /dltraining/
-		cd /home/ubuntu/
+		cd /home/ubuntu/ || exit 1
 
 		# Get training code
 		git clone https://github.com/tayden/uav-classif.git
 		chown -R ubuntu: uav-classif
-		cd uav-classif/kelp/presence
+		cd uav-classif/scripts/presence || exit 1
 		mkdir -p ./train_input/data
 		mount --bind /dltraining/presence/data ./train_input/data
 		mkdir -p ./train_output
 		mount --bind /dltraining/presence/train_output ./train_output
+
+		# Initiate training using the pytorch_36 conda environment
+		cd scripts || exit 1
+		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate python3; bash ./build_and_train.sh"
 fi
 
 # After training, clean up by cancelling spot requests and terminating itself
 SPOT_FLEET_REQUEST_ID=$(aws ec2 describe-spot-instance-requests --region $AWS_REGION --filter "Name=instance-id,Values='$INSTANCE_ID'" --query "SpotInstanceRequests[].Tags[?Key=='aws:ec2spot:fleet-request-id'].Value[]" --output text)
-# aws ec2 cancel-spot-fleet-requests --region $AWS_REGION --spot-fleet-request-ids $SPOT_FLEET_REQUEST_ID --terminate-instances
+aws ec2 cancel-spot-fleet-requests --region $AWS_REGION --spot-fleet-request-ids $SPOT_FLEET_REQUEST_ID --terminate-instances

@@ -9,16 +9,16 @@
       <sourceFolder url="file://$MODULE_DIR$" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.ipynb_checkpoints" />
       <excludeFolder url="file://$MODULE_DIR$/data" />
-      <excludeFolder url="file://$MODULE_DIR$/kelp/presence/train_input" />
-      <excludeFolder url="file://$MODULE_DIR$/kelp/presence/train_output" />
-      <excludeFolder url="file://$MODULE_DIR$/kelp/presence/weights" />
-      <excludeFolder url="file://$MODULE_DIR$/kelp/species/notebooks" />
-      <excludeFolder url="file://$MODULE_DIR$/kelp/species/notebooks/.ipynb_checkpoints" />
-      <excludeFolder url="file://$MODULE_DIR$/kelp/species/train_input" />
-      <excludeFolder url="file://$MODULE_DIR$/kelp/species/train_output" />
       <excludeFolder url="file://$MODULE_DIR$/seagrass/train_input" />
       <excludeFolder url="file://$MODULE_DIR$/seagrass/train_output" />
       <excludeFolder url="file://$MODULE_DIR$/temp" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/species/train_input" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/species/notebooks" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/species/notebooks/.ipynb_checkpoints" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/species/train_output" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/presence/train_input" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/presence/train_output" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/presence/weights" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

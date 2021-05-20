@@ -24,11 +24,11 @@ class KelpDataModule(pl.LightningDataModule):
         self.val_data_dir = Path(data_dir).joinpath("eval")
 
         self.train_transforms = t.Compose([
-            ImageClip(min_=0, max_=255),
             PadOut(512, 512),
             t.RandomHorizontalFlip(),
             t.RandomVerticalFlip(),
             t.RandomRotation(degrees=45),
+            ImageClip(min_=0, max_=255),
             t.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
             t.ToTensor(),
             normalize,
@@ -42,8 +42,8 @@ class KelpDataModule(pl.LightningDataModule):
             Clamp(0, 1),
         ])
         self.test_transforms = t.Compose([
-            ImageClip(min_=0, max_=255),
             PadOut(512, 512),
+            ImageClip(min_=0, max_=255),
             t.ToTensor(),
             normalize,
         ])

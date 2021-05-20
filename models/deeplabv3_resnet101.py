@@ -156,7 +156,7 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         actual_num_classes = hparams.num_classes
         weights = torch.load(pt_weights_file)
 
-        # Load presence/absence weights
+        # Load kelp_presence_scripts/absence weights
         hparams.num_classes = 2
         self = cls(hparams)
         self.load_state_dict(weights)

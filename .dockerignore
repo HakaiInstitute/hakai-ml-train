@@ -1,6 +1,6 @@
 .git
 data
-aws_scripts
+scripts
 */train_input
 */train_output
 */raw_data
