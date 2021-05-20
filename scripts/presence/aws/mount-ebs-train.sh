@@ -56,7 +56,6 @@ if [ $VOLUME_ID ]; then
 		mount --bind /dltraining/presence/train_output ./train_output
 
 		# Initiate training using the pytorch_36 conda environment
-		cd scripts || exit 1
 		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate python3; bash ./build_and_train.sh"
 fi
 
