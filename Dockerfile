@@ -19,5 +19,5 @@ COPY models /opt/code/models
 COPY ./*.py /opt/code/
 
 # Run the cli script
-ENTRYPOINT ["python", "lit_deeplabv3_resnet101_kelp.py"]
-#ENTRYPOINT ["python", "lit_lraspp_mobilenet_v3_large_kelp.py"]
+#ENTRYPOINT ["python", "lit_deeplabv3_resnet101_kelp.py"]
+ENTRYPOINT ["python", "lit_lraspp_mobilenet_v3_large_kelp.py"]
