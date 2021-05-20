@@ -1,11 +1,11 @@
 import torch
 
-from models.deeplabv3 import DeepLabv3
+from models.deeplabv3_resnet101 import DeepLabv3ResNet101
 
 
-class KelpSpeciesModel(DeepLabv3):
+class KelpSpeciesModel(DeepLabv3ResNet101):
     @classmethod
-    def load_from_presence_absence_checkpoint(cls, checkpoint_file, hparams):
+    def from_presence_absence_weights(cls, checkpoint_file, hparams):
         actual_num_classes = hparams.num_classes
         weights = torch.load(checkpoint_file)['state_dict']
 

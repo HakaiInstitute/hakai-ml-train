@@ -124,7 +124,7 @@ def train(train_data_dir, val_data_dir, checkpoint_dir,
         if initial_weights:
             # Train model using presence/absence model as a starting point
             print("Loading P/A model")
-            model = KelpSpeciesModel.load_from_presence_absence_checkpoint(initial_weights, hparams=hparams)
+            model = KelpSpeciesModel.from_presence_absence_weights(initial_weights, hparams=hparams)
         else:
             model = KelpSpeciesModel(hparams)
 

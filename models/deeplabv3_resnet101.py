@@ -18,7 +18,7 @@ from models.mixins import GeoTiffPredictionMixin
 from utils.loss import FocalTverskyMetric
 
 
-class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
+class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
     def __init__(self, hparams):
         """hparams must be a dict of
                     aux_loss_factor
@@ -150,6 +150,29 @@ class DeepLabv3(GeoTiffPredictionMixin, pl.LightningModule):
     def ckpt2pt(ckpt_file, pt_path):
         checkpoint = torch.load(ckpt_file, map_location=torch.device('cpu'))
         torch.save(checkpoint['state_dict'], pt_path)
+
+    @classmethod
+    def from_presence_absence_weights(cls, pt_weights_file, hparams):
+        actual_num_classes = hparams.num_classes
+        weights = torch.load(pt_weights_file)
+
+        # Load presence/absence weights
+        hparams.num_classes = 2
+        self = cls(hparams)
+        self.load_state_dict(weights)
+        self.hparams.num_classes = actual_num_classes
+
+        # switch classifier output layer
+        in_channels = self.model.classifier[-1].in_channels
+        self.model.classifier[-1] = torch.nn.Conv2d(in_channels, actual_num_classes, kernel_size=1, stride=1)
+        self.model.classifier.requires_grad_(True)
+
+        # switch aux_classifier output layer
+        in_channels = self.model.aux_classifier[-1].in_channels
+        self.model.aux_classifier[-1] = torch.nn.Conv2d(in_channels, actual_num_classes, kernel_size=1, stride=1)
+        self.model.aux_classifier.requires_grad_(True)
+
+        return self
 
     @staticmethod
     def add_argparse_args(parser):

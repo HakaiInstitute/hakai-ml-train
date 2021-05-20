@@ -19,7 +19,7 @@ from utils.dataset.transforms import reusable_transforms as t
 class GeoTiffPredictionMixin(pl.LightningModule, metaclass=ABCMeta):
     def pred_dataloader(self, geotiff_path: str):
         ds_pred = GeoTiffReader(geotiff_path, transform=t.geotiff_transforms,
-                                crop_size=self.hparams.crop_size, padding=self.hparams.padding)
+                                crop_size=self.hparams.crop_size, padding=self.hparams.crop_pad)
         return DataLoader(ds_pred, shuffle=False, batch_size=self.hparams.batch_size, pin_memory=True,
                           num_workers=0)
 

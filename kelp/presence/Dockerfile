@@ -20,4 +20,4 @@ COPY kelp/*.py /opt/code/kelp/
 COPY ./*.py /opt/code/
 
 # Run the cli script
-ENTRYPOINT ["python", "lit_deeplabv3_kelp_presence.py"]
+ENTRYPOINT ["python", "lit_deeplabv3_resnet101_kelp.py"]

@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 from models.unet import UNet
 from pytorch_lightning.loggers import TestTubeLogger
 
-from kelp_presence_data_module import KelpPresenceDataModule
+from kelp_data_module import KelpDataModule
 from utils.checkpoint import get_checkpoint
 
 
@@ -44,7 +44,7 @@ def train(parent_parser):
     # ------------
     # data
     # ------------
-    kelp_presence_data = KelpPresenceDataModule(args.data_dir, batch_size=args.batch_size)
+    kelp_presence_data = KelpDataModule(args.data_dir, batch_size=args.batch_size)
 
     # ------------
     # model

@@ -12,11 +12,9 @@ from utils.dataset.SegmentationDataset import SegmentationDataset
 from utils.dataset.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
 
 
-# from torchvision.transforms import functional as TF
-
-
-class KelpPresenceDataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str, batch_size: int, num_workers: int = os.cpu_count(), pin_memory=True):
+class KelpDataModule(pl.LightningDataModule):
+    def __init__(self, data_dir: str, batch_size: int, num_workers: int = os.cpu_count(),
+                 pin_memory=True):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -33,8 +31,6 @@ class KelpPresenceDataModule(pl.LightningDataModule):
             t.RandomRotation(degrees=45),
             t.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
             t.ToTensor(),
-            # t.GaussianBlur(kernel_size=3, sigma=2),
-            # TF.autocontrast,
             normalize,
         ])
         self.train_target_transforms = t.Compose([
@@ -49,8 +45,6 @@ class KelpPresenceDataModule(pl.LightningDataModule):
             ImageClip(min_=0, max_=255),
             PadOut(512, 512),
             t.ToTensor(),
-            # t.GaussianBlur(kernel_size=3, sigma=2),
-            # TF.autocontrast,
             normalize,
         ])
         self.test_target_transforms = t.Compose([
@@ -80,24 +74,29 @@ class KelpPresenceDataModule(pl.LightningDataModule):
         pass
 
     def train_dataloader(self, *args, **kwargs) -> DataLoader:
-        return DataLoader(self.ds_train, shuffle=True, batch_size=self.batch_size, pin_memory=self.pin_memory,
+        return DataLoader(self.ds_train, shuffle=True, batch_size=self.batch_size,
+                          pin_memory=self.pin_memory,
                           drop_last=True, num_workers=self.num_workers)
 
     def val_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
-        return DataLoader(self.ds_val, shuffle=False, batch_size=self.batch_size, pin_memory=self.pin_memory,
+        return DataLoader(self.ds_val, shuffle=False, batch_size=self.batch_size,
+                          pin_memory=self.pin_memory,
                           num_workers=self.num_workers)
 
     def test_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
-        return DataLoader(self.ds_test, shuffle=False, batch_size=self.batch_size, pin_memory=self.pin_memory,
+        return DataLoader(self.ds_test, shuffle=False, batch_size=self.batch_size,
+                          pin_memory=self.pin_memory,
                           num_workers=self.num_workers)
 
     @classmethod
     def add_argparse_args(cls, parent_parser: ArgumentParser, **kwargs) -> ArgumentParser:
         parser = parent_parser.add_argument_group('KelpPresenceDataModule')
 
-        parser.add_argument('--batch_size', type=int, default=32, help="The number of images to process at one time.")
+        parser.add_argument('--batch_size', type=int, default=32,
+                            help="The number of images to process at one time.")
         parser.add_argument('--num_workers', type=int, default=os.cpu_count(),
                             help="The number of CPU workers to load images from disk.")
-        parser.add_argument('--pin_memory', type=bool, default=True, help="Flag to pin GPU memory for batch loading.")
+        parser.add_argument('--pin_memory', type=bool, default=True,
+                            help="Flag to pin GPU memory for batch loading.")
 
         return parent_parser

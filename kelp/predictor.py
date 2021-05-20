@@ -4,7 +4,7 @@ import fire
 import torch
 from loguru import logger
 
-from models.deeplabv3 import DeepLabv3
+from models.deeplabv3_resnet101 import DeepLabv3ResNet101
 
 
 def predict(seg_in, seg_out, weights, batch_size=4, crop_size=256, crop_pad=128):
@@ -36,7 +36,7 @@ def predict(seg_in, seg_out, weights, batch_size=4, crop_size=256, crop_pad=128)
         logger.warning("Could not find GPU device")
 
     # Load model and weights
-    model = DeepLabv3.load_from_checkpoint(weights, batch_size=batch_size, crop_size=crop_size, padding=crop_pad)
+    model = DeepLabv3ResNet101.load_from_checkpoint(weights, batch_size=batch_size, crop_size=crop_size, padding=crop_pad)
     model.freeze()
     model = model.to(device)
 

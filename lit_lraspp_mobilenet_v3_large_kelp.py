@@ -7,8 +7,8 @@ import torch
 from loguru import logger
 from pytorch_lightning.loggers import TestTubeLogger
 
-from kelp_presence_data_module import KelpPresenceDataModule
-from models.deeplabv3 import DeepLabv3
+from kelp_data_module import KelpDataModule
+from models.lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
 from utils.checkpoint import get_checkpoint
 
 
@@ -31,8 +31,8 @@ def cli_main(argv=None):
     parser_train.add_argument('--name', type=str, default="",
                               help="Identifier used when creating files and directories for this training run.")
 
-    parser_train = KelpPresenceDataModule.add_argparse_args(parser_train)
-    parser_train = DeepLabv3.add_argparse_args(parser_train)
+    parser_train = KelpDataModule.add_argparse_args(parser_train)
+    parser_train = LRASPPMobileNetV3Large.add_argparse_args(parser_train)
     # parser_train = DeepLabv3FineTuningCallback.add_argparse_args(parser_train)
     parser_train = pl.Trainer.add_argparse_args(parser_train)
     parser_train.set_defaults(func=train)
@@ -74,9 +74,9 @@ def pred(args):
     # ------------
     # model
     # ------------
-    model = DeepLabv3.load_from_checkpoint(args.weights, batch_size=args.batch_size,
-                                           crop_size=args.crop_size,
-                                           padding=args.crop_pad)
+    model = LRASPPMobileNetV3Large.load_from_checkpoint(args.weights, batch_size=args.batch_size,
+                                                        crop_size=args.crop_size,
+                                                        padding=args.crop_pad)
     model.freeze()
     model = model.to(device)
 
@@ -92,7 +92,7 @@ def train(args):
     # ------------
     # data
     # ------------
-    kelp_presence_data = KelpPresenceDataModule(args.data_dir, batch_size=args.batch_size)
+    kelp_presence_data = KelpDataModule(args.data_dir, batch_size=args.batch_size)
 
     # ------------
     # model
@@ -100,12 +100,12 @@ def train(args):
     os.environ['TORCH_HOME'] = str(Path(args.checkpoint_dir).parent)
     if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
         print("Loading checkpoint:", checkpoint)
-        model = DeepLabv3.load_from_checkpoint(checkpoint)
+        model = LRASPPMobileNetV3Large.load_from_checkpoint(checkpoint)
     elif args.initial_weights_ckpt:
         print("Loading initial weights ckpt:", args.initial_weights_ckpt)
-        model = DeepLabv3.load_from_checkpoint(args.initial_weights_ckpt)
+        model = LRASPPMobileNetV3Large.load_from_checkpoint(args.initial_weights_ckpt)
     else:
-        model = DeepLabv3(args)
+        model = LRASPPMobileNetV3Large(args)
 
     if args.initial_weights:
         print("Loading initial weights:", args.initial_weights)
@@ -169,10 +169,10 @@ if __name__ == '__main__':
             'train',
             'kelp/presence/train_input/data',
             'kelp/presence/train_output/checkpoints',
-            '--name=TEST', '--num_classes=2', '--lr=0.001', '--backbone_lr=0.00001',
-            '--weight_decay=0.001', '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1',
-            '--benchmark', '--max_epochs=10', '--batch_size=2', "--unfreeze_backbone_epoch=100",
-            '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn'
+            '--name=lraspp_test', '--num_classes=2', '--lr=0.001', '--weight_decay=0.001',
+            '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
+            '--max_epochs=10', '--batch_size=8', '--log_every_n_steps=5',
+            # '--overfit_batches=1'
             # '--initial_weights=kelp/presence/train_output/checkpoints/deeplabv3_kelp_200704.pt'
         ])
     else:
