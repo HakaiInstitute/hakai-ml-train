@@ -21,12 +21,12 @@ from utils.loss import FocalTverskyMetric
 class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
     def __init__(self, hparams):
         """hparams must be a dict of
-                    aux_loss_factor
                     weight_decay
                     lr
                     unfreeze_backbone_epoch
                     aux_loss_factor
                     num_classes
+                    train_backbone_bn
                 """
         super().__init__()
         self.save_hyperparameters(hparams)

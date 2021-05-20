@@ -8,11 +8,13 @@ dependencies:
   - cudatoolkit=11.1
   - fire
   - gdal
+  - jupyter
   - loguru
   - pip
   - python=3.8
   - pytorch-lightning
   - pytorch>=1.8.1
+  - scikit-image
   - scikit-learn
   - tensorboard
   - torchaudio
