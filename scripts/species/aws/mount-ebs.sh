@@ -49,7 +49,7 @@ if [ "$VOLUME_ID" ]; then
 		# Get training code
 		git clone https://github.com/tayden/uav-classif.git
 		chown -R ubuntu: uav-classif
-		cd uav-classif/kelp_species || exit
+		cd uav-classif/scripts/species || exit
 		mkdir -p ./train_input/data
 		mount --bind /dltraining/species/data ./train_input/data
 		mkdir -p ./train_output

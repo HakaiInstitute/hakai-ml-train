@@ -49,14 +49,13 @@ if [ "$VOLUME_ID" ]; then
 		# Get training code
 		git clone https://github.com/tayden/uav-classif.git
 		chown -R ubuntu: uav-classif
-		cd uav-classif/kelp_species || exit 1
+		cd uav-classif/scripts/species || exit 1
 		mkdir -p ./train_input/data
 		mount --bind /dltraining/species/data ./train_input/data
 		mkdir -p ./train_output
 		mount --bind /dltraining/species/train_output ./train_output
 
 		# Initiate training using the pytorch_36 conda environment
-    cd scripts || exit 1
 		sudo -H -u ubuntu bash -c "source /home/ubuntu/anaconda3/bin/activate python3; bash ./build_and_train.sh"
 fi
 

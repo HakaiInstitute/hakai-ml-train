@@ -118,7 +118,7 @@ def train(args):
         print("Loading initial weights ckpt:", args.initial_weights_ckpt)
         model = DeepLabv3ResNet101.load_from_checkpoint(args.initial_weights_ckpt)
     elif args.pa_weights:
-        print("Loading presence/absence ckpt:", args.pa_weights)
+        print("Loading presence/absence weights:", args.pa_weights)
         model = DeepLabv3ResNet101.from_presence_absence_weights(args.pa_weights, args)
     else:
         model = DeepLabv3ResNet101(args)
