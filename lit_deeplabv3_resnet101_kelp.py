@@ -180,24 +180,25 @@ if __name__ == '__main__':
         #     # '--crop_size=256',
         #     # '--crop_pad=128'
         # ])
-        cli_main([
-            'train',
-            'scripts/presence/train_input/data',
-            'scripts/presence/train_output/checkpoints',
-            '--name=TEST', '--num_classes=2', '--lr=0.001', '--backbone_lr=0.00001',
-            '--weight_decay=0.001', '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1',
-            '--benchmark', '--max_epochs=100', '--batch_size=2', "--unfreeze_backbone_epoch=100",
-            '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn'
-        ])
         # cli_main([
         #     'train',
-        #     'scripts/species/train_input/data',
-        #     'scripts/species/train_output/checkpoints',
-        #     '--name=TEST', '--num_classes=3', '--lr=0.001', '--backbone_lr=0.00001',
+        #     'scripts/presence/train_input/data',
+        #     'scripts/presence/train_output/checkpoints',
+        #     '--name=TEST', '--num_classes=2', '--lr=0.001', '--backbone_lr=0.00001',
         #     '--weight_decay=0.001', '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1',
-        #     '--benchmark', '--max_epochs=10', '--batch_size=2', "--unfreeze_backbone_epoch=100",
-        #     '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn',
-        #     '--pa_weights=species/train_input/data/best-val_miou=0.9393-epoch=97-step=34789.pt'
+        #     '--benchmark', '--max_epochs=100', '--batch_size=2', "--unfreeze_backbone_epoch=100",
+        #     '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn'
         # ])
+        cli_main([
+            'train',
+            'scripts/species/train_input/data',
+            'scripts/species/train_output/checkpoints',
+            '--name=TEST', '--num_classes=3', '--lr=0.001', '--backbone_lr=0.00001',
+            '--weight_decay=0.001', '--gradient_clip_val=0.5',
+            '--max_epochs=10', '--batch_size=2', "--unfreeze_backbone_epoch=100",
+            '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn',
+            '--benchmark', '--auto_select_gpus', '--gpus=-1',
+            '--pa_weights=scripts/species/train_input/data/best-val_miou=0.9393-epoch=97-step=34789.pt'
+        ])
     else:
         cli_main()

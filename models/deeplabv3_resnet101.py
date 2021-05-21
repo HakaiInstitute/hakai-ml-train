@@ -4,6 +4,7 @@
 # Description:
 
 import itertools
+from collections import OrderedDict
 
 import pytorch_lightning as pl
 import torch
@@ -50,7 +51,6 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         self.accuracy_metric = Accuracy()
         self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none')
 
-    @auto_move_data
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.softmax(self.model.forward(x)['out'], dim=1)
 
@@ -153,25 +153,16 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
 
     @classmethod
     def from_presence_absence_weights(cls, pt_weights_file, hparams):
-        actual_num_classes = hparams.num_classes
+        self = cls(hparams)
         weights = torch.load(pt_weights_file)
 
-        # Load kelp_presence_scripts/absence weights
-        hparams.num_classes = 2
-        self = cls(hparams)
-        self.load_state_dict(weights)
-        self.hparams.num_classes = actual_num_classes
+        # Remove weights for previous classifier layers
+        del weights['model.classifier.4.weight']
+        del weights['model.classifier.4.bias']
+        del weights['model.aux_classifier.4.weight']
+        del weights['model.aux_classifier.4.bias']
 
-        # switch classifier output layer
-        in_channels = self.model.classifier[-1].in_channels
-        self.model.classifier[-1] = torch.nn.Conv2d(in_channels, actual_num_classes, kernel_size=1, stride=1)
-        self.model.classifier.requires_grad_(True)
-
-        # switch aux_classifier output layer
-        in_channels = self.model.aux_classifier[-1].in_channels
-        self.model.aux_classifier[-1] = torch.nn.Conv2d(in_channels, actual_num_classes, kernel_size=1, stride=1)
-        self.model.aux_classifier.requires_grad_(True)
-
+        self.load_state_dict(weights, strict=False)
         return self
 
     @staticmethod

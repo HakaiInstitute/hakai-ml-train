@@ -6,12 +6,12 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
 # Build the docker image
-DOCKER_BUILDKIT=1 docker build --file ../../Dockerfile --tag tayden/deeplabv3-kelp-species ../../
-#DOCKER_BUILDKIT=1 docker build --file ../../Dockerfile --tag tayden/lraspp-mobilenetv3-kelp-species ../../
+DOCKER_BUILDKIT=1 docker build --file ../../Dockerfile --tag tayden/deeplabv3-kelp ../../
+#DOCKER_BUILDKIT=1 docker build --file ../../Dockerfile --tag tayden/lraspp-mobilenetv3-kelp ../../
 
 # Sync datasets
-aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/train "$DIR/../train_input/data/train"
-aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/eval "$DIR/../train_input/data/eval"
+aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/train "$DIR/train_input/data/train"
+aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/eval "$DIR/train_input/data/eval"
 
 # Get initial weights
 aws s3 sync --exclude="*" --include="best-val_miou=0.9393-epoch=97-step=34789.pt" \
@@ -30,13 +30,13 @@ docker run -dit --rm \
   --ipc host \
   --gpus all \
   --name kelp-species-train \
-  tayden/deeplabv3-kelp-species train /opt/ml/input/data /opt/ml/output/checkpoints \
+  tayden/deeplabv3-kelp train /opt/ml/input/data /opt/ml/output/checkpoints \
   --name=$NAME --num_classes=3 \
   --lr=0.001 --backbone_lr=0.0001 --weight_decay=0.001 --gradient_clip_val=0.5 \
   --pa_weights="/opt/ml/input/data/best-val_miou=0.9393-epoch=97-step=34789.pt" \
   --auto_select_gpus --gpus=-1 --benchmark --sync_batchnorm \
   --max_epochs=100 --batch_size=8 --amp_level=O2 --precision=16 --accelerator=ddp --log_every_n_steps=10  # AWS
-#  --max_epochs=10 --batch_size=2 --unfreeze_backbone_epoch=100 --log_every_n_steps=5 --overfit_batches=2  # TESTING
+#  --max_epochs=10 --batch_size=2 --unfreeze_backbone_epoch=100 --log_every_n_steps=5 --overfit_batches=2 --no_train_backbone_bn  # TESTING
 
 # Can start tensorboard in running container as follows:
 docker exec -dit kelp-species-train tensorboard --logdir=/opt/ml/output/checkpoints --host=0.0.0.0 --port=$PORT
