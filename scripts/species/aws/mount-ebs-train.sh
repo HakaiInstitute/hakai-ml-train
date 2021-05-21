@@ -46,6 +46,11 @@ if [ "$VOLUME_ID" ]; then
 		chown -R ubuntu: /dltraining/
 		cd /home/ubuntu/ || exit 1
 
+		# Change the docker image installation cache directory
+		sed -i 'N;$s/}\n}/},\n    "data-root": "\/dltraining\/docker-data"\n}/' /etc/docker/daemon.json
+		systemctl daemon-reload
+		systemctl restart docker
+
 		# Get training code
 		git clone https://github.com/tayden/uav-classif.git
 		chown -R ubuntu: uav-classif
