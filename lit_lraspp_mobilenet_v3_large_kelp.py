@@ -29,6 +29,8 @@ def cli_main(argv=None):
                               help="Path to checkpoint file to load as initial model weights")
     parser_train.add_argument('--initial_weights', type=str,
                               help="Path to pytorch weights to load as initial model weights")
+    parser_train.add_argument('--pa_weights', type=str,
+                              help="Presence/Absence model weights to use as initial model weights")
     parser_train.add_argument('--name', type=str, default="",
                               help="Identifier used when creating files and directories for this "
                                    "training run.")
@@ -109,6 +111,9 @@ def train(args):
     if args.initial_weights_ckpt:
         print("Loading initial weights ckpt:", args.initial_weights_ckpt)
         model = LRASPPMobileNetV3Large.load_from_checkpoint(args.initial_weights_ckpt)
+    elif args.pa_weights:
+        print("Loading presence/absence weights:", args.pa_weights)
+        model = LRASPPMobileNetV3Large.from_presence_absence_weights(args.pa_weights, args)
     else:
         model = LRASPPMobileNetV3Large(args)
 
@@ -169,13 +174,23 @@ if __name__ == '__main__':
         #     # '--crop_size=64',
         #     # '--crop_pad=0'
         # ])
+        # cli_main([
+        #     'train',
+        #     'scripts/presence/train_input/data',
+        #     'scripts/presence/train_output/checkpoints',
+        #     '--name=L_RASPP_TEST', '--num_classes=2', '--lr=0.001', '--weight_decay=0.001',
+        #     '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
+        #     '--max_epochs=200', '--batch_size=2', '--log_every_n_steps=5', '--overfit_batches=1',
+        #     '--pa_weights=scripts/species/train_input/data/best-val_miou=0.9218-epoch=196-step=69934.pt'
+        # ])
         cli_main([
             'train',
-            'scripts/presence/train_input/data',
-            'scripts/presence/train_output/checkpoints',
-            '--name=L_RASPP_TEST', '--num_classes=2', '--lr=0.001', '--weight_decay=0.001',
+            'scripts/species/train_input/data',
+            'scripts/species/train_output/checkpoints',
+            '--name=L_RASPP_TEST', '--num_classes=3', '--lr=0.001', '--weight_decay=0.001',
             '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
-            '--max_epochs=200', '--batch_size=2', '--log_every_n_steps=5', '--overfit_batches=1'
+            '--max_epochs=1', '--batch_size=2', '--log_every_n_steps=5',
+            '--pa_weights=scripts/species/train_input/data/best-val_miou=0.9218-epoch=196-step=69934.pt'
         ])
     else:
         cli_main()

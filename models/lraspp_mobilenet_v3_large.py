@@ -114,6 +114,20 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
     def test_step(self, batch, batch_idx):
         return self.val_test_step(batch, batch_idx, phase='test')
 
+    @classmethod
+    def from_presence_absence_weights(cls, pt_weights_file, hparams):
+        self = cls(hparams)
+        weights = torch.load(pt_weights_file)
+
+        # Remove trained weights for previous classifier output layers
+        del weights['model.classifier.low_classifier.weight']
+        del weights['model.classifier.low_classifier.bias']
+        del weights['model.classifier.high_classifier.weight']
+        del weights['model.classifier.high_classifier.bias']
+
+        self.load_state_dict(weights, strict=False)
+        return self
+
     @staticmethod
     def add_argparse_args(parser):
         group = parser.add_argument_group('L-RASPP-MobileNet-V3-Large')
