@@ -9,7 +9,7 @@ from pytorch_lightning.loggers import TestTubeLogger
 
 from kelp_data_module import KelpDataModule
 from models.lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
-from utils.checkpoint import get_checkpoint
+# from utils.checkpoint import get_checkpoint
 
 
 def cli_main(argv=None):
@@ -21,19 +21,20 @@ def cli_main(argv=None):
 
     parser_train = subparsers.add_parser(name='train', help="Train the model.")
     parser_train.add_argument('data_dir', type=str,
-                              help="The path to a data directory with subdirectories 'train' and 'eval', each with 'x' "
-                                   "and 'y' subdirectories containing image crops and labels, respectively.")
+                              help="The path to a data directory with subdirectories 'train' and "
+                                   "'eval', each with 'x' and 'y' subdirectories containing image "
+                                   "crops and labels, respectively.")
     parser_train.add_argument('checkpoint_dir', type=str, help="The path to save training outputs")
     parser_train.add_argument('--initial_weights_ckpt', type=str,
                               help="Path to checkpoint file to load as initial model weights")
     parser_train.add_argument('--initial_weights', type=str,
                               help="Path to pytorch weights to load as initial model weights")
     parser_train.add_argument('--name', type=str, default="",
-                              help="Identifier used when creating files and directories for this training run.")
+                              help="Identifier used when creating files and directories for this "
+                                   "training run.")
 
     parser_train = KelpDataModule.add_argparse_args(parser_train)
     parser_train = LRASPPMobileNetV3Large.add_argparse_args(parser_train)
-    # parser_train = DeepLabv3FineTuningCallback.add_argparse_args(parser_train)
     parser_train = pl.Trainer.add_argparse_args(parser_train)
     parser_train.set_defaults(func=train)
 
@@ -43,18 +44,21 @@ def cli_main(argv=None):
     parser_pred.add_argument('seg_out', type=str,
                              help="Path to desired output *.tif created by the model in pred mode.")
     parser_pred.add_argument('weights', type=str,
-                             help="Path to a model weights file (*.pt). Required for eval and pred mode.")
+                             help="Path to a model weights file (*.pt). Required for eval and pred "
+                                  "mode.")
     parser_pred.add_argument('--batch_size', type=int, default=2,
                              help="The batch size per GPU (default 2).")
     parser_pred.add_argument('--crop_pad', type=int, default=128,
-                             help="The amount of padding added for classification context to each image crop. The "
-                                  "output classification on this crop area is not output by the model but will "
-                                  "influence the classification of the area in the (crop_size x crop_size) window "
+                             help="The amount of padding added for classification context to each "
+                                  "image crop. The output classification on this crop area is not "
+                                  "output by the model but will influence the classification of "
+                                  "the area in the (crop_size x crop_size) window "
                                   "(defaults to 128).")
     parser_pred.add_argument('--crop_size', type=int, default=512,
-                             help="The crop size in pixels for processing the image. Defines the length and width of "
-                                  "the individual sections the input .tif image is cropped to for processing "
-                                  "(default 512).")
+                             help="The crop size in pixels for processing the image. Defines the "
+                                  "length and width of the individual sections the input .tif "
+                                  "image is cropped to for processing (default 512).")
+    parser_pred = LRASPPMobileNetV3Large.add_argparse_args(parser_pred)
     parser_pred.set_defaults(func=pred)
 
     args = parser.parse_args(argv)
@@ -98,10 +102,10 @@ def train(args):
     # model
     # ------------
     os.environ['TORCH_HOME'] = str(Path(args.checkpoint_dir).parent)
-    if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
-        print("Loading checkpoint:", checkpoint)
-        model = LRASPPMobileNetV3Large.load_from_checkpoint(checkpoint)
-    elif args.initial_weights_ckpt:
+    # if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
+    #     print("Loading checkpoint:", checkpoint)
+    #     model = LRASPPMobileNetV3Large.load_from_checkpoint(checkpoint)
+    if args.initial_weights_ckpt:
         print("Loading initial weights ckpt:", args.initial_weights_ckpt)
         model = LRASPPMobileNetV3Large.load_from_checkpoint(args.initial_weights_ckpt)
     else:
@@ -114,7 +118,7 @@ def train(args):
     # ------------
     # callbacks
     # ------------
-    logger = TestTubeLogger(args.checkpoint_dir, name=args.name)
+    logger_cb = TestTubeLogger(args.checkpoint_dir, name=args.name)
     lr_monitor_cb = pl.callbacks.LearningRateMonitor()
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
         verbose=True,
@@ -128,7 +132,6 @@ def train(args):
     callbacks = [
         lr_monitor_cb,
         checkpoint_cb,
-        # DeepLabv3FineTuningCallback(args.unfreeze_backbone_epoch, args.train_backbone_bn)
     ]
     if isinstance(args.gpus, int):
         callbacks.append(pl.callbacks.GPUStatsMonitor())
@@ -136,8 +139,8 @@ def train(args):
     # ------------
     # training
     # ------------
-    trainer = pl.Trainer.from_argparse_args(args, logger=logger, callbacks=callbacks,
-                                            resume_from_checkpoint=checkpoint)
+    trainer = pl.Trainer.from_argparse_args(args, logger=logger_cb, callbacks=callbacks)
+                                            # resume_from_checkpoint=checkpoint)
     # Tune params
     # trainer.tune(model, datamodule=kelp_presence_data)
 
@@ -169,7 +172,7 @@ if __name__ == '__main__':
             'train',
             'scripts/presence/train_input/data',
             'scripts/presence/train_output/checkpoints',
-            '--name=LRASPP_TEST', '--num_classes=2', '--lr=0.001', '--weight_decay=0.001',
+            '--name=L_RASPP_TEST', '--num_classes=2', '--lr=0.001', '--weight_decay=0.001',
             '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
             '--max_epochs=200', '--batch_size=2', '--log_every_n_steps=5', '--overfit_batches=1'
         ])
