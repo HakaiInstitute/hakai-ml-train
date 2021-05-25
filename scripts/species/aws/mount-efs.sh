@@ -2,6 +2,7 @@
 # Get instance ID, Instance AZ, Volume ID and Volume AZ
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 AWS_REGION=us-east-1
+SPOT_FLEET_REQUEST_ID=$(aws ec2 describe-spot-instance-requests --region $AWS_REGION --filter "Name=instance-id,Values='$INSTANCE_ID'" --query "SpotInstanceRequests[].Tags[?Key=='aws:ec2spot:fleet-request-id'].Value[]" --output text)
 
 # Install EFS Tools
 yum install -y amazon-efs-utils
@@ -31,5 +32,4 @@ mount --bind /dltraining/species/train_output ./train_output
 #sudo -H -u ec2-user bash -c "source /home/ec2-user/anaconda3/bin/activate python3; bash ./build_and_train.sh"
 
 # After training, clean up by cancelling spot requests and terminating itself
-#SPOT_FLEET_REQUEST_ID=$(aws ec2 describe-spot-instance-requests --region $AWS_REGION --filter "Name=instance-id,Values='$INSTANCE_ID'" --query "SpotInstanceRequests[].Tags[?Key=='aws:ec2spot:fleet-request-id'].Value[]" --output text)
 #aws ec2 cancel-spot-fleet-requests --region $AWS_REGION --spot-fleet-request-ids "$SPOT_FLEET_REQUEST_ID" --terminate-instances

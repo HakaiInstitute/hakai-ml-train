@@ -5,7 +5,7 @@
   "SpotPrice": "0.1",
   "LaunchSpecifications": [
     {
-      "ImageId": "ami-01f1817a8a0c23c2e",
+      "ImageId": "ami-0bb0f156481e1c7f9",
       "InstanceType": "m4.large",
       "KeyName": "dl-training",
       "SpotPrice": "0.1",
