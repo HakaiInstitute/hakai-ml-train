@@ -39,7 +39,7 @@ class KelpDataModule(pl.LightningDataModule):
             t.RandomVerticalFlip(),
             t.RandomRotation(degrees=45, fill=(0,)),
             target_to_tensor,
-            Clamp(0, 1),
+            Clamp(0, 3),
         ])
         self.test_transforms = t.Compose([
             PadOut(512, 512),
@@ -50,7 +50,7 @@ class KelpDataModule(pl.LightningDataModule):
         self.test_target_transforms = t.Compose([
             PadOut(512, 512),
             target_to_tensor,
-            Clamp(0, 1),
+            Clamp(0, 3),
         ])
 
     def prepare_data(self, *args, **kwargs):

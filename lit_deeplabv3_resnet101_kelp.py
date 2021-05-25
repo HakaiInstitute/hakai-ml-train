@@ -195,8 +195,10 @@ if __name__ == '__main__':
             'scripts/species/train_output/checkpoints',
             '--name=TEST', '--num_classes=3', '--lr=0.001', '--backbone_lr=0.00001',
             '--weight_decay=0.001', '--gradient_clip_val=0.5',
-            '--max_epochs=10', '--batch_size=2', "--unfreeze_backbone_epoch=100",
-            '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn',
+            '--max_epochs=2', '--batch_size=2', "--unfreeze_backbone_epoch=100",
+            '--log_every_n_steps=5',
+            # '--overfit_batches=20',
+            '--no_train_backbone_bn',
             '--benchmark', '--auto_select_gpus', '--gpus=-1',
             '--pa_weights=scripts/species/train_input/data/best-val_miou=0.9393-epoch=97-step=34789.pt'
         ])

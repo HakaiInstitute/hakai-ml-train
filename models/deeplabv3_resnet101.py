@@ -34,11 +34,11 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
 
         # Create model from pre-trained DeepLabv3
         self.model = deeplabv3_resnet101(pretrained=True, progress=True)
-        self.model.requires_grad_(True)
         self.model.aux_classifier = FCNHead(1024, self.hparams.num_classes)
-        self.model.aux_classifier.requires_grad_(True)
         self.model.classifier = DeepLabHead(2048, self.hparams.num_classes)
-        self.model.classifier.requires_grad_(True)
+
+        # Setup trainable layers
+        self.model.requires_grad_(True)
 
         BaseFinetuning.freeze((self.model.backbone[a] for a in self.model.backbone),
                               train_bn=self.hparams.train_backbone_bn)
@@ -46,7 +46,7 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         if self.hparams.unfreeze_backbone_epoch == 0:
             BaseFinetuning.make_trainable([self.model.backbone.layer4, self.model.backbone.layer3])
 
-        # Loss function
+        # Loss function and metrics
         self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes, alpha=0.7, beta=0.3, gamma=4. / 3.)
         self.accuracy_metric = Accuracy()
         self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none')
@@ -76,10 +76,12 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         return self.num_training_steps // self.trainer.max_epochs
 
     def configure_optimizers(self):
+        # Get trainable params
         head_params = itertools.chain(self.model.classifier.parameters(), self.model.aux_classifier.parameters())
         backbone_params = itertools.chain(self.model.backbone.layer4.parameters(),
                                           self.model.backbone.layer3.parameters())
 
+        # Init optimizer and scheduler
         optimizer = torch.optim.AdamW([
             {"params": head_params},
             {"params": backbone_params, "lr": self.hparams.backbone_lr},
@@ -93,14 +95,13 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
-
         logits = y_hat['out']
-        preds = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(preds, y)
+        probs = torch.softmax(logits, dim=1)
+        loss = self.focal_tversky_loss(probs, y)
 
         aux_logits = y_hat['aux']
-        aux_preds = torch.softmax(aux_logits, dim=1)
-        aux_loss = self.focal_tversky_loss(aux_preds, y)
+        aux_probs = torch.softmax(aux_logits, dim=1)
+        aux_loss = self.focal_tversky_loss(aux_probs, y)
 
         loss = loss + self.hparams.aux_loss_factor * aux_loss
         preds = logits.argmax(dim=1)
@@ -156,7 +157,7 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         self = cls(hparams)
         weights = torch.load(pt_weights_file)
 
-        # Remove weights for previous classifier layers
+        # Remove trained weights for previous classifier output layers
         del weights['model.classifier.4.weight']
         del weights['model.classifier.4.bias']
         del weights['model.aux_classifier.4.weight']
