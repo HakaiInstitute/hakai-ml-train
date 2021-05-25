@@ -105,7 +105,8 @@ def train(args):
     # ------------
     # data
     # ------------
-    kelp_presence_data = KelpDataModule(args.data_dir, batch_size=args.batch_size)
+    kelp_presence_data = KelpDataModule(args.data_dir, num_classes=args.num_classes,
+                                        batch_size=args.batch_size)
 
     # ------------
     # model

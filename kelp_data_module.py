@@ -13,9 +13,10 @@ from utils.dataset.transforms import Clamp, ImageClip, PadOut, normalize, target
 
 
 class KelpDataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str, batch_size: int, num_workers: int = os.cpu_count(),
-                 pin_memory=True):
+    def __init__(self, data_dir: str, num_classes: int, batch_size: int,
+                 num_workers: int = os.cpu_count(), pin_memory=True):
         super().__init__()
+        self.num_classes = num_classes
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.pin_memory = pin_memory
@@ -39,7 +40,7 @@ class KelpDataModule(pl.LightningDataModule):
             t.RandomVerticalFlip(),
             t.RandomRotation(degrees=45, fill=(0,)),
             target_to_tensor,
-            Clamp(0, 3),
+            Clamp(0, self.num_classes - 1),
         ])
         self.test_transforms = t.Compose([
             PadOut(512, 512),
@@ -50,7 +51,7 @@ class KelpDataModule(pl.LightningDataModule):
         self.test_target_transforms = t.Compose([
             PadOut(512, 512),
             target_to_tensor,
-            Clamp(0, 3),
+            Clamp(0, self.num_classes - 1),
         ])
 
     def prepare_data(self, *args, **kwargs):
