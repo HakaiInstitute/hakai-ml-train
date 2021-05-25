@@ -9,7 +9,7 @@ from pytorch_lightning.loggers import TestTubeLogger
 
 from kelp_data_module import KelpDataModule
 from models.deeplabv3_resnet101 import DeepLabv3ResNet101
-from utils.checkpoint import get_checkpoint
+# from utils.checkpoint import get_checkpoint
 
 
 def cli_main(argv=None):
@@ -111,10 +111,10 @@ def train(args):
     # model
     # ------------
     os.environ['TORCH_HOME'] = str(Path(args.checkpoint_dir).parent)
-    if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
-        print("Loading checkpoint:", checkpoint)
-        model = DeepLabv3ResNet101.load_from_checkpoint(checkpoint)
-    elif args.initial_weights_ckpt:
+    # if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
+    #     print("Loading checkpoint:", checkpoint)
+    #     model = DeepLabv3ResNet101.load_from_checkpoint(checkpoint)
+    if args.initial_weights_ckpt:
         print("Loading initial weights ckpt:", args.initial_weights_ckpt)
         model = DeepLabv3ResNet101.load_from_checkpoint(args.initial_weights_ckpt)
     elif args.pa_weights:
@@ -130,7 +130,7 @@ def train(args):
     # ------------
     # callbacks
     # ------------
-    logger = TestTubeLogger(args.checkpoint_dir, name=args.name)
+    logger_cb = TestTubeLogger(args.checkpoint_dir, name=args.name)
     lr_monitor_cb = pl.callbacks.LearningRateMonitor()
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
         verbose=True,
@@ -152,8 +152,8 @@ def train(args):
     # ------------
     # training
     # ------------
-    trainer = pl.Trainer.from_argparse_args(args, logger=logger, callbacks=callbacks,
-                                            resume_from_checkpoint=checkpoint)
+    trainer = pl.Trainer.from_argparse_args(args, logger=logger_cb, callbacks=callbacks)
+                                            # resume_from_checkpoint=checkpoint)
     # Tune params
     # trainer.tune(model, datamodule=kelp_presence_data)
 
