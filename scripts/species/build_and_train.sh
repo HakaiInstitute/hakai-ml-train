@@ -51,7 +51,7 @@ docker run -dit --rm \
   --name kelp-species-train \
   tayden/lraspp-mobilenetv3-kelp train /opt/ml/input/data /opt/ml/output/checkpoints \
   --name=$NAME --num_classes=3 \
-  --lr=0.0001 --weight_decay=0.001 --gradient_clip_val=0.5 \
+  --lr=0.0005 --weight_decay=0.001 --gradient_clip_val=0.5 \
   --pa_weights="/opt/ml/input/data/best-val_miou=0.9218-epoch=196-step=69934.pt" \
   --auto_select_gpus --gpus=-1 --benchmark --sync_batchnorm \
   --max_epochs=100 --batch_size=8 --amp_level=O2 --precision=16 --accelerator=ddp --log_every_n_steps=10  # AWS
