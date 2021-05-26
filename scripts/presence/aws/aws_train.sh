@@ -44,7 +44,7 @@ aws iam attach-role-policy \
 base64 mount-efs.sh -w0 | xclip -selection c
 
 # Request the spot instances
-aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-m4-large-kelp.json
-aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-2xlarge-kelp.json
-aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-8xlarge-kelp.json
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-m4-large.json
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-2xlarge.json
+aws ec2 request-spot-fleet --spot-fleet-request-config file://spot-fleet-config-p3-8xlarge.json
 

@@ -4,12 +4,10 @@
 # Description:
 
 import itertools
-from collections import OrderedDict
 
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import BaseFinetuning
-from pytorch_lightning.core.decorators import auto_move_data
 from torchmetrics import Accuracy, IoU
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
