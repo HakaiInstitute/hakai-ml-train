@@ -13,11 +13,10 @@ mount -t efs -o tls fs-4d8532f9:/ /dltraining
 chown -R ec2-user: /dltraining/
 cd /home/ec2-user/ || exit
 
-# Change the docker image installation cache directory
-# Sed script to add the new docker data-root to the docker.json config file
-sed -i '0,/{/ s//{\n    "data-root": "\/dltraining\/docker-data",/' /etc/docker/daemon.json
-systemctl daemon-reload
-systemctl restart docker
+# Load cached pytorch docker image
+docker load < /dltraining/docker-cache/pytorch:1.8.1-cuda11.1-cudnn8-runtime.tar.gz
+# Cached image via
+#docker save pytorch/pytorch:1.8.1-cuda11.1-cudnn8-runtime | gzip > "/dltraining/docker-cache/pytorch:1.8.1-cuda11.1-cudnn8-runtime.tar.gz"
 
 # Get training code
 git clone https://github.com/tayden/uav-classif.git
