@@ -6,7 +6,6 @@
 
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.core.decorators import auto_move_data
 from torchmetrics import Accuracy, IoU
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 
@@ -34,7 +33,6 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
         self.accuracy_metric = Accuracy()
         self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none')
 
-    @auto_move_data
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.softmax(self.model.forward(x)['out'], dim=1)
 
