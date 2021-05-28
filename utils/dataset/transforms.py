@@ -189,7 +189,6 @@ reusable_transforms = SimpleNamespace(
     ]),
     geotiff_transforms=t.Compose([
         ImageClip(),
-        PadOut(512, 512),
         DropExtraBands(),
         t.ToTensor(),
         normalize,
