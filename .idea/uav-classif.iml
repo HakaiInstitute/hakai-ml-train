@@ -20,7 +20,7 @@
       <excludeFolder url="file://$MODULE_DIR$/scripts/presence/train_output" />
       <excludeFolder url="file://$MODULE_DIR$/scripts/presence/weights" />
     </content>
-    <orderEntry type="inheritedJdk" />
+    <orderEntry type="jdk" jdkName="Python 3.8 (uav-classif)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="kelp-detector" />
   </component>
