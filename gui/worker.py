@@ -3,9 +3,7 @@ from os import path
 
 import numpy as np
 import torch
-from PySide6.QtCore import QThread, Signal
-# noinspection PyUnresolvedReferences
-from __feature__ import snake_case, true_property
+from PySide2.QtCore import QThread, Signal
 from geotiff_crop_dataset import CropDatasetWriter
 from torch.utils.data import DataLoader
 from torchvision import transforms

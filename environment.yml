@@ -8,6 +8,7 @@ dependencies:
   - cudatoolkit=11.1
   - loguru
   - pip
+  - pyinstaller>=4.3
   - python=3.8
   - pytorch-lightning
   - pytorch>=1.8.1
@@ -18,7 +19,7 @@ dependencies:
   - pip:
     - geotiff_crop_dataset
     - lightning-bolts
-    - PySide6
+    - PySide2
     - rasterio
     - test_tube
     - torchmetrics
