@@ -1,37 +1,31 @@
 # This Python file uses the following encoding: utf-8
 import os
+import signal
 import sys
 from os import path
 
-import numpy as np
 import torch
 from PySide6 import QtWidgets
-from PySide6.QtCore import QFile, QObject, QThread, Signal, Slot
+from PySide6.QtCore import QFile, QObject, Slot
 from PySide6.QtUiTools import QUiLoader
 # noinspection PyUnresolvedReferences
 from __feature__ import snake_case, true_property
-from geotiff_crop_dataset import CropDatasetWriter
 from loguru import logger
-from torch.utils.data import DataLoader
-from torchvision import transforms
-from tqdm import tqdm
 
-from utils.dataset.GeoTiffDataset import GeoTiffReader
+from gui.worker import WorkerThread
 
 MODELS_PATH = path.join(path.dirname(__file__), 'models')
-
-geotiff_transforms = transforms.Compose([
-    transforms.Lambda(lambda img: np.asarray(img)[:, :, :3]),
-    transforms.Lambda(lambda img: np.clip(img, 0, 255).astype(np.uint8)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
+VERSION = open(path.join(path.dirname(__file__), 'VERSION')).readline()
 
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__(None)
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+
         central_widget = self.load_ui()
+        central_widget.setWindowTitle(f"Hakai Kelp-O-Matic 9000 v{VERSION}")
 
         # Get handles to some components
         self.widget_progress = self.find_child(QObject, "widget_progress")
@@ -54,6 +48,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.spin_box_crop_padding = self.find_child(QObject, "spinBox_crop_padding")
 
         # Set initial state for some components
+        self.line_edit_output_directory.text = str(os.getenv('HOME'))
         self.widget_progress.visible = False
         self.find_child(QObject, "groupBox_advanced_options").visible = False
         if not torch.cuda.is_available():
@@ -175,9 +170,19 @@ class MainWindow(QtWidgets.QMainWindow):
                                             self.line_edit_output_filename_pattern.text)
             model_path = self.combo_box_classification_model.current_data
 
+            if len(self.image_paths) < 1:
+                return
+
             self.thread = WorkerThread(
-                self, self.image_paths, output_path_pattern, model_path, self.device,
-                self.batch_size, self.crop_dimension, self.crop_padding)
+                parent=self,
+                image_paths=self.image_paths,
+                output_path_pattern=output_path_pattern,
+                model_path=model_path,
+                device=self.device,
+                batch_size=self.batch_size,
+                crop_size=self.crop_dimension,
+                crop_pad=self.crop_padding
+            )
 
             self.thread.files_started.connect(self.handle_processing_start)
             self.thread.image_started.connect(self.handle_image_start)
@@ -187,60 +192,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.thread.start()
             # self.thread.wait()
 
-
-class WorkerThread(QThread):
-    files_started = Signal(int)
-    image_started = Signal(int, str, str)
-    files_progress = Signal(int)
-    image_progress = Signal(int)
-    files_finished = Signal()
-
-    def __init__(self, parent, image_paths, output_path_pattern, model_path, device, batch_size,
-                 crop_size, crop_pad):
-        super().__init__(parent)
-        self.running = False
-        self.image_paths = image_paths
-        self.output_path_pattern = output_path_pattern
-        self.model_path = model_path
-        self.device = device
-        self.batch_size = batch_size
-        self.crop_size = crop_size
-        self.crop_pad = crop_pad
-
-    def get_output_name(self, input_path):
-        basename, ext = path.splitext(path.basename(input_path))
-        return self.output_path_pattern.format(basename=basename)
-
-    def run(self):
-        self.running = True
-        self.files_started.emit(len(self.image_paths))
-        self.files_progress.emit(0)
-
-        model = torch.jit.load(self.model_path, map_location=self.device)
-
-        for file_idx, img_path in enumerate(self.image_paths):
-            out_path = self.get_output_name(img_path)
-
-            # Load dataset
-            reader = GeoTiffReader(img_path, transform=geotiff_transforms,
-                                   crop_size=self.crop_size, padding=self.crop_pad)
-            writer = CropDatasetWriter.from_reader(out_path, reader, count=1, dtype='uint8',
-                                                   nodata=0)
-            dataloader = DataLoader(reader, shuffle=False, batch_size=self.batch_size,
-                                    pin_memory=True, num_workers=0)
-
-            # Do the image classification
-            self.image_started.emit(len(dataloader), img_path, out_path)
-            self.image_progress.emit(0)
-
-            for batch_idx, x in enumerate(tqdm(dataloader, desc="Writing file")):
-                pred = model(x.to(self.device)).argmax(dim=1).detach().cpu().numpy()
-                writer.write_batch(batch_idx, self.batch_size, pred)
-                self.image_progress.emit(batch_idx + 1)
-            self.files_progress.emit(file_idx + 1)
-
-        self.running = False
-        self.files_finished.emit()
+    def exit_gracefully(self):
+        logger.info("Exiting gracefully")
+        if self.thread and self.thread.running:
+            logger.info("Requesting thread interrupt")
+            self.thread.exit(0)
+            self.thread.wait(2)
 
 
 if __name__ == "__main__":
@@ -250,5 +207,4 @@ if __name__ == "__main__":
 
 # TODO:
 # Package app, fix model location
-# Prevent run without output directory or empty image list
 # Show errors and handle them gracefully
