@@ -1,9 +1,3 @@
-hiddenimports = [
-    "rasterio._features",
-    "rasterio._shim",
-    "rasterio.control",
-    "rasterio.crs",
-    "rasterio.rpc",
-    "rasterio.sample",
-    "rasterio.vrt",
-]
+from PyInstaller.utils.hooks import collect_all
+
+datas, binaries, hiddenimports = collect_all("rasterio")

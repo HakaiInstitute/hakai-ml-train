@@ -12,13 +12,21 @@ from loguru import logger
 
 from gui.worker import WorkerThread
 
-MODELS_PATH = path.join(path.dirname(__file__), 'models')
-VERSION = open(path.join(path.dirname(__file__), 'VERSION')).readline()
+# Set PROJ_LIB variable for rasterio when packaged with pyinstaller
+# noinspection SpellCheckingInspection
+BASE_PATH = getattr(sys, '_MEIPASS', path.dirname(__file__))
+MODELS_PATH = path.join(BASE_PATH, 'models')
+UI_FILE = path.join(BASE_PATH, "form.ui")
+VERSION = open(path.join(BASE_PATH, 'VERSION')).readline()
+
+if getattr(sys, 'frozen', False):
+    os.environ['PROJ_LIB'] = os.path.join(BASE_PATH, 'rasterio/proj_data')
 
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__(None)
+        logger.debug(f"{os.getenv('PROJ_LIB')=}")
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
 
@@ -81,7 +89,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def load_ui(self):
         loader = QUiLoader(self)
-        ui_file = QFile(path.join(path.dirname(__file__), "form.ui"))
+        ui_file = QFile(UI_FILE)
         ui_file.open(QFile.ReadOnly)
         widget = loader.load(ui_file, self)
         ui_file.close()
