@@ -29,6 +29,7 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug(f"{os.getenv('PROJ_LIB')=}")
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
+        self.home_dir = path.expanduser("~")
 
         central_widget = self.load_ui()
         central_widget.setWindowTitle(f"Hakai Kelp-O-Matic 9000 v{VERSION}")
@@ -54,7 +55,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.spin_box_crop_padding = self.findChild(QObject, "spinBox_crop_padding")
 
         # Set initial state for some components
-        self.line_edit_output_directory.setText(str(os.getenv('HOME')))
+        self.line_edit_output_directory.setText(str(self.home_dir))
         self.widget_progress.setVisible(False)
         self.findChild(QObject, "groupBox_advanced_options").setVisible(False)
         if not torch.cuda.is_available():
@@ -122,7 +123,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def handle_output_directory_clicked(self):
         directory_path = QtWidgets.QFileDialog.getExistingDirectory(
             self.tool_button_output_directory,
-            "Select Output Directory", os.getenv('HOME'),
+            "Select Output Directory", self.home_dir,
             options=QtWidgets.QFileDialog.ShowDirsOnly)
         logger.debug(f"{directory_path=}")
         if directory_path != "":
@@ -133,7 +134,7 @@ class MainWindow(QtWidgets.QMainWindow):
         image_paths, _ = QtWidgets.QFileDialog.getOpenFileNames(
             self.push_button_open_images,
             "Select Images to Process",
-            os.getenv('HOME'),
+            self.home_dir,
             "Image Files (*.tif *.tiff)",
         )
         logger.debug(f"{image_paths=}")
@@ -212,5 +213,7 @@ if __name__ == "__main__":
     sys.exit(app.exec_())
 
 # TODO:
-# Package app, fix model location
+# Package app
+# Package using ONNX?
+# Dynamically download models as needed?
 # Show errors and handle them gracefully
