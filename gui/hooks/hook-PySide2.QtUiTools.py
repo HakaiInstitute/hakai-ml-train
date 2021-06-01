@@ -1,7 +1,10 @@
+from PyInstaller.compat import is_linux
+
 hiddenimports = [
     "PySide2.QtXml"
 ]
 
-datas = [
-    ("/lib/qt/plugins/platforms", "platforms")
-]
+if is_linux:
+    datas = [
+        ("/lib/qt/plugins/platforms", "platforms")
+    ]
