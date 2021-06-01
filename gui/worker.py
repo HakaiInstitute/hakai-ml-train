@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from PySide2.QtCore import QThread, Signal
 from geotiff_crop_dataset import CropDatasetWriter
+from loguru import logger
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
@@ -50,6 +51,7 @@ class WorkerThread(QThread):
         self.files_started.emit(len(self.image_paths))
         self.files_progress.emit(0)
 
+        logger.debug(f"device={self.device}")
         model = self._load_model()
 
         for file_idx, img_path in enumerate(self.image_paths):
