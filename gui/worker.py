@@ -44,6 +44,10 @@ class WorkerThread(QThread):
         return self.output_path_pattern.format(basename=basename)
 
     def _load_model(self):
+        logger.debug(f"{self.model_path=}")
+        if not path.exists(self.model_path):
+            logger.error(f"Model does not exist! path={self.model_path}")
+            raise RuntimeError("Invalid model path")
         return torch.jit.load(self.model_path, map_location=self.device)
 
     def run(self):

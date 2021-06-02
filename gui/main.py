@@ -12,15 +12,19 @@ from loguru import logger
 
 from gui.worker import WorkerThread
 
-# Set PROJ_LIB variable for rasterio when packaged with pyinstaller
 # noinspection SpellCheckingInspection
-BASE_PATH = getattr(sys, '_MEIPASS', path.dirname(__file__))
-MODELS_PATH = path.join(BASE_PATH, 'models')
-UI_FILE = path.join(BASE_PATH, "form.ui")
-VERSION = open(path.join(BASE_PATH, 'VERSION')).readline()
+BASE_DIR = path.abspath(path.dirname(__file__))
+logger.debug(f"{BASE_DIR=}")
+MODELS_PATH = path.join(BASE_DIR, 'models')
+logger.debug(f"{MODELS_PATH=}")
+UI_FILE = path.join(BASE_DIR, "form.ui")
+VERSION = open(path.join(BASE_DIR, 'VERSION')).readline()
 
-if getattr(sys, 'frozen', False):
-    os.environ['PROJ_LIB'] = os.path.join(BASE_PATH, 'rasterio/proj_data')
+# Set PROJ_LIB variable for rasterio when packaged with pyinstaller
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    os.environ['PROJ_LIB'] = os.path.join(
+        getattr(sys, '_MEIPASS', BASE_DIR), 'rasterio', 'proj_data'
+    )
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -199,7 +203,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.thread.start()
             # self.thread.wait()
 
-    def exit_gracefully(self):
+    def exit_gracefully(self, signum, frame):
+        logger.info(f"Signal handler called with signal {signum}")
         logger.info("Exiting gracefully")
         if self.thread and self.thread.running:
             logger.info("Requesting thread interrupt")

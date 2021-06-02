@@ -1,6 +1,9 @@
 SRC = main.py
 EXE = HakaiKelpOMatic9000
-MODELS = DeepLabV3_ResNet101_kelp_presence_jit.pt DeepLabV3_ResNet101_kelp_species_jit.pt LRASPP_MobileNetV3_kelp_presence_jit.pt LRASPP_MobileNetV3_kelp_species_jit.pt
+MODELS = DeepLabV3_ResNet101_kelp_presence_jit.pt \
+		 DeepLabV3_ResNet101_kelp_species_jit.pt \
+		 LRASPP_MobileNetV3_kelp_presence_jit.pt \
+		 LRASPP_MobileNetV3_kelp_species_jit.pt
 MODELS_DIR = models
 DIST_DIR = dist
 
@@ -14,6 +17,7 @@ $(MODELS):
 
 $(DIST_DIR)/$(EXE): $(SRC) $(MODELS)
 	 pyinstaller \
+ 		--noconfirm \
  		-n $(EXE) \
  		--additional-hooks-dir=hooks \
  		--add-data form.ui:. \

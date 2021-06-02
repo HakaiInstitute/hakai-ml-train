@@ -3,7 +3,7 @@ import torch
 from torchvision.transforms import ToPILImage
 from torchvision.utils import make_grid
 
-from dataset.transforms import reusable_transforms as T
+from datasets.utils.transforms import reusable_transforms as T
 
 
 def t2p(img):
