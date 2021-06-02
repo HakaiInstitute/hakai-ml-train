@@ -17,7 +17,7 @@ from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
 
-from kelp_data_module import KelpDataModule
+from datasets.kelp_data_module import KelpDataModule
 from models.mixins import GeoTiffPredictionMixin
 from utils.loss import FocalTverskyMetric
 

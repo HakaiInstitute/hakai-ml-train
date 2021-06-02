@@ -74,27 +74,27 @@ for DATASET in "${DATASETS[@]}"; do
   # Normalize color and background data
   echo "Normalizing image colors"
   echo "Percentile min-max scaling"
-  python "$PROJECT_DIR/utils/data_prep/exposure.py" "contrast_stretch" "./$DATASET/image_3band.tif" "./$DATASET/image_stretched.tif"
+  python "$PROJECT_DIR/data_prep/exposure.py" "contrast_stretch" "./$DATASET/image_3band.tif" "./$DATASET/image_stretched.tif"
   rm "./$DATASET/image_3band.tif"
 
   # Adjust gamma
   echo "Adjust gamma"
-  python "$PROJECT_DIR/utils/data_prep/exposure.py" "adjust_gamma" "./$DATASET/image_stretched.tif" "./$DATASET/image_gamma.tif"
+  python "$PROJECT_DIR/data_prep/exposure.py" "adjust_gamma" "./$DATASET/image_stretched.tif" "./$DATASET/image_gamma.tif"
   rm "./$DATASET/image_stretched.tif"
 
 #  # Adaptive histogram equalization
 #  echo "Adaptive histogram normalization"
-#  python "$PROJECT_DIR/utils/data_prep/exposure.py" "equalize_adapthist" "./$DATASET/image_stretched.tif" "./$DATASET/image_hist_eq.tif"
+#  python "$PROJECT_DIR/data_prep/exposure.py" "equalize_adapthist" "./$DATASET/image_stretched.tif" "./$DATASET/image_hist_eq.tif"
 #  rm "./$DATASET/image_stretched.tif"
 
-  min=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "min" "./$DATASET/image_gamma.tif")
+  min=$(python "$PROJECT_DIR/data_prep/img_stats.py" "min" "./$DATASET/image_gamma.tif")
   echo "MIN: $min"
-  max=$(python "$PROJECT_DIR/utils/data_prep/img_stats.py" "max" "./$DATASET/image_gamma.tif")
+  max=$(python "$PROJECT_DIR/data_prep/img_stats.py" "max" "./$DATASET/image_gamma.tif")
   echo "MAX: $max"
 
   #  # Mean normalize
   #  echo "Mean-Std Scaling"
-  #  python "$PROJECT_DIR/utils/data_prep/normalize.py" mean_std_scale "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
+  #  python "$PROJECT_DIR/data_prep/normalize.py" mean_std_scale "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
   #  rm "./$DATASET/image_float.tif"
 
   # Scale to Byte
@@ -197,30 +197,30 @@ for DATASET in "${DATASETS[@]}"; do
 
   # Filter tiles
   echo "Deleting tile pairs containing only the BG class"
-  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "bg_only_labels" "$DATASET"
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "bg_only_labels" "$DATASET"
   sleep 1
 
   echo "Deleting tile pairs with blank image data"
-  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "blank_imgs" "$DATASET"
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "blank_imgs" "$DATASET"
   sleep 1
 
   echo "Deleting tile pairs less than half the required size"
-  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "skinny_labels" "$DATASET" --min_height=256 --min_width=256
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "skinny_labels" "$DATASET" --min_height=256 --min_width=256
   sleep 1
 
   # Pad images that aren't 512 x 512 shaped
   echo "Padding incorrectly shaped images."
-  python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "expand_chips" "$DATASET" --size=512
+  python "$PROJECT_DIR/data_prep/preprocess_chips.py" "expand_chips" "$DATASET" --size=512
   sleep 1
 
   echo "Removing unmatched images and labels."
-  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "delete_extra_labels" "$DATASET"
-  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "delete_extra_imgs" "$DATASET"
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "delete_extra_labels" "$DATASET"
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "delete_extra_imgs" "$DATASET"
   sleep 1
 
   # Split to train/test set
   echo "Splitting to 70/30 train/test sets"
-  python "$PROJECT_DIR/utils/data_prep/train_test_split.py" "$DATASET" "$TILED_OUTPUT_DIR" --train_size=0.7
+  python "$PROJECT_DIR/data_prep/train_test_split.py" "$DATASET" "$TILED_OUTPUT_DIR" --train_size=0.7
   sleep 1
 done
 

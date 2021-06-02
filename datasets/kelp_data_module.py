@@ -8,8 +8,8 @@ import torch
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms as t
 
-from utils.dataset.SegmentationDataset import SegmentationDataset
-from utils.dataset.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
+from datasets.utils.SegmentationDataset import SegmentationDataset
+from datasets.utils.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
 
 
 class KelpDataModule(pl.LightningDataModule):

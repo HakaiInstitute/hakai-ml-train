@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
-from utils.dataset.GeoTiffDataset import GeoTiffReader
+from datasets.utils.GeoTiffDataset import GeoTiffReader
 
 geotiff_transforms = transforms.Compose([
     transforms.Lambda(lambda img: np.asarray(img)[:, :, :3]),

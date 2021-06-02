@@ -4,7 +4,6 @@ Organization: Hakai Institute
 Date: 2020-08-21
 Description: 
 """
-import os
 from abc import ABCMeta
 
 import pytorch_lightning as pl
@@ -12,8 +11,8 @@ from geotiff_crop_dataset import CropDatasetWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from utils.dataset.GeoTiffDataset import GeoTiffReader
-from utils.dataset.transforms import reusable_transforms as t
+from datasets.utils.GeoTiffDataset import GeoTiffReader
+from datasets.utils.transforms import reusable_transforms as t
 
 
 class GeoTiffPredictionMixin(pl.LightningModule, metaclass=ABCMeta):
