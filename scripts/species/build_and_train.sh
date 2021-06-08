@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=L_RASPP_MobileNetV3
+NAME=L_RASPP_MobileNetV3_MSRGB
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
@@ -16,8 +16,8 @@ aws s3 sync s3://hakai-deep-learning-datasets/kelp_species/eval "$DIR/train_inpu
 # Get initial weights
 #aws s3 sync --exclude="*" --include="best-val_miou=0.9393-epoch=97-step=34789.pt" \
 #  "s3://hakai-deep-learning-datasets/kelp/weights/2021-05-19-0316_May2020_Data" "$DIR/train_input/data/"
-aws s3 sync --exclude="*" --include="best-val_miou=0.9218-epoch=196-step=69934.pt" \
-  "s3://hakai-deep-learning-datasets/kelp/weights/2021-05-21-0106_LRASPP_MobileNetV3" "$DIR/train_input/data/"
+#aws s3 sync --exclude="*" --include="best-val_miou=0.9218-epoch=196-step=69934.pt" \
+#  "s3://hakai-deep-learning-datasets/kelp/weights/2021-05-21-0106_LRASPP_MobileNetV3" "$DIR/train_input/data/"
 
 # Make output dirs
 mkdir -p "$DIR/train_output/checkpoints/$NAME"
@@ -52,10 +52,10 @@ docker run -dit --rm \
   tayden/lraspp-mobilenetv3-kelp train /opt/ml/input/data /opt/ml/output/checkpoints \
   --name=$NAME --num_classes=3 \
   --lr=0.0005 --weight_decay=0.001 --gradient_clip_val=0.5 \
-  --pa_weights="/opt/ml/input/data/best-val_miou=0.9218-epoch=196-step=69934.pt" \
   --auto_select_gpus --gpus=-1 --benchmark --sync_batchnorm \
   --max_epochs=100 --batch_size=8 --amp_level=O2 --precision=16 --accelerator=ddp --log_every_n_steps=10  # AWS
-#  --max_epochs=1 --batch_size=2 --log_every_n_steps=5  --overfit_batches=2  # TESTING
+#  --max_epochs=10 --batch_size=2 --log_every_n_steps=5  --overfit_batches=2  # TESTING
+#  --pa_weights="/opt/ml/input/data/best-val_miou=0.9218-epoch=196-step=69934.pt" \
 
 # Can start tensorboard in running container as follows:
 docker exec -dit kelp-species-train tensorboard --logdir=/opt/ml/output/checkpoints --host=0.0.0.0 --port=$PORT

@@ -1,9 +1,4 @@
 .git
-data
-scripts
-*/train_input
-*/train_output
-*/raw_data
 *.png
 *.pth
 *.pt
@@ -12,5 +7,11 @@ scripts
 *.ipynb
 *.tar
 *.gz
-job_queue
-*/lightning_logs
+**/lightning_logs
+**/train_input
+**/train_output
+**/raw_data
+data
+scripts
+gui
+data_prep

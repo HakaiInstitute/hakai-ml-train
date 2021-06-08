@@ -1,42 +1,57 @@
 THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PROJECT_DIR=$(realpath "$THIS_DIR/../..")
-WORKING_DIR="/mnt/Z/kelp_species_data"
+TILED_OUTPUT_DIR="/mnt/Scratch/Taylor/ml/kelp_species_data"
+RAW_IMAGES_DIR="/mnt/geospatial/Working/Taylor/2021/KelpML/raw_datasets/species"
 S3_BUCKET=s3://hakai-deep-learning-datasets/kelp_species
+GCP_BUCKET=gs://hakai_kelp_species
 
 DATASETS=(
-# ALREADY UPLOADED DATA
-  choked_2014 \
-  nw_calvert_2015 \
-  west_beach_2016 \
-  manly_kildidt_2016 \
-  golden_monitoring_2018 \
-  simmonds_area_kelp_2019 \
-  simmonds_monitoring_2018 \
-  stryker_monitoring_2018 \
-  stryker_monitoring_low_2018
+  AdamsFringe_kelp_U0665
+  AdamsHarbour_kelp_U0682
+  Boas_kelp_U0683
+  Breaker_kelp_U0663
+  ChokedSouth_kelp_U0667
+  Edna_kelp_U0722
+  Golden_kelp_U0656
+  Golden_kelp_U0796
+  ManleyWomanley_kelp_U0652
+  ManleyWomanley_kelp_U0775
+  McMullinsCenter_kelp_U0728
+  McMullinsNereo_kelp_U0729
+  Meay_kelp_U0659
+  Meay_kelp_U0778
+  NorthBeach_kelp_U0669
+  NorthBeach_kelp_U0770
+  Odlum_kelp_U0681
+  Simmonds_kelp_MS_U0794
+  Simmonds_kelp_U0650
+  Starfish_kelp_U0666
+  Stirling_kelp_U0661
+  Stryker_kelp_U0655
+  Stryker_kelp_U0797
+  SurfPass_kelp_U0668
+  Triquet_kelp_U0653
+  Triquet_kelp_U0776
+  WestBeach_kelp_U0772
 )
-
-# Mount the samba data server
-#sudo mkdir -p /mnt/H
-#sudo mount -t cifs -o user=taylor.denouden,domain=victoria.hakai.org //10.10.1.50/Geospatial /mnt/H
 
 # Execute all following instructions in the uav-classif/deeplabv3/kelp directory
 # Uncomment to rebuild all datasets
-rm -rf "$WORKING_DIR/train"
-rm -rf "$WORKING_DIR/eval"
+rm -rf "$TILED_OUTPUT_DIR/train"
+rm -rf "$TILED_OUTPUT_DIR/eval"
 
-mkdir -p "$WORKING_DIR/raw_data"
-cd "$WORKING_DIR/raw_data" || exit 1
+mkdir -p "$TILED_OUTPUT_DIR/raw_data"
+cd "$TILED_OUTPUT_DIR/raw_data" || exit 1
 
 for DATASET in "${DATASETS[@]}"; do
   mkdir -p "$DATASET"
 done
 
-# Copy all the image tif files to local drive with multiprocessing
-echo "${DATASETS[@]}" | tr -d '\n' | xargs -d ' ' -i -P8 sh -c 'cp -u -v /mnt/H/Working/Taylor/KelpSpecies/{}/image.* ./{}/'
+# Copy all the image tifs files to local drive with multiprocessing
+echo "${DATASETS[@]}" | tr -d '\n' | xargs -d ' ' -i -P8 sh -c "cp -u -v $RAW_IMAGES_DIR/{}/image.* ./{}/"
 
-# Copy all the kelp tif files to local drive with multiprocessing
-echo "${DATASETS[@]}" | tr -d '\n' | xargs -d ' ' -i -P8 sh -c 'cp -u -v /mnt/H/Working/Taylor/KelpSpecies/{}/kelp.* ./{}/'
+# Copy all the kelp tifs files to local drive with multiprocessing
+echo "${DATASETS[@]}" | tr -d '\n' | xargs -d ' ' -i -P8 sh -c "cp -u -v $RAW_IMAGES_DIR/{}/label.* ./{}/"
 
 # Convert dataset to the cropped format
 for DATASET in "${DATASETS[@]}"; do
@@ -45,51 +60,92 @@ for DATASET in "${DATASETS[@]}"; do
 
   # Remove any weird noData values
   echo "Un-setting noData values"
-  gdal_edit.py "./$DATASET/kelp.tif" -unsetnodata
+  gdal_edit.py "./$DATASET/label.tif" -unsetnodata
   gdal_edit.py "./$DATASET/image.tif" -unsetnodata
+  gdal_edit.py "./image.tif" -a_nodata 0 # Assumes that background is black
 
-  # Convert all CRS to EPSG:4326 WGS84
-  echo "Converting image CRS"
-  gdalwarp \
-    -wo NUM_THREADS=ALL_CPUS \
-    -multi \
-    -t_srs EPSG:4326 \
-    -r near \
-    -of GTiff \
-    -overwrite \
-    "./$DATASET/image.tif" "./$DATASET/image_wgs.tif"
-  #  rm "./$DATASET/image.tif"
+  # Remove extra bands and BGR -> RGB
+  echo "Removing extra bands and reordering"
+  gdal_translate \
+    -b 3 -b 2 -b 1 \
+    -ot 'Float32' \
+    "./$DATASET/image.tif" "./$DATASET/image_3band.tif"
+
+  # Normalize color and background data
+  echo "Normalizing image colors"
+  echo "Percentile min-max scaling"
+  python "$PROJECT_DIR/data_prep/exposure.py" "contrast_stretch" "./$DATASET/image_3band.tif" "./$DATASET/image_stretched.tif"
+  rm "./$DATASET/image_3band.tif"
+
+  # Adjust gamma
+  echo "Adjust gamma"
+  python "$PROJECT_DIR/data_prep/exposure.py" "adjust_gamma" "./$DATASET/image_stretched.tif" "./$DATASET/image_gamma.tif"
+  rm "./$DATASET/image_stretched.tif"
+
+#  # Adaptive histogram equalization
+#  echo "Adaptive histogram normalization"
+#  python "$PROJECT_DIR/data_prep/exposure.py" "equalize_adapthist" "./$DATASET/image_stretched.tif" "./$DATASET/image_hist_eq.tif"
+#  rm "./$DATASET/image_stretched.tif"
+
+  min=$(python "$PROJECT_DIR/data_prep/img_stats.py" "min" "./$DATASET/image_gamma.tif")
+  echo "MIN: $min"
+  max=$(python "$PROJECT_DIR/data_prep/img_stats.py" "max" "./$DATASET/image_gamma.tif")
+  echo "MAX: $max"
+
+  #  # Mean normalize
+  #  echo "Mean-Std Scaling"
+  #  python "$PROJECT_DIR/data_prep/normalize.py" mean_std_scale "./$DATASET/image_float.tif" "./$DATASET/image_rgbi.tif"
+  #  rm "./$DATASET/image_float.tif"
+
+  # Scale to Byte
+  gdal_translate \
+    -scale 0 1 0 255 \
+    -b 1 -b 2 -b 3 \
+    -ot 'Byte' \
+    "./$DATASET/image_gamma.tif" "./$DATASET/image_rgbi.tif"
+  rm "./$DATASET/image_gamma.tif"
+
+  #  # Convert all CRS to EPSG:4326 WGS84
+  #  echo "Converting image CRS"
+  #  gdalwarp \
+  #    -wo NUM_THREADS=ALL_CPUS \
+  #    -multi \
+  #    -t_srs EPSG:4326 \
+  #    -r near \
+  #    -of GTiff \
+  #    -overwrite \
+  #    "./$DATASET/image_u8.tif" "./$DATASET/image_u8.tif"
+  #    rm "./$DATASET/image_u8.tif"
 
   # Get image extent
-  ul=$(gdalinfo "$DATASET/image_wgs.tif" | grep "Upper Left")
-  lr=$(gdalinfo "$DATASET/image_wgs.tif" | grep "Lower Right")
+  ul=$(gdalinfo "$DATASET/image_rgbi.tif" | grep "Upper Left")
+  lr=$(gdalinfo "$DATASET/image_rgbi.tif" | grep "Lower Right")
   x_min=$(echo "$ul" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
   x_max=$(echo "$lr" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
   y_min=$(echo "$lr" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
   y_max=$(echo "$ul" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
 
   # Get the image res
-  res=$(gdalinfo "$DATASET/image_wgs.tif" | grep "Pixel Size")
+  res=$(gdalinfo "$DATASET/image_rgbi.tif" | grep "Pixel Size")
   x_res=$(echo "$res" | grep -P '(?<=\()([-]?\d\.\d+)' -o)
   y_res=$(echo "$res" | grep -P '(?<=,)([-]?\d\.\d+)' -o)
 
-  echo "Converting label CRS and adjusting extent"
+  echo "Adjusting label extent"
   gdalwarp \
     -wo NUM_THREADS=ALL_CPUS \
     -multi \
-    -t_srs EPSG:4326 \
     -te "$x_min" "$y_min" "$x_max" "$y_max" \
     -r near \
     -of GTiff \
     -overwrite \
     -tr "$x_res" "$y_res" \
     -tap \
-    "./$DATASET/kelp.tif" "./$DATASET/kelp_wgs.tif"
-  #  rm "./$DATASET/kelp.tif"
+    "./$DATASET/label.tif" "./$DATASET/label_res.tif"
+  #    rm "./$DATASET/label.tif"
 
-  # Get kelp extent
-  ul=$(gdalinfo "$DATASET/kelp_wgs.tif" | grep "Upper Left")
-  lr=$(gdalinfo "$DATASET/kelp_wgs.tif" | grep "Lower Right")
+  # Get label extent
+  ul=$(gdalinfo "$DATASET/label_res.tif" | grep "Upper Left")
+  lr=$(gdalinfo "$DATASET/label_res.tif" | grep "Lower Right")
   x_min=$(echo "$ul" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
   x_max=$(echo "$lr" | grep -P '(?<=\()([-]?\d{1,3}\.\d+)(?=.*)' -o)
   y_min=$(echo "$lr" | grep -P '(?<=,\s{2})([-]?\d{1,3}\.\d+)(?=.*)' -o)
@@ -99,22 +155,21 @@ for DATASET in "${DATASETS[@]}"; do
   gdalwarp \
     -wo NUM_THREADS=ALL_CPUS \
     -multi \
-    -te_srs EPSG:4326 \
     -te "$x_min" "$y_min" "$x_max" "$y_max" \
     -of GTiff \
     -overwrite \
-    "./$DATASET/image_wgs.tif" "./$DATASET/${DATASET}.tif"
-  rm "./$DATASET/image_wgs.tif"
+    "./$DATASET/image_rgbi.tif" "./$DATASET/${DATASET}.tif"
+  rm "./$DATASET/image_rgbi.tif"
 
-  # Set values above 2 to 0 as well as set nodata values (i.e 255) to 0
+  # Set (values > 3 or values <= 0) to 0
   echo "Cleaning label values"
   gdal_calc.py \
-    -A "./$DATASET/kelp_wgs.tif" \
+    -A"./$DATASET/label_res.tif" \
     --overwrite \
-    --calc="where(logical_and(nan_to_num(A)>0, nan_to_num(A)<=2), A, 0)" \
+    --calc="where(logical_and(nan_to_num(A)>0, nan_to_num(A)<=3), nan_to_num(A), 0)" \
     --type="Byte" \
     --outfile="./$DATASET/label_${DATASET}.tif"
-  rm "./$DATASET/kelp_wgs.tif"
+  rm "./$DATASET/label_res.tif"
 
   # Dice up the image
   echo "Creating image tiles"
@@ -142,29 +197,38 @@ for DATASET in "${DATASETS[@]}"; do
 
   # Filter tiles
   echo "Deleting tile pairs containing only the BG class"
-  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "bg_only_labels" "$DATASET"
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "bg_only_labels" "$DATASET"
+  sleep 1
 
   echo "Deleting tile pairs with blank image data"
-  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "blank_imgs" "$DATASET"
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "blank_imgs" "$DATASET"
+  sleep 1
 
   echo "Deleting tile pairs less than half the required size"
-  python "$PROJECT_DIR/utils/data_prep/filter_datasets.py" "skinny_labels" "$DATASET" --min_height=256 --min_width=256
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "skinny_labels" "$DATASET" --min_height=256 --min_width=256
+  sleep 1
 
   # Pad images that aren't 512 x 512 shaped
   echo "Padding incorrectly shaped images."
-  python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "expand_chips" "$DATASET" --size=512
+  python "$PROJECT_DIR/data_prep/preprocess_chips.py" "expand_chips" "$DATASET" --size=512
+  sleep 1
 
-  # Strip any channels that aren't the first 3 RGB channels.
-  echo "Stripping extra channels."
-  python "$PROJECT_DIR/utils/data_prep/preprocess_chips.py" "strip_extra_channels" "$DATASET"
+  echo "Removing unmatched images and labels."
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "delete_extra_labels" "$DATASET"
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "delete_extra_imgs" "$DATASET"
+  sleep 1
 
   # Split to train/test set
-  echo "Splitting to 80/20 train/test sets"
-  python "$PROJECT_DIR/utils/data_prep/train_test_split.py" "$DATASET" "$WORKING_DIR" --train_size=0.8
+  echo "Splitting to 70/30 train/test sets"
+  python "$PROJECT_DIR/data_prep/train_test_split.py" "$DATASET" "$TILED_OUTPUT_DIR" --train_size=0.7
+  sleep 1
 done
 
-# Upload data to S3
-aws s3 sync "$WORKING_DIR/train" "${S3_BUCKET}/train"
-aws s3 sync "$WORKING_DIR/eval" "${S3_BUCKET}/eval"
+# Upload data to cloud
+#gsutil -m cp -r "$TILED_OUTPUT_DIR/train" "${GCP_BUCKET}/train"
+#gsutil -m cp -r "$TILED_OUTPUT_DIR/eval" "${GCP_BUCKET}/eval"
+
+aws s3 sync "$TILED_OUTPUT_DIR/train" "${S3_BUCKET}/train"
+aws s3 sync "$TILED_OUTPUT_DIR/eval" "${S3_BUCKET}/eval"
 
 cd - || exit 1

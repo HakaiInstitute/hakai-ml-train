@@ -13,10 +13,8 @@ RUN apt-get update && \
 COPY requirements.txt /opt/code/requirements.txt
 RUN pip install -r /opt/code/requirements.txt
 
-# Copy the script to the image
-COPY utils /opt/code/utils
-COPY models /opt/code/models
-COPY ./*.py /opt/code/
+# Copy the code to the image
+COPY . .
 
 # Run the cli script
 #ENTRYPOINT ["python", "models/lit_deeplabv3_resnet101_kelp.py"]
