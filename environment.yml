@@ -1,25 +1,27 @@
 name: uav-classif
 channels:
-  - pytorch
-  - nvidia
   - conda-forge
   - defaults
 dependencies:
-  - cudatoolkit=11.1
+#  - nvidia::cudatoolkit=11.1
+  - fire
+  - gdal>=3.2
   - loguru
   - pip
   - pyinstaller>=4.3
   - python=3.8
-  - pytorch-lightning
-  - pytorch>=1.8.1
+#  - pytorch-lightning
+#  - pytorch::pytorch>=1.8
+  - scikit-image
+  - scikit-learn
   - tensorboard
-  - torchaudio
-  - torchvision>=0.9.0
+#  - pytorch::torchaudio
+#  - pytorch::torchvision>=0.9
   - tqdm
+  - rasterio>=1.2
   - pip:
     - geotiff_crop_dataset
-    - lightning-bolts
+#    - lightning-bolts
     - PySide2
-    - rasterio
     - test_tube
-    - torchmetrics
+#    - torchmetrics
