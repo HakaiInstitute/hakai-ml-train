@@ -91,7 +91,7 @@ class KelpDataModule(pl.LightningDataModule):
 
     @classmethod
     def add_argparse_args(cls, parent_parser: ArgumentParser, **kwargs) -> ArgumentParser:
-        parser = parent_parser.add_argument_group('KelpPresenceDataModule')
+        parser = parent_parser.add_argument_group('KelpDataModule')
 
         parser.add_argument('--batch_size', type=int, default=32,
                             help="The number of images to process at one time.")

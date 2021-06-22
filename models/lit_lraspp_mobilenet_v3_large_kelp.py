@@ -33,10 +33,12 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
         self.model.requires_grad_(True)
 
         # Loss function
-        self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes, alpha=0.7, beta=0.3,
-                                                     gamma=4. / 3.)
-        self.accuracy_metric = Accuracy()
-        self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none')
+        self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes,
+                                                     alpha=0.7, beta=0.3, gamma=4. / 3.,
+                                                     ignore_index=self.hparams.ignore_index)
+        self.accuracy_metric = Accuracy(ignore_index=self.hparams.ignore_index)
+        self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none',
+                              ignore_index=self.hparams.ignore_index)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.softmax(self.model.forward(x)['out'], dim=1)
@@ -140,6 +142,8 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
         group.add_argument('--lr', type=float, default=0.001, help="the learning rate")
         group.add_argument('--weight_decay', type=float, default=1e-3,
                            help="The weight decay factor for L2 regularization.")
+        group.add_argument('--ignore_index', type=int,
+                           help="Label of any class to ignore.")
 
         return parser
 
@@ -212,9 +216,16 @@ def pred(args):
     # ------------
     # model
     # ------------
-    model = LRASPPMobileNetV3Large.load_from_checkpoint(args.weights, batch_size=args.batch_size,
-                                                        crop_size=args.crop_size,
-                                                        padding=args.crop_pad)
+    print("Loading model:", args.weights)
+    if Path(args.weights).suffix == "ckpt":
+        model = LRASPPMobileNetV3Large.load_from_checkpoint(args.weights,
+                                                            batch_size=args.batch_size,
+                                                            crop_size=args.crop_size,
+                                                            padding=args.crop_pad)
+    else:  # Assumes .pt
+        model = LRASPPMobileNetV3Large(args)
+        model.load_state_dict(torch.load(args.weights), strict=False)
+
     model.freeze()
     model = model.to(device)
 
@@ -230,8 +241,8 @@ def train(args):
     # ------------
     # data
     # ------------
-    kelp_presence_data = KelpDataModule(args.data_dir, num_classes=args.num_classes,
-                                        batch_size=args.batch_size)
+    kelp_data = KelpDataModule(args.data_dir, num_classes=args.num_classes,
+                               batch_size=args.batch_size)
 
     # ------------
     # model
@@ -280,14 +291,14 @@ def train(args):
     trainer = pl.Trainer.from_argparse_args(args, logger=logger_cb, callbacks=callbacks)
     # resume_from_checkpoint=checkpoint)
     # Tune params
-    # trainer.tune(model, datamodule=kelp_presence_data)
+    # trainer.tune(model, datamodule=kelp_data)
 
     # Training
-    trainer.fit(model, datamodule=kelp_presence_data)
+    trainer.fit(model, datamodule=kelp_data)
 
     # Validation and Test stats
-    trainer.validate(datamodule=kelp_presence_data, ckpt_path=checkpoint_cb.best_model_path)
-    trainer.test(datamodule=kelp_presence_data, ckpt_path=checkpoint_cb.best_model_path)
+    trainer.validate(datamodule=kelp_data, ckpt_path=checkpoint_cb.best_model_path)
+    trainer.test(datamodule=kelp_data, ckpt_path=checkpoint_cb.best_model_path)
 
     # Save final weights only
     model.load_from_checkpoint(checkpoint_cb.best_model_path)
@@ -299,30 +310,60 @@ if __name__ == '__main__':
     if debug:
         # cli_main([
         #     'pred',
-        #     'scripts/presence/train_input/Triquet_kelp_U0653.tif',
-        #     'scripts/presence/train_output/checkpoints/NewKelpDataset/version_2/Triquet_kelp_U0653_kelp.tif',
-        #     'scripts/presence/train_output/checkpoints/NewKelpDataset/version_2/checkpoints/best-val-miou-epoch=89-step=10259.ckpt',
-        #     # '--batch_size=2',
-        #     # '--crop_size=64',
+        #     '/home/taylor/Desktop/Sept27P1125_Orthomosaic_export_FriApr03192436.053821.tif',
+        #     '/home/taylor/Desktop/Sept27P1125_Orthomosaic_export_FriApr03192436.053821_species2.tif',
+        #     'scripts/species/train_output/checkpoints/L_RASPP_MobileNetV3/version_0/checkpoints/best-val_miou=0.8945-epoch=198-step=58107.pt',
+        #     '--num_classes=4',
+        #     '--ignore_index=1',
+        #     '--batch_size=1',
+        #     '--crop_size=512',
+        #     '--stride=256'
         #     # '--crop_pad=0'
         # ])
         # cli_main([
         #     'train',
-        #     'scripts/presence/train_input/data',
-        #     'scripts/presence/train_output/checkpoints',
-        #     '--name=L_RASPP_TEST', '--num_classes=2', '--lr=0.001', '--weight_decay=0.001',
+        #     'scripts/species/train_input/data',
+        #     'scripts/species/train_output/checkpoints',
+        #     '--name=L_RASPP_TEST', '--num_classes=4', '--ignore_index=1', '--lr=0.001',
+        #     '--weight_decay=0.001', '--gradient_clip_val=0.5',
+        #     '--max_epochs=100', '--log_every_n_steps=5',
+        #     '--batch_size=8',
+        #     # '--auto_scale_batch_size',
+        #     # '--pa_weights=scripts/presence/train_output/checkpoints/LRASPP_MobileNetV3/version_0/'
+        #     # 'checkpoints/best-val_miou=0.9218-epoch=196-step=69934.pt',
+        #     '--benchmark', '--auto_select_gpus', '--gpus=-1',
+        #     # '--overfit_batches=1',
+        #     # '--num_workers=0'
+        # ])
+        # cli_main([
+        #     'train',
+        #     'scripts/species/train_input/data',
+        #     'scripts/species/train_output/checkpoints',
+        #     '--name=L_RASPP_TEST', '--num_classes=3', '--lr=0.001', '--weight_decay=0.001',
         #     '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
-        #     '--max_epochs=200', '--batch_size=2', '--log_every_n_steps=5', '--overfit_batches=1',
+        #     '--max_epochs=1', '--batch_size=2', '--log_every_n_steps=5',
         #     '--pa_weights=scripts/species/train_input/data/best-val_miou=0.9218-epoch=196-step=69934.pt'
         # ])
+        # cli_main([
+        #     'train',
+        #     'scripts/mussels/train_input/data',
+        #     'scripts/mussels/train_output/checkpoints',
+        #     '--name=L_RASPP_mussels', '--num_classes=2', '--lr=0.001',
+        #     '--weight_decay=0.001', '--gradient_clip_val=0.5',
+        #     '--max_epochs=100', '--log_every_n_steps=5',
+        #     '--batch_size=4',
+        #     '--benchmark', '--auto_select_gpus', '--gpus=-1',
+        # ])
         cli_main([
-            'train',
-            'scripts/species/train_input/data',
-            'scripts/species/train_output/checkpoints',
-            '--name=L_RASPP_TEST', '--num_classes=3', '--lr=0.001', '--weight_decay=0.001',
-            '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
-            '--max_epochs=1', '--batch_size=2', '--log_every_n_steps=5',
-            '--pa_weights=scripts/species/train_input/data/best-val_miou=0.9218-epoch=196-step=69934.pt'
+            'pred',
+            '/home/taylor/Desktop/Sept27P1125_Orthomosaic_export_FriApr03192436.053821.tif',
+            '/home/taylor/Desktop/Sept27P1125_Orthomosaic_export_FriApr03192436.053821_species2.tif',
+            'scripts/mussels/train_output/checkpoints/L_RASPP_mussels/version_0/checkpoints/best-val_miou=0.9065-epoch=92-step=19994.pt',
+            '--num_classes=2',
+            '--batch_size=1',
+            '--crop_size=512',
+            '--stride=256'
+            # '--crop_pad=0'
         ])
     else:
         cli_main()

@@ -184,8 +184,8 @@ def tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: flo
     return torch.sum(1 - ti, dim=0)
 
 
-def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1.,
-                       smooth: float = 1e-8):
+def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5,
+                       gamma: float = 1., smooth: float = 1e-8):
     """Compute the focal Tversky Loss for predictions p and ground truth labels g.
 
     Parameters
@@ -231,13 +231,14 @@ def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, bet
 
 
 class FocalTverskyMetric(Metric):
-    def __init__(self, num_classes, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1., smooth: float = 1e-8,
-                 dist_sync_on_step=False):
+    def __init__(self, num_classes, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1.,
+                 smooth: float = 1e-8, dist_sync_on_step=False, ignore_index=None):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
         self.smooth = smooth
+        self.ignore_index = ignore_index
 
         self.add_state("tp", default=torch.zeros(num_classes), dist_reduce_fx="sum")
         self.add_state("fn", default=torch.zeros(num_classes), dist_reduce_fx="sum")
@@ -254,6 +255,10 @@ class FocalTverskyMetric(Metric):
     def update(self, preds: torch.Tensor, target: torch.Tensor):
         preds, target = self._input_format(preds, target)
         assert preds.shape == target.shape
+
+        if self.ignore_index is not None:
+            preds[:, self.ignore_index] = 0
+            target[:, self.ignore_index] = 0
 
         self.tp += torch.sum(torch.mul(preds, target), dim=0)
         self.fn += torch.sum(torch.mul(1. - preds, target), dim=0)

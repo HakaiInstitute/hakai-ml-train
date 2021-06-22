@@ -23,6 +23,7 @@
     <orderEntry type="jdk" jdkName="Python 3.8 (uav-classif)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="kelp-detector" />
+    <orderEntry type="module" module-name="geotiff-crop-dataset" />
   </component>
   <component name="PackageRequirementsSettings">
     <option name="requirementsPath" value="" />

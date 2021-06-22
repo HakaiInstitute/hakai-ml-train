@@ -50,10 +50,12 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
             BaseFinetuning.make_trainable([self.model.backbone.layer4, self.model.backbone.layer3])
 
         # Loss function and metrics
-        self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes, alpha=0.7, beta=0.3,
-                                                     gamma=4. / 3.)
-        self.accuracy_metric = Accuracy()
-        self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none')
+        self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes,
+                                                     alpha=0.7, beta=0.3, gamma=4. / 3.,
+                                                     ignore_index=self.hparams.ignore_index)
+        self.accuracy_metric = Accuracy(ignore_index=self.hparams.ignore_index)
+        self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none',
+                              ignore_index=self.hparams.ignore_index)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.softmax(self.model.forward(x)['out'], dim=1)
@@ -184,6 +186,8 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
                            help="the learning rate for backbone layers")
         group.add_argument('--weight_decay', type=float, default=1e-3,
                            help="The weight decay factor for L2 regularization.")
+        group.add_argument('--ignore_index', type=int,
+                           help="Label of any class to ignore.")
         group.add_argument('--aux_loss_factor', type=float, default=0.3,
                            help="The proportion of loss backpropagated to classifier built only on early layers.")
         group.add_argument('--unfreeze_backbone_epoch', type=int, default=0,
@@ -290,7 +294,7 @@ def train(args):
     # ------------
     # data
     # ------------
-    kelp_presence_data = KelpDataModule(args.data_dir, num_classes=args.num_classes,
+    kelp_data = KelpDataModule(args.data_dir, num_classes=args.num_classes,
                                         batch_size=args.batch_size)
 
     # ------------
@@ -341,14 +345,14 @@ def train(args):
     trainer = pl.Trainer.from_argparse_args(args, logger=logger_cb, callbacks=callbacks)
     # resume_from_checkpoint=checkpoint)
     # Tune params
-    # trainer.tune(model, datamodule=kelp_presence_data)
+    # trainer.tune(model, datamodule=kelp_data)
 
     # Training
-    trainer.fit(model, datamodule=kelp_presence_data)
+    trainer.fit(model, datamodule=kelp_data)
 
     # Validation and Test stats
-    trainer.validate(datamodule=kelp_presence_data, ckpt_path=checkpoint_cb.best_model_path)
-    trainer.test(datamodule=kelp_presence_data, ckpt_path=checkpoint_cb.best_model_path)
+    trainer.validate(datamodule=kelp_data, ckpt_path=checkpoint_cb.best_model_path)
+    trainer.test(datamodule=kelp_data, ckpt_path=checkpoint_cb.best_model_path)
 
     # Save final weights only
     model.load_from_checkpoint(checkpoint_cb.best_model_path)
