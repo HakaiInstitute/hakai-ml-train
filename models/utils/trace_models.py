@@ -1,7 +1,7 @@
 import torch
 
-from lit_deeplabv3_resnet101_kelp import DeepLabv3ResNet101
-from lit_lraspp_mobilenet_v3_large_kelp import LRASPPMobileNetV3Large
+from models.lit_deeplabv3_resnet101_kelp import DeepLabv3ResNet101
+from models.lit_lraspp_mobilenet_v3_large_kelp import LRASPPMobileNetV3Large
 
 DEVICE = torch.device('cuda')
 
@@ -75,5 +75,21 @@ if __name__ == '__main__':
     model = model.to(DEVICE)
     traced_model = torch.jit.trace(model, x)
     traced_model.save("torchscript_files/LRASPP_MobileNetV3_kelp_species_jit.pt")
+    # torch.onnx.export(model, x, "torchscript_files/LRASPP_MobileNetV3_kelp_species.onnx",
+    #                   opset_version=11, verbose=True)
+
+    # LR-ASPP Mussels Model
+    model = LRASPPMobileNetV3Large({
+        "weight_decay": 0.001,
+        "lr": 0.001,
+        "num_classes": 2,
+    })
+    model.load_state_dict(torch.load(
+        "scripts/mussels/train_output/checkpoints/L_RASPP_mussels/version_0/checkpoints/"
+        "best-val_miou=0.9065-epoch=92-step=19994.pt"))
+    model = model.eval()
+    model = model.to(DEVICE)
+    traced_model = torch.jit.trace(model, x)
+    traced_model.save("gui/models/LRASPP_MobileNetV3_mussel_presence_jit.pt")
     # torch.onnx.export(model, x, "torchscript_files/LRASPP_MobileNetV3_kelp_species.onnx",
     #                   opset_version=11, verbose=True)

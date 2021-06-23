@@ -68,17 +68,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Add model options
         self.combo_box_classification_model.addItem(
-            "Slow species (Deeplab v3 ResNet101, mIoU=0.9198) [1=Macro 2=Nereo] ",
+            "Slow kelp species (Deeplab v3 ResNet101, mIoU=0.9198) [1=Macro 2=Nereo] ",
             path.join(MODELS_PATH, "DeepLabV3_ResNet101_kelp_species_jit.pt"))
         self.combo_box_classification_model.addItem(
-            "Quick species (LR-ASPP MobileNet v3, mIoU=0.8945) [1=Macro 2=Nereo] ",
+            "Quick kelp species (LR-ASPP MobileNet v3, mIoU=0.8945) [1=Macro 2=Nereo] ",
             path.join(MODELS_PATH, "LRASPP_MobileNetV3_kelp_species_jit.pt"))
         self.combo_box_classification_model.addItem(
-            "Slow presence/absence (Deeplab v3 ResNet101, mIoU=0.9393) [1=Kelp]",
+            "Slow kelp presence/absence (Deeplab v3 ResNet101, mIoU=0.9393) [1=Kelp]",
             path.join(MODELS_PATH, "DeepLabV3_ResNet101_kelp_presence_jit.pt"))
         self.combo_box_classification_model.addItem(
-            "Quick presence/absence (LR-ASPP MobileNet v3, mIoU=0.9218) [1=Kelp]",
+            "Quick kelp presence/absence (LR-ASPP MobileNet v3, mIoU=0.9218) [1=Kelp]",
             path.join(MODELS_PATH, "LRASPP_MobileNetV3_kelp_presence_jit.pt"))
+        self.combo_box_classification_model.addItem(
+            "Quick mussel presence/absence (LR-ASPP MobileNet v3, mIoU=0.9065) [1=Mussels]",
+            path.join(MODELS_PATH, "LRASPP_MobileNetV3_mussel_presence_jit.pt"))
 
         # Hookup signals and slots
         self.tool_button_output_directory.clicked.connect(self.handle_output_directory_clicked)
