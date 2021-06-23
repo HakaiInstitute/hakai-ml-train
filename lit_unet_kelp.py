@@ -8,9 +8,9 @@ from pl_bolts.models.vision import UNet as UNet_Base
 from pytorch_lightning.loggers import TestTubeLogger
 from torchmetrics.functional import accuracy, iou
 
-from datasets.kelp_data_module import KelpDataModule
+from kelp_data_module import KelpDataModule
 from utils.checkpoint import get_checkpoint
-from utils.loss import FocalTverskyMetric
+from loss import FocalTverskyMetric
 
 
 class UNet(pl.LightningModule):

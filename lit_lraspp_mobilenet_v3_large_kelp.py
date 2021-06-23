@@ -13,8 +13,8 @@ from pytorch_lightning.loggers import TestTubeLogger
 from torchmetrics import Accuracy, IoU
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 
-from datasets.kelp_data_module import KelpDataModule
-from utils.loss import FocalTverskyMetric
+from kelp_data_module import KelpDataModule
+from loss import FocalTverskyMetric
 from utils.mixins import GeoTiffPredictionMixin
 
 

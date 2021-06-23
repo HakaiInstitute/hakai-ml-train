@@ -11,8 +11,8 @@ from geotiff_crop_dataset import CropDatasetWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from datasets.utils.GeoTiffDataset import GeoTiffReader
-from datasets.utils.transforms import reusable_transforms as t
+from datasets.GeoTiffDataset import GeoTiffReader
+from datasets.transforms import reusable_transforms as t
 
 
 class GeoTiffPredictionMixin(pl.LightningModule, metaclass=ABCMeta):
