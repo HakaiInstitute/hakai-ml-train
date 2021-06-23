@@ -52,10 +52,10 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         # Loss function and metrics
         self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes,
                                                      alpha=0.7, beta=0.3, gamma=4. / 3.,
-                                                     ignore_index=self.hparams.ignore_index)
-        self.accuracy_metric = Accuracy(ignore_index=self.hparams.ignore_index)
+                                                     ignore_index=self.hparams.get("ignore_index"))
+        self.accuracy_metric = Accuracy(ignore_index=self.hparams.get("ignore_index"))
         self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none',
-                              ignore_index=self.hparams.ignore_index)
+                              ignore_index=self.hparams.get("ignore_index"))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.softmax(self.model.forward(x)['out'], dim=1)

@@ -35,10 +35,10 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
         # Loss function
         self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes,
                                                      alpha=0.7, beta=0.3, gamma=4. / 3.,
-                                                     ignore_index=self.hparams.ignore_index)
-        self.accuracy_metric = Accuracy(ignore_index=self.hparams.ignore_index)
+                                                     ignore_index=self.hparams.get("ignore_index"))
+        self.accuracy_metric = Accuracy(ignore_index=self.hparams.get("ignore_index"))
         self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none',
-                              ignore_index=self.hparams.ignore_index)
+                              ignore_index=self.hparams.get("ignore_index"))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.softmax(self.model.forward(x)['out'], dim=1)
@@ -142,7 +142,7 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
         group.add_argument('--lr', type=float, default=0.001, help="the learning rate")
         group.add_argument('--weight_decay', type=float, default=1e-3,
                            help="The weight decay factor for L2 regularization.")
-        group.add_argument('--ignore_index', type=int,
+        group.add_argument('--ignore_index', type=int, default=None,
                            help="Label of any class to ignore.")
 
         return parser
@@ -335,35 +335,14 @@ if __name__ == '__main__':
         #     # '--overfit_batches=1',
         #     # '--num_workers=0'
         # ])
-        # cli_main([
-        #     'train',
-        #     'scripts/species/train_input/data',
-        #     'scripts/species/train_output/checkpoints',
-        #     '--name=L_RASPP_TEST', '--num_classes=3', '--lr=0.001', '--weight_decay=0.001',
-        #     '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
-        #     '--max_epochs=1', '--batch_size=2', '--log_every_n_steps=5',
-        #     '--pa_weights=scripts/species/train_input/data/best-val_miou=0.9218-epoch=196-step=69934.pt'
-        # ])
-        # cli_main([
-        #     'train',
-        #     'scripts/mussels/train_input/data',
-        #     'scripts/mussels/train_output/checkpoints',
-        #     '--name=L_RASPP_mussels', '--num_classes=2', '--lr=0.001',
-        #     '--weight_decay=0.001', '--gradient_clip_val=0.5',
-        #     '--max_epochs=100', '--log_every_n_steps=5',
-        #     '--batch_size=4',
-        #     '--benchmark', '--auto_select_gpus', '--gpus=-1',
-        # ])
         cli_main([
-            'pred',
-            '/home/taylor/Desktop/Sept27P1125_Orthomosaic_export_FriApr03192436.053821.tif',
-            '/home/taylor/Desktop/Sept27P1125_Orthomosaic_export_FriApr03192436.053821_species2.tif',
-            'scripts/mussels/train_output/checkpoints/L_RASPP_mussels/version_0/checkpoints/best-val_miou=0.9065-epoch=92-step=19994.pt',
-            '--num_classes=2',
-            '--batch_size=1',
-            '--crop_size=512',
-            '--stride=256'
-            # '--crop_pad=0'
+            'train',
+            'scripts/species/train_input/data',
+            'scripts/species/train_output/checkpoints',
+            '--name=L_RASPP_TEST', '--num_classes=3', '--lr=0.001', '--weight_decay=0.001',
+            '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1', '--benchmark',
+            '--max_epochs=1', '--batch_size=2', '--log_every_n_steps=5',
+            '--pa_weights=scripts/species/train_input/data/best-val_miou=0.9218-epoch=196-step=69934.pt'
         ])
     else:
         cli_main()
