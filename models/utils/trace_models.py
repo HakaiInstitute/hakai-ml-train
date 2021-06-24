@@ -85,7 +85,7 @@ if __name__ == '__main__':
         "num_classes": 2,
     })
     model.load_state_dict(torch.load(
-        "scripts/mussels/train_output/checkpoints/L_RASPP_mussels/version_0/checkpoints/"
+        "scripts/mussels/train_output/checkpoints/LR_ASPP_mussels/version_0/checkpoints/"
         "best-val_miou=0.9065-epoch=92-step=19994.pt"))
     model = model.eval()
     model = model.to(DEVICE)
