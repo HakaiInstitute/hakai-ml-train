@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 from geotiff_crop_dataset import CropDatasetReader
-from tqdm.contrib import concurrent
+from tqdm.contrib import tmap
 
 
 class GeoTiffReader(CropDatasetReader):
@@ -19,8 +19,7 @@ class GeoTiffReader(CropDatasetReader):
         self._min_value = min_value
         self._max_value = max_value
 
-        mask = concurrent.thread_map(self._should_keep, range(len(self)),
-                                     desc="Filtering blank areas")
+        mask = tmap(self._should_keep, range(len(self)), desc="Filtering blank areas")
         self.y0x0 = list(itertools.compress(self.y0x0, mask))
 
     def _get_np(self, idx: int) -> np.ndarray:
