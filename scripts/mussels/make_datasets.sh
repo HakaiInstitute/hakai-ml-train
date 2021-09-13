@@ -14,6 +14,8 @@ DATASETS=(
   mussels_0380
   mussels_0351
   mussels_0754
+  mussel_0539
+  mussel_0629
 )
 
 # Execute all following instructions in the uav-classif/deeplabv3/kelp directory
@@ -131,9 +133,9 @@ for DATASET in "${DATASETS[@]}"; do
     "$DATASET/label_${DATASET}.tif"
 
   # Filter tiles
-  echo "Deleting tile pairs containing only the BG class"
-  python "$PROJECT_DIR/data_prep/filter_datasets.py" "bg_only_labels" "$DATASET"
-  sleep 1
+#  echo "Deleting tile pairs containing only the BG class"
+#  python "$PROJECT_DIR/data_prep/filter_datasets.py" "bg_only_labels" "$DATASET"
+#  sleep 1
 
   echo "Deleting tile pairs with blank image data"
   python "$PROJECT_DIR/data_prep/filter_datasets.py" "blank_imgs" "$DATASET"
