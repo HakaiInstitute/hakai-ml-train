@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Get the path to this script
-NAME=test
+NAME=lr_aspp_mussels
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
@@ -47,7 +47,6 @@ docker run -dit --rm \
   -v "$DIR/train_output":/opt/ml/output \
   --user "$(id -u):$(id -g)" \
   --ipc host \
-  --device /dev/nvidia0 --device /dev/nvidia-uvm --device /dev/nvidia-uvm-tools --device /dev/nvidiactl \
   --gpus all \
   --name mussels-train \
   tayden/lraspp-mobilenetv3-kelp train /opt/ml/input/data /opt/ml/output/checkpoints \

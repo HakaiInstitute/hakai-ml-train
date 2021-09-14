@@ -3,7 +3,6 @@
   "AllocationStrategy": "capacityOptimized",
   "TargetCapacity": 1,
   "LaunchSpecifications": [],
-  "SpotMaxTotalPrice": "12.24",
   "Type": "maintain",
   "LaunchTemplateConfigs": [
     {
