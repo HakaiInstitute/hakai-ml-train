@@ -12,13 +12,13 @@
       <excludeFolder url="file://$MODULE_DIR$/seagrass/train_input" />
       <excludeFolder url="file://$MODULE_DIR$/seagrass/train_output" />
       <excludeFolder url="file://$MODULE_DIR$/temp" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/presence/train_input" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/presence/train_output" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/presence/weights" />
       <excludeFolder url="file://$MODULE_DIR$/scripts/species/train_input" />
       <excludeFolder url="file://$MODULE_DIR$/scripts/species/notebooks" />
       <excludeFolder url="file://$MODULE_DIR$/scripts/species/notebooks/.ipynb_checkpoints" />
       <excludeFolder url="file://$MODULE_DIR$/scripts/species/train_output" />
-      <excludeFolder url="file://$MODULE_DIR$/scripts/presence/train_input" />
-      <excludeFolder url="file://$MODULE_DIR$/scripts/presence/train_output" />
-      <excludeFolder url="file://$MODULE_DIR$/scripts/presence/weights" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.8 (uav-classif)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
