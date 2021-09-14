@@ -7,7 +7,7 @@ PORT=6006
 
 # Build the docker image
 #DOCKER_BUILDKIT=1 docker build --file ../../Dockerfile --tag tayden/deeplabv3-kelp ../../
-#DOCKER_BUILDKIT=1 docker build --file ../../Dockerfile --tag tayden/lraspp-mobilenetv3-kelp ../../
+DOCKER_BUILDKIT=1 docker build --file ../../Dockerfile --tag tayden/lraspp-mobilenetv3-kelp ../../
 
 # Sync datasets
 # For testing
@@ -53,7 +53,7 @@ docker run -dit --rm \
   tayden/lraspp-mobilenetv3-kelp train /opt/ml/input/data /opt/ml/output/checkpoints \
   --name=$NAME --num_classes=2 \
   --lr=0.001 --weight_decay=0.001 --gradient_clip_val=0.5 \
-  --auto_select_gpus --gpus=-1 --benchmark --sync_batchnorm \
+  --auto_select_gpus --gpus=-1 --benchmark --sync_batchnorm --amp_level=O2 --precision=16 \
   --max_epochs=100 --batch_size=8 --accelerator=ddp --log_every_n_steps=10  # AWS
 #  --max_epochs=10 --batch_size=2 --log_every_n_steps=5 --overfit_batches=2  # TESTING
 
@@ -67,4 +67,4 @@ docker wait mussels-train
 # Sync results to S3
 ARCHIVE="$(date +'%Y-%m-%d-%H%M')_$NAME.tar.gz"
 tar -czvf "$DIR/train_output/$ARCHIVE" -C "$DIR/train_output/checkpoints/$NAME" .
-#aws s3 cp "$DIR/train_output/$ARCHIVE" s3://hakai-deep-learning-datasets/kelp/output/
+aws s3 cp "$DIR/train_output/$ARCHIVE" s3://hakai-deep-learning-datasets/mussels/output/

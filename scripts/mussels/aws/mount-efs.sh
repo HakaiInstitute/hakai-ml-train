@@ -12,7 +12,7 @@ mount -t efs -o tls fs-4d8532f9:/ /dltraining
 
 # Load cached pytorch docker image
 docker load < /dltraining/docker-cache/pytorch:1.8.1-cuda11.1-cudnn8-runtime.tar.gz
-# Cached image via
+# Cached image viac
 #docker save pytorch/pytorch:1.8.1-cuda11.1-cudnn8-runtime | gzip > "/dltraining/docker-cache/pytorch:1.8.1-cuda11.1-cudnn8-runtime.tar.gz"
 
 # Get training code
