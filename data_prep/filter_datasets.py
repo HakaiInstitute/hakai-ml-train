@@ -159,6 +159,29 @@ class BGOnlyLabelFilter(LabelFilter):
         super().__init__(dataset)
         self.filter_prob = filter_prob
 
+    @classmethod
+    def process(cls, dataset: str, chunksize: int = 100, filter_prob: float = 1) -> None:
+        """
+        Create a filter class, call the filtering function, and print the number of tiles that get removed.
+
+        Parameters
+        ----------
+        dataset: str
+            Path to the dataset to process.
+
+        filter_prob: float
+            The percentage of bg images to be filtered out. Defaults to 1 (all BG images).
+
+        chunksize: int
+            The length of files to pass to each multi-processing processing.
+
+        Returns
+        -------
+            None
+        """
+        f = cls(dataset, filter_prob)
+        print(f(chunksize), "image tiles removed")
+
     def should_be_removed(self, path: Path) -> bool:
         """
         Returns True if the label location at path contains only BG and no FG class. Indicates if the associated image
@@ -168,9 +191,6 @@ class BGOnlyLabelFilter(LabelFilter):
         ----------
         path: Union[Path, str]
             The path the label to test.
-
-        filter_prob: float
-            The percentage of bg images to be filtered out. Defaults to 1 (all BG images).
 
         Returns
         -------
