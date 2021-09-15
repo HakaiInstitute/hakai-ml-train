@@ -155,6 +155,9 @@ class SkinnyImgFilter(ImgFilter):
 
 class BGOnlyLabelFilter(LabelFilter):
     """Filters [image, label] tiles from the dataset where the label contains only the BG class."""
+    def __init__(self, dataset, filter_prob: float = 1):
+        super().__init__(dataset)
+        self.filter_prob = filter_prob
 
     def should_be_removed(self, path: Path) -> bool:
         """
@@ -166,12 +169,16 @@ class BGOnlyLabelFilter(LabelFilter):
         path: Union[Path, str]
             The path the label to test.
 
+        filter_prob: float
+            The percentage of bg images to be filtered out. Defaults to 1 (all BG images).
+
         Returns
         -------
             bool: A flag indicating if the label at path contains only the BG class.
         """
         label = Image.open(str(path))
-        return np.all(np.array(label) == 0)
+        p = np.random.uniform()
+        return np.all(np.array(label) == 0) and p < self.filter_prob
 
 
 class BlankImgFilter(ImgFilter):

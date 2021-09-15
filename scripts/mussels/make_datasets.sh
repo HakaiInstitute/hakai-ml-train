@@ -133,9 +133,9 @@ for DATASET in "${DATASETS[@]}"; do
     "$DATASET/label_${DATASET}.tif"
 
   # Filter tiles
-#  echo "Deleting tile pairs containing only the BG class"
-#  python "$PROJECT_DIR/data_prep/filter_datasets.py" "bg_only_labels" "$DATASET"
-#  sleep 1
+  echo "Deleting tile pairs containing only the BG class"
+  python "$PROJECT_DIR/data_prep/filter_datasets.py" "bg_only_labels" "$DATASET" --filter_prob=0.9
+  sleep 1
 
   echo "Deleting tile pairs with blank image data"
   python "$PROJECT_DIR/data_prep/filter_datasets.py" "blank_imgs" "$DATASET"
