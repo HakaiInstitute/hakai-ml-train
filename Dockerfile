@@ -17,5 +17,5 @@ RUN pip install -r /opt/code/requirements.txt
 COPY . .
 
 # Run the cli script
-ENTRYPOINT ["python", "models/lit_deeplabv3_resnet101_kelp.py"]
-#ENTRYPOINT ["python", "models/lit_lraspp_mobilenet_v3_large_kelp.py"]
+#ENTRYPOINT ["python", "models/lit_deeplabv3_resnet101_kelp.py"]
+ENTRYPOINT ["python", "models/lit_lraspp_mobilenet_v3_large_kelp.py"]
