@@ -3,7 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/../geotiff-crop-dataset/.idea/geotiff-crop-dataset.iml" filepath="$PROJECT_DIR$/../geotiff-crop-dataset/.idea/geotiff-crop-dataset.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/uav-classif.iml" filepath="$PROJECT_DIR$/.idea/uav-classif.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../ml-inference-train/.idea/ml-inference.iml" filepath="$PROJECT_DIR$/../ml-inference-train/.idea/ml-inference.iml" />
     </modules>
   </component>
 </project>
