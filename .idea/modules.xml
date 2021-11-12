@@ -7,7 +7,7 @@
       <module fileurl="file://$PROJECT_DIR$/../hakai-ml-pred-api/.idea/hakai-ml-pred-api.iml" filepath="$PROJECT_DIR$/../hakai-ml-pred-api/.idea/hakai-ml-pred-api.iml" />
       <module fileurl="file://$PROJECT_DIR$/../hakai-ml-pred-gui/.idea/hakai-ml-pred-gui.iml" filepath="$PROJECT_DIR$/../hakai-ml-pred-gui/.idea/hakai-ml-pred-gui.iml" />
       <module fileurl="file://$USER_HOME$/WebstormProjects/hakai-ml-pred-web/.idea/hakai-ml-pred-web.iml" filepath="$USER_HOME$/WebstormProjects/hakai-ml-pred-web/.idea/hakai-ml-pred-web.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../hakai-ml-train/.idea/hakai-ml-train.iml" filepath="$PROJECT_DIR$/../hakai-ml-train/.idea/hakai-ml-train.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/hakai-ml-train.iml" filepath="$PROJECT_DIR$/.idea/hakai-ml-train.iml" />
     </modules>
   </component>
 </project>
