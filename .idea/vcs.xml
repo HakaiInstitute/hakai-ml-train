@@ -13,5 +13,7 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/../geotiff-crop-dataset" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../ml-inference-api" vcs="Git" />
+    <mapping directory="$USER_HOME$/WebstormProjects/ml-inference-web" vcs="Git" />
   </component>
 </project>
