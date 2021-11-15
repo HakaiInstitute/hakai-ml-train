@@ -89,7 +89,13 @@ def dice_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     return torch.sum(1 - dsc, dim=0)
 
 
-def tversky_index_c(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
+def tversky_index_c(
+    p: torch.Tensor,
+    g: torch.Tensor,
+    alpha: float = 0.5,
+    beta: float = 0.5,
+    smooth: float = 1e-8,
+):
     """Compute the Tversky similarity index for each class for predictions p and ground truth labels g.
 
     Parameters
@@ -137,12 +143,18 @@ def tversky_index_c(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: 
     g = F.one_hot(g.flatten().long(), c)
 
     tp = torch.sum(torch.mul(p, g), dim=0)
-    fn = torch.sum(torch.mul(1. - p, g), dim=0)
-    fp = torch.sum(torch.mul(p, 1. - g), dim=0)
+    fn = torch.sum(torch.mul(1.0 - p, g), dim=0)
+    fp = torch.sum(torch.mul(p, 1.0 - g), dim=0)
     return (tp + smooth) / (tp + alpha * fn + beta * fp + smooth)
 
 
-def tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5, smooth: float = 1e-8):
+def tversky_loss(
+    p: torch.Tensor,
+    g: torch.Tensor,
+    alpha: float = 0.5,
+    beta: float = 0.5,
+    smooth: float = 1e-8,
+):
     """Compute the Tversky Loss for predictions p and ground truth labels g.
 
     Parameters
@@ -184,8 +196,14 @@ def tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: flo
     return torch.sum(1 - ti, dim=0)
 
 
-def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, beta: float = 0.5,
-                       gamma: float = 1., smooth: float = 1e-8):
+def focal_tversky_loss(
+    p: torch.Tensor,
+    g: torch.Tensor,
+    alpha: float = 0.5,
+    beta: float = 0.5,
+    gamma: float = 1.0,
+    smooth: float = 1e-8,
+):
     """Compute the focal Tversky Loss for predictions p and ground truth labels g.
 
     Parameters
@@ -231,8 +249,16 @@ def focal_tversky_loss(p: torch.Tensor, g: torch.Tensor, alpha: float = 0.5, bet
 
 
 class FocalTverskyMetric(Metric):
-    def __init__(self, num_classes, alpha: float = 0.5, beta: float = 0.5, gamma: float = 1.,
-                 smooth: float = 1e-8, dist_sync_on_step=False, ignore_index=None):
+    def __init__(
+        self,
+        num_classes,
+        alpha: float = 0.5,
+        beta: float = 0.5,
+        gamma: float = 1.0,
+        smooth: float = 1e-8,
+        dist_sync_on_step=False,
+        ignore_index=None,
+    ):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.alpha = alpha
         self.beta = beta
@@ -261,16 +287,18 @@ class FocalTverskyMetric(Metric):
             target[:, self.ignore_index] = 0
 
         self.tp += torch.sum(torch.mul(preds, target), dim=0)
-        self.fn += torch.sum(torch.mul(1. - preds, target), dim=0)
-        self.fp += torch.sum(torch.mul(preds, 1. - target), dim=0)
+        self.fn += torch.sum(torch.mul(1.0 - preds, target), dim=0)
+        self.fp += torch.sum(torch.mul(preds, 1.0 - target), dim=0)
 
     def compute(self):
-        ti = (self.tp + self.smooth) / (self.tp + self.alpha * self.fn + self.beta * self.fp + self.smooth)
+        ti = (self.tp + self.smooth) / (
+            self.tp + self.alpha * self.fn + self.beta * self.fp + self.smooth
+        )
         res = (1 - ti).pow(1 / self.gamma)
         return torch.sum(res, dim=0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
 
     doctest.testmod()

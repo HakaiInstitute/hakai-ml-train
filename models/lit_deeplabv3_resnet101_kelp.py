@@ -5,10 +5,12 @@
 import itertools
 import os
 from argparse import ArgumentParser
+from functools import cached_property
 from pathlib import Path
 
 import pytorch_lightning as pl
 import torch
+from datasets.kelp_data_module import KelpDataModule
 from loguru import logger
 from pytorch_lightning.callbacks import BaseFinetuning
 from pytorch_lightning.loggers import TestTubeLogger
@@ -17,7 +19,6 @@ from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
 
-from datasets.kelp_data_module import KelpDataModule
 from models.mixins import GeoTiffPredictionMixin
 from utils.loss import FocalTverskyMetric
 
@@ -43,24 +44,35 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         # Setup trainable layers
         self.model.requires_grad_(True)
 
-        BaseFinetuning.freeze((self.model.backbone[a] for a in self.model.backbone),
-                              train_bn=self.hparams.train_backbone_bn)
+        BaseFinetuning.freeze(
+            (self.model.backbone[a] for a in self.model.backbone),
+            train_bn=self.hparams.train_backbone_bn,
+        )
 
         if self.hparams.unfreeze_backbone_epoch == 0:
-            BaseFinetuning.make_trainable([self.model.backbone.layer4, self.model.backbone.layer3])
+            BaseFinetuning.make_trainable(
+                [self.model.backbone.layer4, self.model.backbone.layer3]
+            )
 
         # Loss function and metrics
-        self.focal_tversky_loss = FocalTverskyMetric(self.hparams.num_classes,
-                                                     alpha=0.7, beta=0.3, gamma=4. / 3.,
-                                                     ignore_index=self.hparams.get("ignore_index"))
+        self.focal_tversky_loss = FocalTverskyMetric(
+            self.hparams.num_classes,
+            alpha=0.7,
+            beta=0.3,
+            gamma=4.0 / 3.0,
+            ignore_index=self.hparams.get("ignore_index"),
+        )
         self.accuracy_metric = Accuracy(ignore_index=self.hparams.get("ignore_index"))
-        self.iou_metric = IoU(num_classes=self.hparams.num_classes, reduction='none',
-                              ignore_index=self.hparams.get("ignore_index"))
+        self.iou_metric = IoU(
+            num_classes=self.hparams.num_classes,
+            reduction="none",
+            ignore_index=self.hparams.get("ignore_index"),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.softmax(self.model.forward(x)['out'], dim=1)
+        return torch.softmax(self.model.forward(x)["out"], dim=1)
 
-    @property
+    @cached_property
     def num_training_steps(self) -> int:
         """Total training steps inferred from datamodule and devices."""
         if self.trainer.max_steps:
@@ -68,8 +80,11 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
 
         limit_batches = self.trainer.limit_train_batches
         batches = len(self.train_dataloader())
-        batches = min(batches, limit_batches) if isinstance(limit_batches, int) else int(
-            limit_batches * batches)
+        batches = (
+            min(batches, limit_batches)
+            if isinstance(limit_batches, int)
+            else int(limit_batches * batches)
+        )
 
         num_devices = max(1, self.trainer.num_gpus, self.trainer.num_processes)
         if self.trainer.tpu_cores:
@@ -78,37 +93,46 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         effective_accum = self.trainer.accumulate_grad_batches * num_devices
         return (batches // effective_accum) * self.trainer.max_epochs
 
-    @property
+    @cached_property
     def steps_per_epoch(self) -> int:
         return self.num_training_steps // self.trainer.max_epochs
 
     def configure_optimizers(self):
         # Get trainable params
-        head_params = itertools.chain(self.model.classifier.parameters(),
-                                      self.model.aux_classifier.parameters())
-        backbone_params = itertools.chain(self.model.backbone.layer4.parameters(),
-                                          self.model.backbone.layer3.parameters())
+        head_params = itertools.chain(
+            self.model.classifier.parameters(), self.model.aux_classifier.parameters()
+        )
+        backbone_params = itertools.chain(
+            self.model.backbone.layer4.parameters(),
+            self.model.backbone.layer3.parameters(),
+        )
 
         # Init optimizer and scheduler
-        optimizer = torch.optim.AdamW([
-            {"params": head_params},
-            {"params": backbone_params, "lr": self.hparams.backbone_lr},
-        ], lr=self.hparams.lr, amsgrad=True, weight_decay=self.hparams.weight_decay)
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
-                                                           max_lr=[self.hparams.lr,
-                                                                   self.hparams.backbone_lr],
-                                                           total_steps=self.num_training_steps)
+        optimizer = torch.optim.AdamW(
+            [
+                {"params": head_params},
+                {"params": backbone_params, "lr": self.hparams.backbone_lr},
+            ],
+            lr=self.hparams.lr,
+            amsgrad=True,
+            weight_decay=self.hparams.weight_decay,
+        )
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=[self.hparams.lr, self.hparams.backbone_lr],
+            total_steps=self.num_training_steps,
+        )
 
-        return [optimizer], [{'scheduler': lr_scheduler, 'interval': 'step'}]
+        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
-        logits = y_hat['out']
+        logits = y_hat["out"]
         probs = torch.softmax(logits, dim=1)
         loss = self.focal_tversky_loss(probs, y)
 
-        aux_logits = y_hat['aux']
+        aux_logits = y_hat["aux"]
         aux_probs = torch.softmax(aux_logits, dim=1)
         aux_loss = self.focal_tversky_loss(aux_probs, y)
 
@@ -117,24 +141,26 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         ious = self.iou_metric(preds, y)
         acc = self.accuracy_metric(preds, y)
 
-        self.log('train_loss', loss, on_epoch=True, sync_dist=True)
-        self.log('train_miou', ious.mean(), on_epoch=True, sync_dist=True)
-        self.log('train_accuracy', acc, on_epoch=True, sync_dist=True)
+        self.log("train_loss", loss, on_epoch=True, sync_dist=True)
+        self.log("train_miou", ious.mean(), on_epoch=True, sync_dist=True)
+        self.log("train_accuracy", acc, on_epoch=True, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f'train_c{c}_iou', ious[c], on_epoch=True, sync_dist=True)
+            self.log(f"train_c{c}_iou", ious[c], on_epoch=True, sync_dist=True)
 
         return loss
 
     def training_epoch_end(self, outputs):
         # Allow fine-tuning of backbone layers after some epochs
         if self.current_epoch == self.hparams.unfreeze_backbone_epoch:
-            BaseFinetuning.make_trainable([self.model.backbone.layer4, self.model.backbone.layer3])
+            BaseFinetuning.make_trainable(
+                [self.model.backbone.layer4, self.model.backbone.layer3]
+            )
 
-    def val_test_step(self, batch, batch_idx, phase='val'):
+    def val_test_step(self, batch, batch_idx, phase="val"):
         x, y = batch
         y_hat = self.model(x)
 
-        logits = y_hat['out']
+        logits = y_hat["out"]
         probs = torch.softmax(logits, dim=1)
         loss = self.focal_tversky_loss(probs, y)
 
@@ -142,24 +168,24 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         ious = self.iou_metric(preds, y)
         acc = self.accuracy_metric(preds, y)
 
-        self.log(f'{phase}_loss', loss, sync_dist=True)
-        self.log(f'{phase}_miou', ious.mean(), sync_dist=True)
-        self.log(f'{phase}_accuracy', acc, sync_dist=True)
+        self.log(f"{phase}_loss", loss, sync_dist=True)
+        self.log(f"{phase}_miou", ious.mean(), sync_dist=True)
+        self.log(f"{phase}_accuracy", acc, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f'{phase}_cls{c}_iou', ious[c], sync_dist=True)
+            self.log(f"{phase}_cls{c}_iou", ious[c], sync_dist=True)
 
         return loss
 
     def validation_step(self, batch, batch_idx):
-        return self.val_test_step(batch, batch_idx, phase='val')
+        return self.val_test_step(batch, batch_idx, phase="val")
 
     def test_step(self, batch, batch_idx):
-        return self.val_test_step(batch, batch_idx, phase='test')
+        return self.val_test_step(batch, batch_idx, phase="test")
 
     @staticmethod
     def ckpt2pt(ckpt_file, pt_path):
-        checkpoint = torch.load(ckpt_file, map_location=torch.device('cpu'))
-        torch.save(checkpoint['state_dict'], pt_path)
+        checkpoint = torch.load(ckpt_file, map_location=torch.device("cpu"))
+        torch.save(checkpoint["state_dict"], pt_path)
 
     @classmethod
     def from_presence_absence_weights(cls, pt_weights_file, hparams):
@@ -167,35 +193,64 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         weights = torch.load(pt_weights_file)
 
         # Remove trained weights for previous classifier output layers
-        del weights['model.classifier.4.weight']
-        del weights['model.classifier.4.bias']
-        del weights['model.aux_classifier.4.weight']
-        del weights['model.aux_classifier.4.bias']
+        del weights["model.classifier.4.weight"]
+        del weights["model.classifier.4.bias"]
+        del weights["model.aux_classifier.4.weight"]
+        del weights["model.aux_classifier.4.bias"]
 
         self.load_state_dict(weights, strict=False)
         return self
 
     @staticmethod
     def add_argparse_args(parser):
-        group = parser.add_argument_group('DeeplabV3')
+        group = parser.add_argument_group("DeeplabV3")
 
-        group.add_argument('--num_classes', type=int, default=2,
-                           help="The number of image classes, including background.")
-        group.add_argument('--lr', type=float, default=0.001, help="the learning rate")
-        group.add_argument('--backbone_lr', type=float, default=0.0001,
-                           help="the learning rate for backbone layers")
-        group.add_argument('--weight_decay', type=float, default=1e-3,
-                           help="The weight decay factor for L2 regularization.")
-        group.add_argument('--ignore_index', type=int,
-                           help="Label of any class to ignore.")
-        group.add_argument('--aux_loss_factor', type=float, default=0.3,
-                           help="The proportion of loss backpropagated to classifier built only on early layers.")
-        group.add_argument('--unfreeze_backbone_epoch', type=int, default=0,
-                           help="The training epoch to unfreeze earlier layers of Deeplabv3 for fine tuning.")
-        group.add_argument('--train_backbone_bn', dest='train_backbone_bn', action='store_true',
-                           help="Flag to indicate if backbone batch norm layers should be trained.")
-        group.add_argument('--no_train_backbone_bn', dest='train_backbone_bn', action='store_false',
-                           help="Flag to indicate if backbone batch norm layers should not be trained.")
+        group.add_argument(
+            "--num_classes",
+            type=int,
+            default=2,
+            help="The number of image classes, including background.",
+        )
+        group.add_argument("--lr", type=float, default=0.001, help="the learning rate")
+        group.add_argument(
+            "--backbone_lr",
+            type=float,
+            default=0.0001,
+            help="the learning rate for backbone layers",
+        )
+        group.add_argument(
+            "--weight_decay",
+            type=float,
+            default=1e-3,
+            help="The weight decay factor for L2 regularization.",
+        )
+        group.add_argument(
+            "--ignore_index", type=int, help="Label of any class to ignore."
+        )
+        group.add_argument(
+            "--aux_loss_factor",
+            type=float,
+            default=0.3,
+            help="The proportion of loss backpropagated to classifier built only on early layers.",
+        )
+        group.add_argument(
+            "--unfreeze_backbone_epoch",
+            type=int,
+            default=0,
+            help="The training epoch to unfreeze earlier layers of Deeplabv3 for fine tuning.",
+        )
+        group.add_argument(
+            "--train_backbone_bn",
+            dest="train_backbone_bn",
+            action="store_true",
+            help="Flag to indicate if backbone batch norm layers should be trained.",
+        )
+        group.add_argument(
+            "--no_train_backbone_bn",
+            dest="train_backbone_bn",
+            action="store_false",
+            help="Flag to indicate if backbone batch norm layers should not be trained.",
+        )
         group.set_defaults(train_backbone_bn=True)
 
         return parser
@@ -208,21 +263,39 @@ def cli_main(argv=None):
     parser = ArgumentParser()
     subparsers = parser.add_subparsers()
 
-    parser_train = subparsers.add_parser(name='train', help="Train the model.")
-    parser_train.add_argument('data_dir', type=str,
-                              help="The path to a data directory with subdirectories 'train' and "
-                                   "'eval', each with 'x' and 'y' subdirectories containing image "
-                                   "crops and labels, respectively.")
-    parser_train.add_argument('checkpoint_dir', type=str, help="The path to save training outputs")
-    parser_train.add_argument('--initial_weights_ckpt', type=str,
-                              help="Path to checkpoint file to load as initial model weights")
-    parser_train.add_argument('--initial_weights', type=str,
-                              help="Path to pytorch weights to load as initial model weights")
-    parser_train.add_argument('--pa_weights', type=str,
-                              help="Presence/Absence model weights to use as initial model weights")
-    parser_train.add_argument('--name', type=str, default="",
-                              help="Identifier used when creating files and directories for this "
-                                   "training run.")
+    parser_train = subparsers.add_parser(name="train", help="Train the model.")
+    parser_train.add_argument(
+        "data_dir",
+        type=str,
+        help="The path to a data directory with subdirectories 'train' and "
+        "'eval', each with 'x' and 'y' subdirectories containing image "
+        "crops and labels, respectively.",
+    )
+    parser_train.add_argument(
+        "checkpoint_dir", type=str, help="The path to save training outputs"
+    )
+    parser_train.add_argument(
+        "--initial_weights_ckpt",
+        type=str,
+        help="Path to checkpoint file to load as initial model weights",
+    )
+    parser_train.add_argument(
+        "--initial_weights",
+        type=str,
+        help="Path to pytorch weights to load as initial model weights",
+    )
+    parser_train.add_argument(
+        "--pa_weights",
+        type=str,
+        help="Presence/Absence model weights to use as initial model weights",
+    )
+    parser_train.add_argument(
+        "--name",
+        type=str,
+        default="",
+        help="Identifier used when creating files and directories for this "
+        "training run.",
+    )
 
     parser_train = KelpDataModule.add_argparse_args(parser_train)
     parser_train = DeepLabv3ResNet101.add_argparse_args(parser_train)
@@ -230,26 +303,45 @@ def cli_main(argv=None):
     parser_train = pl.Trainer.add_argparse_args(parser_train)
     parser_train.set_defaults(func=train)
 
-    parser_pred = subparsers.add_parser(name='pred', help='Predict kelp presence in an image.')
-    parser_pred.add_argument('seg_in', type=str,
-                             help="Path to a *.tif image to do segmentation on in pred mode.")
-    parser_pred.add_argument('seg_out', type=str,
-                             help="Path to desired output *.tif created by the model in pred mode.")
-    parser_pred.add_argument('weights', type=str,
-                             help="Path to a model weights file (*.pt). "
-                                  "Required for eval and pred mode.")
-    parser_pred.add_argument('--batch_size', type=int, default=2,
-                             help="The batch size per GPU (default 2).")
-    parser_pred.add_argument('--crop_pad', type=int, default=128,
-                             help="The amount of padding added for classification context to each "
-                                  "image crop. The output classification on this crop area is not "
-                                  "output by the model but will influence the classification of "
-                                  "the area in the (crop_size x crop_size) window "
-                                  "(defaults to 128).")
-    parser_pred.add_argument('--crop_size', type=int, default=256,
-                             help="The crop size in pixels for processing the image. Defines the "
-                                  "length and width of the individual sections the input .tif "
-                                  "image is cropped to for processing (defaults 256).")
+    parser_pred = subparsers.add_parser(
+        name="pred", help="Predict kelp presence in an image."
+    )
+    parser_pred.add_argument(
+        "seg_in",
+        type=str,
+        help="Path to a *.tif image to do segmentation on in pred mode.",
+    )
+    parser_pred.add_argument(
+        "seg_out",
+        type=str,
+        help="Path to desired output *.tif created by the model in pred mode.",
+    )
+    parser_pred.add_argument(
+        "weights",
+        type=str,
+        help="Path to a model weights file (*.pt). " "Required for eval and pred mode.",
+    )
+    parser_pred.add_argument(
+        "--batch_size", type=int, default=2, help="The batch size per GPU (default 2)."
+    )
+    parser_pred.add_argument(
+        "--crop_pad",
+        type=int,
+        default=128,
+        help="The amount of padding added for classification context to each "
+        "image crop. The output classification on this crop area is not "
+        "output by the model but will influence the classification of "
+        "the area in the (crop_size x crop_size) window "
+        "(defaults to 128).",
+    )
+    parser_pred.add_argument(
+        "--crop_size",
+        type=int,
+        default=256,
+        help="The crop size in pixels for processing the image. Defines the "
+        "length and width of the individual sections the input .tif "
+        "image is cropped to for processing (defaults 256).",
+    )
     parser_pred = DeepLabv3ResNet101.add_argparse_args(parser_pred)
     parser_pred.set_defaults(func=pred)
 
@@ -261,9 +353,9 @@ def pred(args):
     seg_in, seg_out = Path(args.seg_in), Path(args.seg_out)
     seg_out.parent.mkdir(parents=True, exist_ok=True)
 
-    device = torch.device('cpu')
+    device = torch.device("cpu")
     if torch.cuda.is_available():
-        device = torch.device('cuda')
+        device = torch.device("cuda")
     else:
         logger.warning("Could not find GPU device")
 
@@ -272,9 +364,12 @@ def pred(args):
     # ------------
     print("Loading model:", args.weights)
     if Path(args.weights).suffix == "ckpt":
-        model = DeepLabv3ResNet101.load_from_checkpoint(args.weights, batch_size=args.batch_size,
-                                                        crop_size=args.crop_size,
-                                                        padding=args.crop_pad)
+        model = DeepLabv3ResNet101.load_from_checkpoint(
+            args.weights,
+            batch_size=args.batch_size,
+            crop_size=args.crop_size,
+            padding=args.crop_pad,
+        )
     else:  # Assumes .pt
         model = DeepLabv3ResNet101(args)
         model.load_state_dict(torch.load(args.weights), strict=False)
@@ -294,13 +389,14 @@ def train(args):
     # ------------
     # data
     # ------------
-    kelp_data = KelpDataModule(args.data_dir, num_classes=args.num_classes,
-                                        batch_size=args.batch_size)
+    kelp_data = KelpDataModule(
+        args.data_dir, num_classes=args.num_classes, batch_size=args.batch_size
+    )
 
     # ------------
     # model
     # ------------
-    os.environ['TORCH_HOME'] = str(Path(args.checkpoint_dir).parent)
+    os.environ["TORCH_HOME"] = str(Path(args.checkpoint_dir).parent)
     # if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
     #     print("Loading checkpoint:", checkpoint)
     #     model = DeepLabv3ResNet101.load_from_checkpoint(checkpoint)
@@ -324,9 +420,9 @@ def train(args):
     lr_monitor_cb = pl.callbacks.LearningRateMonitor()
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
         verbose=True,
-        monitor='val_miou',
-        mode='max',
-        filename='best-{val_miou:.4f}-{epoch}-{step}',
+        monitor="val_miou",
+        mode="max",
+        filename="best-{val_miou:.4f}-{epoch}-{step}",
         save_top_k=1,
         save_last=True,
     )
@@ -356,11 +452,13 @@ def train(args):
 
     # Save final weights only
     model.load_from_checkpoint(checkpoint_cb.best_model_path)
-    torch.save(model.state_dict(), Path(checkpoint_cb.best_model_path).with_suffix('.pt'))
+    torch.save(
+        model.state_dict(), Path(checkpoint_cb.best_model_path).with_suffix(".pt")
+    )
 
 
-if __name__ == '__main__':
-    if os.getenv('DEBUG', False):
+if __name__ == "__main__":
+    if os.getenv("DEBUG", False):
         # cli_main([
         #     'pred',
         #     'scripts/presence/train_input/Triquet_kelp_U0653.tif',
@@ -379,18 +477,28 @@ if __name__ == '__main__':
         #     '--benchmark', '--max_epochs=100', '--batch_size=2', "--unfreeze_backbone_epoch=100",
         #     '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn'
         # ])
-        cli_main([
-            'train',
-            'scripts/species/train_input/data',
-            'scripts/species/train_output/checkpoints',
-            '--name=TEST', '--num_classes=3', '--lr=0.001', '--backbone_lr=0.00001',
-            '--weight_decay=0.001', '--gradient_clip_val=0.5',
-            '--max_epochs=2', '--batch_size=2', "--unfreeze_backbone_epoch=100",
-            '--log_every_n_steps=5',
-            # '--overfit_batches=20',
-            '--no_train_backbone_bn',
-            '--benchmark', '--auto_select_gpus', '--gpus=-1',
-            '--pa_weights=scripts/species/train_input/data/best-val_miou=0.9393-epoch=97-step=34789.pt'
-        ])
+        cli_main(
+            [
+                "train",
+                "scripts/species/train_input/data",
+                "scripts/species/train_output/checkpoints",
+                "--name=TEST",
+                "--num_classes=3",
+                "--lr=0.001",
+                "--backbone_lr=0.00001",
+                "--weight_decay=0.001",
+                "--gradient_clip_val=0.5",
+                "--max_epochs=2",
+                "--batch_size=2",
+                "--unfreeze_backbone_epoch=100",
+                "--log_every_n_steps=5",
+                # '--overfit_batches=20',
+                "--no_train_backbone_bn",
+                "--benchmark",
+                "--auto_select_gpus",
+                "--gpus=-1",
+                "--pa_weights=scripts/species/train_input/data/best-val_miou=0.9393-epoch=97-step=34789.pt",
+            ]
+        )
     else:
         cli_main()
