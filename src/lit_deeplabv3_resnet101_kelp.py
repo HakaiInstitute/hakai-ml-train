@@ -5,22 +5,20 @@
 import itertools
 import os
 from argparse import ArgumentParser
-from functools import cached_property
 from pathlib import Path
 
 import pytorch_lightning as pl
 import torch
-from datasets.kelp_data_module import KelpDataModule
-from loguru import logger
 from pytorch_lightning.callbacks import BaseFinetuning
-from pytorch_lightning.loggers import TestTubeLogger
+from pytorch_lightning.loggers import TensorBoardLogger
 from torchmetrics import Accuracy, IoU
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
 
-from models.mixins import GeoTiffPredictionMixin
+from kelp_data_module import KelpDataModule
 from utils.loss import FocalTverskyMetric
+from utils.mixins import GeoTiffPredictionMixin
 
 
 class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
@@ -72,14 +70,14 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.softmax(self.model.forward(x)["out"], dim=1)
 
-    @cached_property
+    @property
     def num_training_steps(self) -> int:
         """Total training steps inferred from datamodule and devices."""
-        if self.trainer.max_steps:
+        if self.trainer.max_steps != -1:
             return self.trainer.max_steps
 
         limit_batches = self.trainer.limit_train_batches
-        batches = len(self.train_dataloader())
+        batches = len(self.trainer.datamodule.train_dataloader())
         batches = (
             min(batches, limit_batches)
             if isinstance(limit_batches, int)
@@ -93,7 +91,7 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         effective_accum = self.trainer.accumulate_grad_batches * num_devices
         return (batches // effective_accum) * self.trainer.max_epochs
 
-    @cached_property
+    @property
     def steps_per_epoch(self) -> int:
         return self.num_training_steps // self.trainer.max_epochs
 
@@ -117,13 +115,14 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
             amsgrad=True,
             weight_decay=self.hparams.weight_decay,
         )
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=[self.hparams.lr, self.hparams.backbone_lr],
-            total_steps=self.num_training_steps,
-        )
-
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
+        return optimizer
+        # lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        #     optimizer,
+        #     max_lr=[self.hparams.lr, self.hparams.backbone_lr],
+        #     total_steps=self.num_training_steps,
+        # )
+        #
+        # return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -268,8 +267,8 @@ def cli_main(argv=None):
         "data_dir",
         type=str,
         help="The path to a data directory with subdirectories 'train' and "
-        "'eval', each with 'x' and 'y' subdirectories containing image "
-        "crops and labels, respectively.",
+             "'eval', each with 'x' and 'y' subdirectories containing image "
+             "crops and labels, respectively.",
     )
     parser_train.add_argument(
         "checkpoint_dir", type=str, help="The path to save training outputs"
@@ -294,7 +293,7 @@ def cli_main(argv=None):
         type=str,
         default="",
         help="Identifier used when creating files and directories for this "
-        "training run.",
+             "training run.",
     )
 
     parser_train = KelpDataModule.add_argparse_args(parser_train)
@@ -329,18 +328,18 @@ def cli_main(argv=None):
         type=int,
         default=128,
         help="The amount of padding added for classification context to each "
-        "image crop. The output classification on this crop area is not "
-        "output by the model but will influence the classification of "
-        "the area in the (crop_size x crop_size) window "
-        "(defaults to 128).",
+             "image crop. The output classification on this crop area is not "
+             "output by the model but will influence the classification of "
+             "the area in the (crop_size x crop_size) window "
+             "(defaults to 128).",
     )
     parser_pred.add_argument(
         "--crop_size",
         type=int,
         default=256,
         help="The crop size in pixels for processing the image. Defines the "
-        "length and width of the individual sections the input .tif "
-        "image is cropped to for processing (defaults 256).",
+             "length and width of the individual sections the input .tif "
+             "image is cropped to for processing (defaults 256).",
     )
     parser_pred = DeepLabv3ResNet101.add_argparse_args(parser_pred)
     parser_pred.set_defaults(func=pred)
@@ -353,11 +352,7 @@ def pred(args):
     seg_in, seg_out = Path(args.seg_in), Path(args.seg_out)
     seg_out.parent.mkdir(parents=True, exist_ok=True)
 
-    device = torch.device("cpu")
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    else:
-        logger.warning("Could not find GPU device")
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     # ------------
     # model
@@ -396,7 +391,7 @@ def train(args):
     # ------------
     # model
     # ------------
-    os.environ["TORCH_HOME"] = str(Path(args.checkpoint_dir).parent)
+    # os.environ["TORCH_HOME"] = str(Path(args.checkpoint_dir).parent)
     # if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
     #     print("Loading checkpoint:", checkpoint)
     #     model = DeepLabv3ResNet101.load_from_checkpoint(checkpoint)
@@ -416,8 +411,6 @@ def train(args):
     # ------------
     # callbacks
     # ------------
-    logger_cb = TestTubeLogger(args.checkpoint_dir, name=args.name)
-    lr_monitor_cb = pl.callbacks.LearningRateMonitor()
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
         verbose=True,
         monitor="val_miou",
@@ -426,15 +419,17 @@ def train(args):
         save_top_k=1,
         save_last=True,
     )
-
     callbacks = [
-        lr_monitor_cb,
+        pl.callbacks.RichProgressBar(),
+        pl.callbacks.RichModelSummary(),
+        pl.callbacks.StochasticWeightAveraging(),
+        pl.callbacks.LearningRateMonitor(),
         checkpoint_cb,
-        # DeepLabv3FineTuningCallback(args.unfreeze_backbone_epoch, args.train_backbone_bn)
     ]
     if isinstance(args.gpus, int):
-        callbacks.append(pl.callbacks.GPUStatsMonitor())
+        callbacks.append(pl.callbacks.DeviceStatsMonitor())
 
+    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name)
     # ------------
     # training
     # ------------
@@ -447,8 +442,8 @@ def train(args):
     trainer.fit(model, datamodule=kelp_data)
 
     # Validation and Test stats
-    trainer.validate(datamodule=kelp_data, ckpt_path=checkpoint_cb.best_model_path)
-    trainer.test(datamodule=kelp_data, ckpt_path=checkpoint_cb.best_model_path)
+    trainer.validate(model, datamodule=kelp_data, ckpt_path="best")
+    trainer.test(model, datamodule=kelp_data, ckpt_path="best")
 
     # Save final weights only
     model.load_from_checkpoint(checkpoint_cb.best_model_path)

@@ -8,8 +8,8 @@ import torch
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms as t
 
-from datasets.utils.SegmentationDataset import SegmentationDataset
-from datasets.utils.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
+from utils.SegmentationDataset import SegmentationDataset
+from utils.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
 
 
 class KelpDataModule(pl.LightningDataModule):
@@ -24,7 +24,7 @@ class KelpDataModule(pl.LightningDataModule):
         self.train_data_dir = Path(data_dir).joinpath("train")
         self.val_data_dir = Path(data_dir).joinpath("eval")
 
-        self.train_transforms = t.Compose([
+        self.train_trans = t.Compose([
             PadOut(512, 512),
             t.RandomHorizontalFlip(),
             t.RandomVerticalFlip(),
@@ -34,7 +34,7 @@ class KelpDataModule(pl.LightningDataModule):
             t.ToTensor(),
             normalize,
         ])
-        self.train_target_transforms = t.Compose([
+        self.train_target_trans = t.Compose([
             PadOut(512, 512),
             t.RandomHorizontalFlip(),
             t.RandomVerticalFlip(),
@@ -42,13 +42,13 @@ class KelpDataModule(pl.LightningDataModule):
             target_to_tensor,
             Clamp(0, self.num_classes - 1),
         ])
-        self.test_transforms = t.Compose([
+        self.test_trans = t.Compose([
             PadOut(512, 512),
             ImageClip(min_=0, max_=255),
             t.ToTensor(),
             normalize,
         ])
-        self.test_target_transforms = t.Compose([
+        self.test_target_trans = t.Compose([
             PadOut(512, 512),
             target_to_tensor,
             Clamp(0, self.num_classes - 1),
@@ -58,10 +58,10 @@ class KelpDataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage: Optional[str] = None):
-        self.ds_train = SegmentationDataset(self.train_data_dir, transform=self.train_transforms,
-                                            target_transform=self.train_target_transforms)
-        eval_full = SegmentationDataset(self.val_data_dir, transform=self.test_transforms,
-                                        target_transform=self.test_target_transforms)
+        self.ds_train = SegmentationDataset(self.train_data_dir, transform=self.train_trans,
+                                            target_transform=self.train_target_trans)
+        eval_full = SegmentationDataset(self.val_data_dir, transform=self.test_trans,
+                                        target_transform=self.test_target_trans)
 
         val_size = int(len(eval_full) * 0.5)
         test_size = len(eval_full) - val_size
@@ -69,7 +69,7 @@ class KelpDataModule(pl.LightningDataModule):
         self.ds_val, self.ds_test = random_split(eval_full, [val_size, test_size],
                                                  generator=torch.Generator().manual_seed(42))
 
-        self.dims = tuple(self.ds_train[0][0].shape)
+        # self.dims = tuple(self.ds_train[0][0].shape)
 
     def teardown(self, stage: Optional[str] = None) -> None:
         pass

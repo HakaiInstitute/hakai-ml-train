@@ -4,7 +4,7 @@ channels:
   - defaults
 dependencies:
   - conda-forge::loguru
-  - conda-forge::pytorch-lightning
+  - conda-forge::pytorch-lightning>=1.5
   - conda-forge::tensorboard
   - conda-forge::torchmetrics
   - conda-forge::tqdm
@@ -17,4 +17,4 @@ dependencies:
   - pip:
     - geotiff_crop_dataset
     - lightning-bolts
-    - test_tube
+    - rich

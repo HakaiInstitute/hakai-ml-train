@@ -6,19 +6,19 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PORT=6006
 
 # Build the docker image
-DOCKER_BUILDKIT=1 docker build --file ../../Dockerfile --tag tayden/deeplabv3-kelp ../../
+# DOCKER_BUILDKIT=1 docker build --file ../../Dockerfile --tag tayden/deeplabv3-kelp ../../
 #DOCKER_BUILDKIT=1 docker build --file ../../Dockerfile --tag tayden/lraspp-mobilenetv3-kelp ../../
 
 # Sync datasets
 # For testing
-#aws s3 sync --exclude="*" --include="**/AdamsFringe_kelp_U0665_0[2-3]*.png" s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
-#aws s3 sync --exclude="*" --include="**/label_AdamsFringe_kelp_U0665_0[2-3]*.png" s3://hakai-deep-learning-datasets/kelp/train "$DIR/../train_input/data/train"
-#aws s3 sync --exclude="*" --include="**/AdamsFringe_kelp_U0665_0[2-4]*.png" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
-#aws s3 sync --exclude="*" --include="**/label_AdamsFringe_kelp_U0665_0[2-4]*.png" s3://hakai-deep-learning-datasets/kelp/eval "$DIR/../train_input/data/eval"
+# aws s3 sync --exclude="*" --include="**/mussel_0539_01_1*.png" s3://hakai-deep-learning-datasets/mussels/train "./scripts/mussels/train_input/data/train"
+# aws s3 sync --exclude="*" --include="**/label_mussel_0539_01_1*.png" s3://hakai-deep-learning-datasets/mussels/train "./scripts/mussels/train_input/data/train"
+# aws s3 sync --exclude="*" --include="**/mussel_0539_02_1*.png" s3://hakai-deep-learning-datasets/mussels/eval "./scripts/mussels/train_input/data/eval"
+# aws s3 sync --exclude="*" --include="**/label_mussel_0539_02_1*.png" s3://hakai-deep-learning-datasets/mussels/eval "./scripts/mussels/train_input/data/eval"
 
 # For prod
-aws s3 sync s3://hakai-deep-learning-datasets/mussels/train "$DIR/train_input/data/train"
-aws s3 sync s3://hakai-deep-learning-datasets/mussels/eval "$DIR/train_input/data/eval"
+aws s3 sync s3://hakai-deep-learning-datasets/mussels/train "./scripts/mussels/train_input/data/train"
+aws s3 sync s3://hakai-deep-learning-datasets/mussels/eval "./scripts/mussels/train_input/data/eval"
 
 # Make output dirs
 mkdir -p "$DIR/train_output/checkpoints/$NAME"

@@ -1,13 +1,12 @@
 import os
 from argparse import ArgumentParser
-from functools import cached_property
 from pathlib import Path
 
 import pytorch_lightning as pl
 import torch
-from datasets.kelp_data_module import KelpDataModule
+from kelp_data_module import KelpDataModule
 from pl_bolts.models.vision import UNet as UNet_Base
-from pytorch_lightning.loggers import TestTubeLogger
+from pytorch_lightning.loggers import TensorBoardLogger
 from torchmetrics.functional import accuracy, iou
 
 from utils.checkpoint import get_checkpoint
@@ -32,10 +31,10 @@ class UNet(pl.LightningModule):
             self.hparams.num_classes, alpha=0.7, beta=0.3, gamma=4.0 / 3.0
         )
 
-    @cached_property
+    @property
     def num_training_steps(self) -> int:
         """Total training steps inferred from datamodule and devices."""
-        if self.trainer.max_steps:
+        if self.trainer.max_steps != -1:
             return self.trainer.max_steps
 
         limit_batches = self.trainer.limit_train_batches
@@ -53,7 +52,7 @@ class UNet(pl.LightningModule):
         effective_accum = self.trainer.accumulate_grad_batches * num_devices
         return (batches // effective_accum) * self.trainer.max_epochs
 
-    @cached_property
+    @property
     def steps_per_epoch(self) -> int:
         return self.num_training_steps // self.trainer.max_epochs
 
@@ -184,7 +183,7 @@ def train(parent_parser):
     # ------------
     # training
     # ------------
-    logger = TestTubeLogger(args.checkpoint_dir, name=args.name)
+    logger = TensorBoardLogger(args.checkpoint_dir, name=args.name)
 
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
@@ -198,7 +197,7 @@ def train(parent_parser):
         ),
     ]
     if isinstance(args.gpus, int):
-        callbacks.append(pl.callbacks.GPUStatsMonitor())
+        callbacks.append(pl.callbacks.DeviceStatsMonitor())
 
     trainer = pl.Trainer.from_argparse_args(
         args, logger=logger, callbacks=callbacks, resume_from_checkpoint=checkpoint

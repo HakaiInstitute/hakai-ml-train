@@ -7,8 +7,8 @@ Description:
 from abc import ABCMeta
 
 import pytorch_lightning as pl
-from datasets.utils.GeoTiffDataset import GeoTiffReader
-from datasets.utils.transforms import reusable_transforms as t
+from utils.GeoTiffDataset import GeoTiffReader
+from utils.transforms import reusable_transforms as t
 from geotiff_crop_dataset import CropDatasetWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
