@@ -27,7 +27,9 @@ class GeoTiffReader(CropDatasetReader):
 
         crop = self.raster.read(
             window=((y0, y0 + self.crop_size), (x0, x0 + self.crop_size)),
-            masked=True, boundless=True, fill_value=self.fill_value
+            masked=True,
+            boundless=True,
+            fill_value=self.fill_value,
         )
         return crop.filled()
 

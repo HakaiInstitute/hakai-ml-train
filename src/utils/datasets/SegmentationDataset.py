@@ -15,7 +15,9 @@ class SegmentationDataset(Dataset):
         self._images = sorted(Path(ds_path).joinpath("x").glob(f"*.{ext}"))
         self._labels = sorted(Path(ds_path).joinpath("y").glob(f"*.{ext}"))
 
-        assert len(self._images) == len(self._labels), "There are an unequal number of images and labels!"
+        assert len(self._images) == len(
+            self._labels
+        ), "There are an unequal number of images and labels!"
 
         self.transform = transform
         self.target_transform = target_transform
@@ -24,7 +26,7 @@ class SegmentationDataset(Dataset):
         return len(self._images)
 
     def __getitem__(self, idx):
-        img = Image.open(self._images[idx]).convert('RGB')
+        img = Image.open(self._images[idx]).convert("RGB")
         target = Image.open(self._labels[idx])
 
         seed = np.random.randint(2147483647)

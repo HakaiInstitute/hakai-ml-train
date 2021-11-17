@@ -4,7 +4,10 @@ version: "3.9"
 x-deploy: &default-deploy
   replicas: 1
   resources:
+    limits:
+      memory: 8G
     reservations:
+      memory: 2G
       devices:
         - driver: nvidia
           count: all
@@ -20,12 +23,16 @@ x-devices: &default-devices
 
 services:
   tensorboard:
-    image: tensorflow/tensorflow
-    volumes:
-      - "checkpoints:/logs"
+    image: tensorflow/tensorflow:2.4.3
+    env_file: ".env"
     ports:
       - "0.0.0.0:6006:6006"
-    command: "tensorboard --logdir=/logs --host=0.0.0.0 --port=6006"
+    command: [
+        "tensorboard",
+        "--logdir=s3://hakai-deep-learning-datasets/checkpoints/",
+        "--host=0.0.0.0",
+        "--port=6006"
+    ]
 
   mussels-train-lraspp-mobilenetv3:
     image: hakaiinstitute/pytorch-lightning
@@ -34,22 +41,20 @@ services:
       dockerfile: Dockerfile
     tty: true
     stdin_open: true
+    env_file: ".env"
     volumes:
-      - "./scripts/mussels/train_input/data:/data"
-      - "checkpoints:/checkpoints"
-      - "torch_cache:/.cache/torch"
+      - "./scripts/mussels/train_input/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
     devices: *default-devices
-    depends_on:
-      - tensorboard
     command:
       [
           "python",
-          "lit_lraspp_mobilenet_v3_large_kelp.py",
+          "lit_lraspp_mobilenet_v3_large.py",
           "train",
           "/data",
-          "/checkpoints",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_mussels",
           "--num_classes=2",
           "--lr=0.0003",
@@ -73,22 +78,20 @@ services:
       dockerfile: Dockerfile
     tty: true
     stdin_open: true
+    env_file: ".env"
     volumes:
-      - "./scripts/mussels/train_input/data:/data"
-      - "checkpoints:/checkpoints"
-      - "torch_cache:/.cache/torch"
+      - "./scripts/mussels/train_input/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
     devices: *default-devices
-    depends_on:
-      - tensorboard
     command:
       [
           "python",
-          "lit_deeplabv3_resnet101_kelp.py",
+          "lit_deeplabv3_resnet101.py",
           "train",
           "/data",
-          "/checkpoints",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_mussels",
           "--num_classes=2",
           "--lr=0.001",
@@ -113,22 +116,20 @@ services:
       dockerfile: Dockerfile
     tty: true
     stdin_open: true
+    env_file: ".env"
     volumes:
-      - "./scripts/presence/train_input/data:/data"
-      - "checkpoints:/checkpoints"
-      - "torch_cache:/.cache/torch"
+      - "./scripts/presence/train_input/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
     devices: *default-devices
-    depends_on:
-      - tensorboard
     command:
       [
           "python",
-          "lit_lraspp_mobilenet_v3_large_kelp.py",
+          "lit_lraspp_mobilenet_v3_large.py",
           "train",
           "/data",
-          "/checkpoints",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_kelp_pa",
           "--num_classes=2",
           "--lr=0.001",
@@ -152,22 +153,20 @@ services:
       dockerfile: Dockerfile
     tty: true
     stdin_open: true
+    env_file: ".env"
     volumes:
-      - "./scripts/presence/train_input/data:/data"
-      - "checkpoints:/checkpoints"
-      - "torch_cache:/.cache/torch"
+      - "./scripts/presence/train_input/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
     devices: *default-devices
-    depends_on:
-      - tensorboard
     command:
       [
           "python",
-          "lit_deeplabv3_resnet101_kelp.py",
+          "lit_deeplabv3_resnet101.py",
           "train",
           "/data",
-          "/checkpoints",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_kelp_pa",
           "--num_classes=2",
           "--lr=0.001",
@@ -192,22 +191,20 @@ services:
       dockerfile: Dockerfile
     tty: true
     stdin_open: true
+    env_file: ".env"
     volumes:
-      - "./scripts/species/train_input/data:/data"
-      - "checkpoints:/checkpoints"
-      - "torch_cache:/.cache/torch"
+      - "./scripts/species/train_input/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
     devices: *default-devices
-    depends_on:
-      - tensorboard
     command:
       [
           "python",
-          "lit_lraspp_mobilenet_v3_large_kelp.py",
+          "lit_lraspp_mobilenet_v3_large.py",
           "train",
           "/data",
-          "/checkpoints",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_kelp_species",
           "--num_classes=3",
           "--ignore_index=1",
@@ -232,22 +229,20 @@ services:
       dockerfile: Dockerfile
     tty: true
     stdin_open: true
+    env_file: ".env"
     volumes:
-      - "./scripts/species/train_input/data:/data"
-      - "checkpoints:/checkpoints"
-      - "torch_cache:/.cache/torch"
+      - "./scripts/species/train_input/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
     devices: *default-devices
-    depends_on:
-      - tensorboard
     command:
       [
           "python",
-          "lit_deeplabv3_resnet101_kelp.py",
+          "lit_deeplabv3_resnet101.py",
           "train",
           "/data",
-          "/checkpoints",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_kelp_species",
           "--num_classes=3",
           "--ignore_index=1",
@@ -268,5 +263,4 @@ services:
       ]
 
 volumes:
-  checkpoints:
   torch_cache:

@@ -1,6 +1,6 @@
 import torch
-from lit_deeplabv3_resnet101_kelp import DeepLabv3ResNet101
-from lit_lraspp_mobilenet_v3_large_kelp import LRASPPMobileNetV3Large
+from lit_deeplabv3_resnet101 import DeepLabv3ResNet101
+from lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
 
 DEVICE = torch.device("cuda")
 

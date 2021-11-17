@@ -173,12 +173,12 @@ def train(parent_parser):
     # ------------
     # model
     # ------------
-    os.environ["TORCH_HOME"] = str(Path(args.checkpoint_dir).parent)
-    if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
-        print("Loading checkpoint:", checkpoint)
-        model = UNet.load_from_checkpoint(checkpoint)
-    else:
-        model = UNet(args)
+    # os.environ["TORCH_HOME"] = str(Path(args.checkpoint_dir).parent)
+    # if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
+    #     print("Loading checkpoint:", checkpoint)
+    #     model = UNet.load_from_checkpoint(checkpoint)
+    # else:
+    model = UNet(args)
 
     # ------------
     # training

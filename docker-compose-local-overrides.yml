@@ -1,31 +1,47 @@
 version: "3.9"
 
 services:
+  tensorboard:
+    volumes:
+      - "checkpoints:/checkpoints:ro"
+    command: [
+        "tensorboard",
+        "--logdir=/checkpoints",
+        "--host=0.0.0.0",
+        "--port=6006",
+        "--load_fast=false",
+    ]
+
   mussels-train-lraspp-mobilenetv3:
+    volumes:
+      - "checkpoints:/checkpoints"
     command:
       [
           "python",
-          "lit_lraspp_mobilenet_v3_large_kelp.py",
+          "lit_lraspp_mobilenet_v3_large.py",
           "train",
           "/data",
           "/checkpoints",
           "--name=lr_aspp_mussels",
           "--num_classes=2",
-          "--lr=0.0003",
+          "--lr=0.001",
           "--weight_decay=0.001",
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
           "--gpus=-1",
-          "--benchmark",
+#          "--benchmark",
           "--max_epochs=10",
-          "--batch_size=2",
+          "--batch_size=4",
+#          "--overfit_batches=10",
       ]
 
   mussels-train-deeplabv3-resnet101:
+    volumes:
+      - "checkpoints:/checkpoints"
     command:
       [
           "python",
-          "lit_deeplabv3_resnet101_kelp.py",
+          "lit_deeplabv3_resnet101.py",
           "train",
           "/data",
           "/checkpoints",
@@ -40,14 +56,20 @@ services:
           "--benchmark",
           "--max_epochs=10",
           "--batch_size=2",
-          "--unfreeze_backbone_epoch=1000"
+          "--num_workers=2",
+          "--unfreeze_backbone_epoch=1000",
+          "--no_train_backbone_bn",
+          "--overfit_batches=2",
+          "--log_every_n_steps=2",
       ]
 
   kelp-pa-train-lraspp-mobilenetv3:
+    volumes:
+      - "checkpoints:/checkpoints"
     command:
       [
           "python",
-          "lit_lraspp_mobilenet_v3_large_kelp.py",
+          "lit_lraspp_mobilenet_v3_large.py",
           "train",
           "/data",
           "/checkpoints",
@@ -58,16 +80,19 @@ services:
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
           "--gpus=-1",
-          "--benchmark",
-          "--max_epochs=10",
-          "--batch_size=2",
+#          "--benchmark",
+          "--max_epochs=100",
+          "--batch_size=4",
+#          "--overfit_batches=10",
       ]
 
   kelp-pa-train-deeplabv3-resnet101:
+    volumes:
+      - "checkpoints:/checkpoints"
     command:
       [
           "python",
-          "lit_deeplabv3_resnet101_kelp.py",
+          "lit_deeplabv3_resnet101.py",
           "train",
           "/data",
           "/checkpoints",
@@ -82,14 +107,19 @@ services:
           "--benchmark",
           "--max_epochs=10",
           "--batch_size=2",
-          "--unfreeze_backbone_epoch=1000"
+          "--unfreeze_backbone_epoch=1000",
+          "--no_train_backbone_bn",
+          "--overfit_batches=2",
+          "--log_every_n_steps=2",
       ]
 
   kelp-species-train-lraspp-mobilenetv3:
+    volumes:
+      - "checkpoints:/checkpoints"
     command:
       [
           "python",
-          "lit_lraspp_mobilenet_v3_large_kelp.py",
+          "lit_lraspp_mobilenet_v3_large.py",
           "train",
           "/data",
           "/checkpoints",
@@ -101,16 +131,19 @@ services:
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
           "--gpus=-1",
-          "--benchmark",
+#          "--benchmark",
           "--max_epochs=10",
-          "--batch_size=2",
+          "--batch_size=4",
+#          "--overfit_batches=10",
       ]
 
   kelp-species-train-deeplabv3-resnet101:
+    volumes:
+      - "checkpoints:/checkpoints"
     command:
       [
           "python",
-          "lit_deeplabv3_resnet101_kelp.py",
+          "lit_deeplabv3_resnet101.py",
           "train",
           "/data",
           "/checkpoints",
@@ -127,9 +160,11 @@ services:
           "--benchmark",
           "--max_epochs=10",
           "--batch_size=2",
-          "--unfreeze_backbone_epoch=1000"
+          "--unfreeze_backbone_epoch=1000",
+          "--no_train_backbone_bn",
+          "--overfit_batches=2",
+          "--log_every_n_steps=2",
       ]
 
 volumes:
   checkpoints:
-  torch_cache:
