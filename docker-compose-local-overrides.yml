@@ -1,5 +1,13 @@
 version: "3.9"
 
+# See https://github.com/NVIDIA/nvidia-docker/issues/1447
+x-devices: &default-devices
+  - /dev/nvidia0:/dev/nvidia0
+  - /dev/nvidia-modeset:/dev/nvidia-modeset
+  - /dev/nvidia-uvm:/dev/nvidia-uvm
+  - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+  - /dev/nvidiactl:/dev/nvidiactl
+
 services:
   tensorboard:
     volumes:
@@ -15,12 +23,13 @@ services:
   mussels-train-lraspp-mobilenetv3:
     volumes:
       - "checkpoints:/checkpoints"
+    devices: *default-devices
     command:
       [
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data",
+          "/data/mussels",
           "/checkpoints",
           "--name=lr_aspp_mussels",
           "--num_classes=2",
@@ -38,12 +47,13 @@ services:
   mussels-train-deeplabv3-resnet101:
     volumes:
       - "checkpoints:/checkpoints"
+    devices: *default-devices
     command:
       [
           "python",
           "lit_deeplabv3_resnet101.py",
           "train",
-          "/data",
+          "/data/mussels",
           "/checkpoints",
           "--name=deeplab_mussels",
           "--num_classes=2",
@@ -66,12 +76,13 @@ services:
   kelp-pa-train-lraspp-mobilenetv3:
     volumes:
       - "checkpoints:/checkpoints"
+    devices: *default-devices
     command:
       [
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data",
+          "/data/kelp/May2020",
           "/checkpoints",
           "--name=lr_aspp_kelp_pa",
           "--num_classes=2",
@@ -89,12 +100,13 @@ services:
   kelp-pa-train-deeplabv3-resnet101:
     volumes:
       - "checkpoints:/checkpoints"
+    devices: *default-devices
     command:
       [
           "python",
           "lit_deeplabv3_resnet101.py",
           "train",
-          "/data",
+          "/data/kelp/May2020",
           "/checkpoints",
           "--name=deeplab_kelp_pa",
           "--num_classes=2",
@@ -116,12 +128,13 @@ services:
   kelp-species-train-lraspp-mobilenetv3:
     volumes:
       - "checkpoints:/checkpoints"
+    devices: *default-devices
     command:
       [
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data",
+          "/data/kelp_species",
           "/checkpoints",
           "--name=lr_aspp_kelp_species",
           "--num_classes=3",
@@ -140,12 +153,13 @@ services:
   kelp-species-train-deeplabv3-resnet101:
     volumes:
       - "checkpoints:/checkpoints"
+    devices: *default-devices
     command:
       [
           "python",
           "lit_deeplabv3_resnet101.py",
           "train",
-          "/data",
+          "/data/kelp_species",
           "/checkpoints",
           "--name=deeplab_kelp_species",
           "--num_classes=3",

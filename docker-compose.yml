@@ -13,15 +13,15 @@ x-deploy: &default-deploy
           count: all
           capabilities: [ gpu ]
 
-# See https://github.com/NVIDIA/nvidia-docker/issues/1447
-x-devices: &default-devices
-  - /dev/nvidia0:/dev/nvidia0
-  - /dev/nvidia-modeset:/dev/nvidia-modeset
-  - /dev/nvidia-uvm:/dev/nvidia-uvm
-  - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
-  - /dev/nvidiactl:/dev/nvidiactl
-
 services:
+  s3vol:
+    image: elementar/s3-volume
+    command: /data s3a://${BUCKET_NAME}
+    env_file:
+      - ".env"
+    volumes:
+      - s3data:/data
+
   tensorboard:
     image: tensorflow/tensorflow:2.4.3
     env_file: ".env"
@@ -43,17 +43,16 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "./scripts/mussels/train_input/data:/data:ro"
+      - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
-    devices: *default-devices
     command:
       [
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data",
+          "/data/mussels",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_mussels",
           "--num_classes=2",
@@ -80,17 +79,16 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "./scripts/mussels/train_input/data:/data:ro"
+      - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
-    devices: *default-devices
     command:
       [
           "python",
           "lit_deeplabv3_resnet101.py",
           "train",
-          "/data",
+          "/data/mussels",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_mussels",
           "--num_classes=2",
@@ -118,17 +116,16 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "./scripts/presence/train_input/data:/data:ro"
+      - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
-    devices: *default-devices
     command:
       [
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data",
+          "/data/kelp/May2020",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_kelp_pa",
           "--num_classes=2",
@@ -155,17 +152,16 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "./scripts/presence/train_input/data:/data:ro"
+      - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
-    devices: *default-devices
     command:
       [
           "python",
           "lit_deeplabv3_resnet101.py",
           "train",
-          "/data",
+          "/data/kelp/May2020",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_kelp_pa",
           "--num_classes=2",
@@ -193,17 +189,16 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "./scripts/species/train_input/data:/data:ro"
+      - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
-    devices: *default-devices
     command:
       [
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data",
+          "/data/kelp_species",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_kelp_species",
           "--num_classes=3",
@@ -231,17 +226,16 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "./scripts/species/train_input/data:/data:ro"
+      - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
-    devices: *default-devices
     command:
       [
           "python",
           "lit_deeplabv3_resnet101.py",
           "train",
-          "/data",
+          "/data/kelp_species",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_kelp_species",
           "--num_classes=3",
@@ -264,3 +258,5 @@ services:
 
 volumes:
   torch_cache:
+  s3data:
+    driver: local
