@@ -42,6 +42,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
+    depends_on:
+      - s3vol
     volumes:
       - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
@@ -78,6 +80,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
+    depends_on:
+      - s3vol
     volumes:
       - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
@@ -115,6 +119,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
+    depends_on:
+      - s3vol
     volumes:
       - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
@@ -151,6 +157,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
+    depends_on:
+      - s3vol
     volumes:
       - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
@@ -188,6 +196,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
+    depends_on:
+      - s3vol
     volumes:
       - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
@@ -225,6 +235,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
+    depends_on:
+      - s3vol
     volumes:
       - "s3data:/data:ro"
       - "torch_cache:/root/.cache/torch"
