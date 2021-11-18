@@ -14,14 +14,6 @@ x-deploy: &default-deploy
           capabilities: [ gpu ]
 
 services:
-  s3vol:
-    image: elementar/s3-volume
-    command: /data s3a://${BUCKET_NAME}
-    env_file:
-      - ".env"
-    volumes:
-      - s3data:/data
-
   tensorboard:
     image: tensorflow/tensorflow:2.4.3
     env_file: ".env"
@@ -42,10 +34,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
-    depends_on:
-      - s3vol
     volumes:
-      - "s3data:/data:ro"
+      - "/data/mussels/data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -54,7 +44,7 @@ services:
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data/mussels",
+          "/data",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_mussels",
           "--num_classes=2",
@@ -80,10 +70,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
-    depends_on:
-      - s3vol
     volumes:
-      - "s3data:/data:ro"
+      - "/data/mussels/data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -92,7 +80,7 @@ services:
           "python",
           "lit_deeplabv3_resnet101.py",
           "train",
-          "/data/mussels",
+          "/data",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_mussels",
           "--num_classes=2",
@@ -119,10 +107,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
-    depends_on:
-      - s3vol
     volumes:
-      - "s3data:/data:ro"
+      - "/data/presence/data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -131,7 +117,7 @@ services:
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data/kelp/May2020",
+          "/data",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_kelp_pa",
           "--num_classes=2",
@@ -157,10 +143,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
-    depends_on:
-      - s3vol
     volumes:
-      - "s3data:/data:ro"
+      - "/data/presence/data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -169,7 +153,7 @@ services:
           "python",
           "lit_deeplabv3_resnet101.py",
           "train",
-          "/data/kelp/May2020",
+          "/data",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_kelp_pa",
           "--num_classes=2",
@@ -196,10 +180,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
-    depends_on:
-      - s3vol
     volumes:
-      - "s3data:/data:ro"
+      - "/data/species/data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -208,7 +190,7 @@ services:
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data/kelp_species",
+          "/data",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_kelp_species",
           "--num_classes=3",
@@ -235,10 +217,8 @@ services:
     tty: true
     stdin_open: true
     env_file: ".env"
-    depends_on:
-      - s3vol
     volumes:
-      - "s3data:/data:ro"
+      - "/data/species/data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -247,7 +227,7 @@ services:
           "python",
           "lit_deeplabv3_resnet101.py",
           "train",
-          "/data/kelp_species",
+          "/data",
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_kelp_species",
           "--num_classes=3",
@@ -270,5 +250,3 @@ services:
 
 volumes:
   torch_cache:
-  s3data:
-    driver: local
