@@ -6,7 +6,6 @@
 import os
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Union
 
 import pytorch_lightning as pl
 import torch
@@ -192,8 +191,8 @@ def cli_main(argv=None):
         "data_dir",
         type=str,
         help="The path to a data directory with subdirectories 'train' and "
-        "'eval', each with 'x' and 'y' subdirectories containing image "
-        "crops and labels, respectively.",
+             "'eval', each with 'x' and 'y' subdirectories containing image "
+             "crops and labels, respectively.",
     )
     parser_train.add_argument(
         "checkpoint_dir", type=str, help="The path to save training outputs"
@@ -221,11 +220,9 @@ def cli_main(argv=None):
     )
     parser_train.add_argument(
         "--swa_epoch_start",
-        type=Union[int, float],
-        default=0.75,
-        help="If provided as int, the procedure will start from the `swa_epoch_start`-th epoch. If "
-        "provided as float between 0 and 1, the procedure will start from "
-        "`int(swa_epoch_start * max_epochs)` epoch",
+        type=int,
+        default=75,
+        help="The epoch at which to start the stochastic weight averaging procedure."
     )
 
     parser_train = KelpDataModule.add_argparse_args(parser_train)
@@ -259,18 +256,18 @@ def cli_main(argv=None):
         type=int,
         default=128,
         help="The amount of padding added for classification context to each "
-        "image crop. The output classification on this crop area is not "
-        "output by the model but will influence the classification of "
-        "the area in the (crop_size x crop_size) window "
-        "(defaults to 128).",
+             "image crop. The output classification on this crop area is not "
+             "output by the model but will influence the classification of "
+             "the area in the (crop_size x crop_size) window "
+             "(defaults to 128).",
     )
     parser_pred.add_argument(
         "--crop_size",
         type=int,
         default=512,
         help="The crop size in pixels for processing the image. Defines the "
-        "length and width of the individual sections the input .tif "
-        "image is cropped to for processing (default 512).",
+             "length and width of the individual sections the input .tif "
+             "image is cropped to for processing (default 512).",
     )
     parser_pred = LRASPPMobileNetV3Large.add_argparse_args(parser_pred)
     parser_pred.set_defaults(func=pred)
@@ -415,7 +412,7 @@ if __name__ == "__main__":
                 "train",
                 "scripts/mussels/train_input/data",
                 "scripts/mussels/train_output/checkpoints",
-                "--name=L_RASPP_TEST",
+                "--name=LR_ASPP_TEST",
                 "--num_classes=2",
                 "--lr=0.001",
                 "--weight_decay=0.001",

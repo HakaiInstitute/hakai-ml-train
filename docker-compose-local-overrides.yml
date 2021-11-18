@@ -42,6 +42,7 @@ services:
           "--gpus=-1",
 #          "--benchmark",
           "--max_epochs=10",
+          "--swa_epoch_start=75",
           "--batch_size=4",
 #          "--overfit_batches=10",
       ]
@@ -95,6 +96,7 @@ services:
           "--gpus=-1",
 #          "--benchmark",
           "--max_epochs=100",
+          "--swa_epoch_start=75",
           "--batch_size=4",
 #          "--overfit_batches=10",
       ]
@@ -148,6 +150,7 @@ services:
           "--gpus=-1",
 #          "--benchmark",
           "--max_epochs=10",
+          "--swa_epoch_start=75",
           "--batch_size=4",
 #          "--overfit_batches=10",
       ]
