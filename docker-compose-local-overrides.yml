@@ -19,6 +19,8 @@ services:
         "--port=6006",
         "--load_fast=false",
     ]
+  nvitop:
+    devices: *default-devices
 
   mussels-train-lraspp-mobilenetv3:
     volumes:

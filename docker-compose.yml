@@ -26,6 +26,16 @@ services:
         "--port=6006"
     ]
 
+  nvitop:
+    image: hakaiinstitute/nvitop
+    build:
+      context: "https://github.com/Syllo/nvtop.git"
+      dockerfile: Dockerfile
+    tty: true
+    stdin_open: true
+    deploy: *default-deploy
+    pid: "host"
+
   mussels-train-lraspp-mobilenetv3:
     image: hakaiinstitute/pytorch-lightning
     build:
