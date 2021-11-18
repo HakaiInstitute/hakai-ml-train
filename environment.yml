@@ -17,4 +17,3 @@ dependencies:
   - pip:
     - geotiff_crop_dataset
     - lightning-bolts
-    - rich

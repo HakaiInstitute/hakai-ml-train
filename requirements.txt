@@ -1,7 +1,6 @@
 geotiff-crop-dataset
 lightning-bolts
 pytorch-lightning
-rich
 s3fs
 tensorboard
 torchmetrics
