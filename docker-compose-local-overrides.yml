@@ -24,6 +24,7 @@ services:
 
   mussels-train-lraspp-mobilenetv3:
     volumes:
+      - "./data/mussels:/data"
       - "checkpoints:/checkpoints"
     devices: *default-devices
     command:
@@ -31,7 +32,7 @@ services:
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data/mussels",
+          "/data",
           "/checkpoints",
           "--name=lr_aspp_mussels",
           "--num_classes=2",
@@ -40,11 +41,10 @@ services:
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
           "--gpus=-1",
-#          "--benchmark",
-          "--max_epochs=10",
-          "--swa_epoch_start=75",
-          "--batch_size=4",
-#          "--overfit_batches=10",
+          "--max_epochs=2",
+          "--swa_epoch_start=7",
+          "--batch_size=2",
+          "--overfit_batches=2",
       ]
 
   mussels-train-deeplabv3-resnet101:

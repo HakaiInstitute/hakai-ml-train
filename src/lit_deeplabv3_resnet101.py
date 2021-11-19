@@ -2,21 +2,20 @@
 # Organization: Hakai Institute
 # Date: 2020-06-23
 # Description:
-import itertools
 import os
-from argparse import ArgumentParser
-from pathlib import Path
-
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.callbacks import BaseFinetuning
+from argparse import ArgumentParser
+from pathlib import Path
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchmetrics import Accuracy, IoU
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
+from typing import Any
 
 from kelp_data_module import KelpDataModule
+from utils import callbacks as cb
 from utils.loss import FocalTverskyMetric
 from utils.mixins import GeoTiffPredictionMixin
 
@@ -42,16 +41,6 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         # Setup trainable layers
         self.model.requires_grad_(True)
 
-        BaseFinetuning.freeze(
-            (self.model.backbone[a] for a in self.model.backbone),
-            train_bn=self.hparams.train_backbone_bn,
-        )
-
-        if self.hparams.unfreeze_backbone_epoch == 0:
-            BaseFinetuning.make_trainable(
-                [self.model.backbone.layer4, self.model.backbone.layer3]
-            )
-
         # Loss function and metrics
         self.focal_tversky_loss = FocalTverskyMetric(
             self.hparams.num_classes,
@@ -67,11 +56,15 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
             ignore_index=self.hparams.get("ignore_index"),
         )
 
+    @property
+    def example_input_array(self) -> Any:
+        return torch.rand(1, 3, 8, 8)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.softmax(self.model.forward(x)["out"], dim=1)
 
     @property
-    def num_training_steps(self) -> int:
+    def steps_per_epoch(self) -> int:
         """Total training steps inferred from datamodule and devices."""
         if self.trainer.max_steps != -1:
             return self.trainer.max_steps
@@ -89,37 +82,21 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
             num_devices = max(num_devices, self.trainer.tpu_cores)
 
         effective_accum = self.trainer.accumulate_grad_batches * num_devices
-        return (batches // effective_accum) * self.trainer.max_epochs
-
-    @property
-    def steps_per_epoch(self) -> int:
-        return self.num_training_steps // self.trainer.max_epochs
+        return batches // effective_accum
 
     def configure_optimizers(self):
-        # Get trainable params
-        head_params = itertools.chain(
-            self.model.classifier.parameters(), self.model.aux_classifier.parameters()
-        )
-        backbone_params = itertools.chain(
-            self.model.backbone.layer4.parameters(),
-            self.model.backbone.layer3.parameters(),
-        )
-
         # Init optimizer and scheduler
-        optimizer = torch.optim.AdamW(
-            [
-                {"params": head_params},
-                {"params": backbone_params, "lr": self.hparams.backbone_lr},
-            ],
+        optimizer = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, self.parameters()),
             lr=self.hparams.lr,
-            amsgrad=True,
             weight_decay=self.hparams.weight_decay,
         )
+
         # return optimizer
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=[self.hparams.lr, self.hparams.backbone_lr],
-            total_steps=self.num_training_steps,
+            optimizer, max_lr=self.hparams.lr,
+            steps_per_epoch=self.steps_per_epoch,
+            epochs=self.max_epochs,
         )
 
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
@@ -147,13 +124,6 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
             self.log(f"train_c{c}_iou", ious[c], on_epoch=True, sync_dist=True)
 
         return loss
-
-    def training_epoch_end(self, outputs):
-        # Allow fine-tuning of backbone layers after some epochs
-        if self.current_epoch == self.hparams.unfreeze_backbone_epoch:
-            BaseFinetuning.make_trainable(
-                [self.model.backbone.layer4, self.model.backbone.layer3]
-            )
 
     def val_test_step(self, batch, batch_idx, phase="val"):
         x, y = batch
@@ -212,12 +182,6 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         )
         group.add_argument("--lr", type=float, default=0.001, help="the learning rate")
         group.add_argument(
-            "--backbone_lr",
-            type=float,
-            default=0.0001,
-            help="the learning rate for backbone layers",
-        )
-        group.add_argument(
             "--weight_decay",
             type=float,
             default=1e-3,
@@ -232,25 +196,6 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
             default=0.3,
             help="The proportion of loss backpropagated to classifier built only on early layers.",
         )
-        group.add_argument(
-            "--unfreeze_backbone_epoch",
-            type=int,
-            default=0,
-            help="The training epoch to unfreeze earlier layers of Deeplabv3 for fine tuning.",
-        )
-        group.add_argument(
-            "--train_backbone_bn",
-            dest="train_backbone_bn",
-            action="store_true",
-            help="Flag to indicate if backbone batch norm layers should be trained.",
-        )
-        group.add_argument(
-            "--no_train_backbone_bn",
-            dest="train_backbone_bn",
-            action="store_false",
-            help="Flag to indicate if backbone batch norm layers should not be trained.",
-        )
-        group.set_defaults(train_backbone_bn=True)
 
         return parser
 
@@ -267,8 +212,8 @@ def cli_main(argv=None):
         "data_dir",
         type=str,
         help="The path to a data directory with subdirectories 'train' and "
-        "'eval', each with 'x' and 'y' subdirectories containing image "
-        "crops and labels, respectively.",
+             "'eval', each with 'x' and 'y' subdirectories containing image "
+             "crops and labels, respectively.",
     )
     parser_train.add_argument(
         "checkpoint_dir", type=str, help="The path to save training outputs"
@@ -293,12 +238,12 @@ def cli_main(argv=None):
         type=str,
         default="",
         help="Identifier used when creating files and directories for this "
-        "training run.",
+             "training run.",
     )
 
     parser_train = KelpDataModule.add_argparse_args(parser_train)
     parser_train = DeepLabv3ResNet101.add_argparse_args(parser_train)
-    # parser_train = DeepLabv3FineTuningCallback.add_argparse_args(parser_train)
+    parser_train = cb.Deeplabv3Resnet101Finetuning.add_argparse_args(parser_train)
     parser_train = pl.Trainer.add_argparse_args(parser_train)
     parser_train.set_defaults(func=train)
 
@@ -328,18 +273,18 @@ def cli_main(argv=None):
         type=int,
         default=128,
         help="The amount of padding added for classification context to each "
-        "image crop. The output classification on this crop area is not "
-        "output by the model but will influence the classification of "
-        "the area in the (crop_size x crop_size) window "
-        "(defaults to 128).",
+             "image crop. The output classification on this crop area is not "
+             "output by the model but will influence the classification of "
+             "the area in the (crop_size x crop_size) window "
+             "(defaults to 128).",
     )
     parser_pred.add_argument(
         "--crop_size",
         type=int,
         default=256,
         help="The crop size in pixels for processing the image. Defines the "
-        "length and width of the individual sections the input .tif "
-        "image is cropped to for processing (defaults 256).",
+             "length and width of the individual sections the input .tif "
+             "image is cropped to for processing (defaults 256).",
     )
     parser_pred = DeepLabv3ResNet101.add_argparse_args(parser_pred)
     parser_pred.set_defaults(func=pred)
@@ -391,10 +336,6 @@ def train(args):
     # ------------
     # model
     # ------------
-    # os.environ["TORCH_HOME"] = str(Path(args.checkpoint_dir).parent)
-    # if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
-    #     print("Loading checkpoint:", checkpoint)
-    #     model = DeepLabv3ResNet101.load_from_checkpoint(checkpoint)
     if args.initial_weights_ckpt:
         print("Loading initial weights ckpt:", args.initial_weights_ckpt)
         model = DeepLabv3ResNet101.load_from_checkpoint(args.initial_weights_ckpt)
@@ -404,14 +345,16 @@ def train(args):
     else:
         model = DeepLabv3ResNet101(args)
 
-        if args.initial_weights:
-            print("Loading initial weights:", args.initial_weights)
-            model.load_state_dict(torch.load(args.initial_weights))
+    if args.initial_weights:
+        print("Loading initial weights:", args.initial_weights)
+        model.load_state_dict(torch.load(args.initial_weights))
 
     # ------------
     # callbacks
     # ------------
+    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name)
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
+        dirpath=Path(logger_cb.log_dir),
         verbose=True,
         monitor="val_miou",
         mode="max",
@@ -420,21 +363,20 @@ def train(args):
         save_last=True,
     )
     callbacks = [
-        # pl.callbacks.RichProgressBar(),
-        # pl.callbacks.RichModelSummary(),
-        # pl.callbacks.StochasticWeightAveraging(),
+        cb.Deeplabv3Resnet101Finetuning(unfreeze_at_epoch=args.unfreeze_backbone_epoch,
+                                        train_bn=args.train_backbone_bn),
         pl.callbacks.LearningRateMonitor(),
         checkpoint_cb,
+        cb.SaveBestStateDict(),
+        cb.SaveBestTorchscript(method='trace'),
+        cb.SaveBestOnnx(opset_version=11),
     ]
-    if isinstance(args.gpus, int):
-        callbacks.append(pl.callbacks.DeviceStatsMonitor())
 
-    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name)
     # ------------
     # training
     # ------------
     trainer = pl.Trainer.from_argparse_args(args, logger=logger_cb, callbacks=callbacks)
-    # resume_from_checkpoint=checkpoint)
+
     # Tune params
     # trainer.tune(model, datamodule=kelp_data)
 
@@ -445,54 +387,27 @@ def train(args):
     trainer.validate(model, datamodule=kelp_data, ckpt_path="best")
     trainer.test(model, datamodule=kelp_data, ckpt_path="best")
 
-    # Save final weights only
-    model.load_from_checkpoint(checkpoint_cb.best_model_path)
-    torch.save(
-        model.state_dict(), Path(checkpoint_cb.best_model_path).with_suffix(".pt")
-    )
-
 
 if __name__ == "__main__":
     if os.getenv("DEBUG", False):
-        # cli_main([
-        #     'pred',
-        #     'scripts/presence/train_input/Triquet_kelp_U0653.tif',
-        #     'scripts/presence/train_output/Triquet_kelp_U0653_kelp.tif',
-        #     'species/train_input/data/best-val_miou=0.9393-epoch=97-step=34789.pt',
-        #     # '--batch_size=2',
-        #     # '--crop_size=256',
-        #     # '--crop_pad=128'
-        # ])
-        # cli_main([
-        #     'train',
-        #     'scripts/presence/train_input/data',
-        #     'scripts/presence/train_output/checkpoints',
-        #     '--name=TEST', '--num_classes=2', '--lr=0.001', '--backbone_lr=0.00001',
-        #     '--weight_decay=0.001', '--gradient_clip_val=0.5', '--auto_select_gpus', '--gpus=-1',
-        #     '--benchmark', '--max_epochs=100', '--batch_size=2', "--unfreeze_backbone_epoch=100",
-        #     '--log_every_n_steps=5', '--overfit_batches=1', '--no_train_backbone_bn'
-        # ])
         cli_main(
             [
                 "train",
-                "scripts/species/train_input/data",
-                "scripts/species/train_output/checkpoints",
-                "--name=TEST",
-                "--num_classes=3",
-                "--lr=0.001",
-                "--backbone_lr=0.00001",
-                "--weight_decay=0.001",
+                "scripts/presence/train_input/data",
+                "scripts/presence/train_output/checkpoints",
+                "--name=DEEPLAB_TEST",
+                "--num_classes=2",
+                "--lr=0.35",
+                "--weight_decay=3e-6",
                 "--gradient_clip_val=0.5",
-                "--max_epochs=2",
+                "--max_epochs=100",
                 "--batch_size=2",
                 "--unfreeze_backbone_epoch=100",
                 "--log_every_n_steps=5",
-                # '--overfit_batches=20',
+                '--overfit_batches=1',
                 "--no_train_backbone_bn",
-                "--benchmark",
-                "--auto_select_gpus",
                 "--gpus=-1",
-                "--pa_weights=scripts/species/train_input/data/best-val_miou=0.9393-epoch=97-step=34789.pt",
+                # "--pa_weights=scripts/species/train_input/data/best-val_miou=0.9393-epoch=97-step=34789.pt",
             ]
         )
     else:

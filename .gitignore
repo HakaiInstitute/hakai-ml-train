@@ -167,3 +167,5 @@ data
 **/train_output
 
 *.onnx
+data
+

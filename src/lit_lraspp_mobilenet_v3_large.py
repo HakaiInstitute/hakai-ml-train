@@ -2,19 +2,18 @@
 # Organization: Hakai Institute
 # Date: 2021-05-17
 # Description:
-
 import os
-from argparse import ArgumentParser
-from pathlib import Path
-
 import pytorch_lightning as pl
 import torch
+from argparse import ArgumentParser
+from pathlib import Path
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchmetrics import Accuracy, IoU
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
+from typing import Any
 
 from kelp_data_module import KelpDataModule
-from utils.callbacks.SaveBestStateDictCallback import SaveBestStateDictCallback
+from utils import callbacks as cb
 from utils.loss import FocalTverskyMetric
 from utils.mixins import GeoTiffPredictionMixin
 
@@ -46,11 +45,15 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
             ignore_index=self.hparams.get("ignore_index"),
         )
 
+    @property
+    def example_input_array(self) -> Any:
+        return torch.rand(1, 3, 8, 8)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.softmax(self.model.forward(x)["out"], dim=1)
 
     @property
-    def num_training_steps(self) -> int:
+    def steps_per_epoch(self) -> int:
         """Total training steps inferred from datamodule and devices."""
         if self.trainer.max_steps != -1:
             return self.trainer.max_steps
@@ -68,29 +71,23 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
             num_devices = max(num_devices, self.trainer.tpu_cores)
 
         effective_accum = self.trainer.accumulate_grad_batches * num_devices
-        return (batches // effective_accum) * self.trainer.max_epochs
-
-    @property
-    def steps_per_epoch(self) -> int:
-        return self.num_training_steps // self.trainer.max_epochs
+        return batches // effective_accum
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(
-            self.model.parameters(),
+        # Init optimizer and scheduler
+        optimizer = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, self.parameters()),
             lr=self.hparams.lr,
-            amsgrad=True,
             weight_decay=self.hparams.weight_decay,
         )
-        # Stochastic Weight Averaging setup
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
-        return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
 
-        # One Cycle LR setup
-        # lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        #     optimizer, max_lr=self.hparams.lr, total_steps=self.num_training_steps
-        # )
-        #
-        # return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
+        # return optimizer
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=self.hparams.lr,
+            steps_per_epoch=self.steps_per_epoch,
+            epochs=self.max_epochs,
+        )
+        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -337,8 +334,9 @@ def train(args):
     # ------------
     # callbacks
     # ------------
+    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name)
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
-        verbose=True,
+        dirpath=Path(logger_cb.log_dir),
         monitor="val_miou",
         mode="max",
         filename="best-{val_miou:.4f}-{epoch}-{step}",
@@ -346,20 +344,19 @@ def train(args):
         save_last=True,
     )
     callbacks = [
-        pl.callbacks.StochasticWeightAveraging(swa_epoch_start=args.swa_epoch_start),
+        # pl.callbacks.StochasticWeightAveraging(swa_epoch_start=args.swa_epoch_start),
         pl.callbacks.LearningRateMonitor(),
         checkpoint_cb,
-        SaveBestStateDictCallback(),
+        cb.SaveBestStateDict(),
+        cb.SaveBestTorchscript(method='trace'),
+        cb.SaveBestOnnx(opset_version=11),
     ]
-    # if isinstance(args.gpus, int):
-    #     callbacks.append(pl.callbacks.DeviceStatsMonitor())
 
-    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name)
     # ------------
     # training
     # ------------
     trainer = pl.Trainer.from_argparse_args(args, logger=logger_cb, callbacks=callbacks)
-    # resume_from_checkpoint=checkpoint)
+
     # Tune params
     # trainer.tune(model, datamodule=kelp_data)
 
@@ -367,46 +364,13 @@ def train(args):
     trainer.fit(model, datamodule=kelp_data)
 
     # Validation and Test stats
-    # trainer.validate(model, datamodule=kelp_data, ckpt_path="best")
-    # trainer.test(model, datamodule=kelp_data, ckpt_path="best")
-
-    # Save final weights only
-    # model.load_from_checkpoint(checkpoint_cb.best_model_path)
-    # torch.save(
-    #     model.state_dict(), Path(checkpoint_cb.best_model_path).with_suffix(".pt")
-    # )
+    trainer.validate(model, datamodule=kelp_data, ckpt_path="best")
+    trainer.test(model, datamodule=kelp_data, ckpt_path="best")
 
 
 if __name__ == "__main__":
     debug = os.getenv("DEBUG", False)
     if debug:
-        # cli_main([
-        #     'pred',
-        #     '/home/taylor/Desktop/Sept27P1125_Orthomosaic_export_FriApr03192436.053821.tif',
-        #     '/home/taylor/Desktop/Sept27P1125_Orthomosaic_export_FriApr03192436.053821_species2.tif',
-        #     'scripts/species/train_output/checkpoints/L_RASPP_MobileNetV3/version_0/checkpoints/best-val_miou=0.8945-epoch=198-step=58107.pt',
-        #     '--num_classes=4',
-        #     '--ignore_index=1',
-        #     '--batch_size=1',
-        #     '--crop_size=512',
-        #     '--stride=256'
-        #     # '--crop_pad=0'
-        # ])
-        # cli_main([
-        #     'train',
-        #     'scripts/species/train_input/data',
-        #     'scripts/species/train_output/checkpoints',
-        #     '--name=L_RASPP_TEST', '--num_classes=4', '--ignore_index=1', '--lr=0.001',
-        #     '--weight_decay=0.001', '--gradient_clip_val=0.5',
-        #     '--max_epochs=100', '--log_every_n_steps=5',
-        #     '--batch_size=8',
-        #     # '--auto_scale_batch_size',
-        #     # '--pa_weights=scripts/presence/train_output/checkpoints/LRASPP_MobileNetV3/version_0/'
-        #     # 'checkpoints/best-val_miou=0.9218-epoch=196-step=69934.pt',
-        #     '--benchmark', '--auto_select_gpus', '--gpus=-1',
-        #     # '--overfit_batches=1',
-        #     # '--num_workers=0'
-        # ])
         cli_main(
             [
                 "train",
@@ -414,15 +378,16 @@ if __name__ == "__main__":
                 "scripts/mussels/train_output/checkpoints",
                 "--name=LR_ASPP_TEST",
                 "--num_classes=2",
-                "--lr=0.001",
-                "--weight_decay=0.001",
+                "--lr=0.35",
+                "--weight_decay=3e-6",
                 "--gradient_clip_val=0.5",
                 "--accelerator=gpu",
                 "--gpus=-1",
                 "--benchmark",
                 "--max_epochs=10",
+                # "--swa_epochs_start=100",
                 "--batch_size=2",
-                "--overfit_batches=2",
+                # "--overfit_batches=1",
                 "--log_every_n_steps=4",
             ]
         )
