@@ -47,7 +47,7 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
 
     @property
     def example_input_array(self) -> Any:
-        return torch.rand(1, 3, 8, 8)
+        return torch.rand(2, 3, 512, 512)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)["out"]
@@ -336,7 +336,7 @@ def train(args):
     # ------------
     logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name)
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
-        dirpath=Path(logger_cb.log_dir),
+        verbose=True,
         monitor="val_miou",
         mode="max",
         filename="best-{val_miou:.4f}-{epoch}-{step}",
