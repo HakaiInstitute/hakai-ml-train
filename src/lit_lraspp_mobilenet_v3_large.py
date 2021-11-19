@@ -50,7 +50,7 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
         return torch.rand(1, 3, 8, 8)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.softmax(self.model.forward(x)["out"], dim=1)
+        return self.model.forward(x)["out"]
 
     @property
     def steps_per_epoch(self) -> int:
@@ -74,7 +74,7 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
         return batches // effective_accum
 
     def configure_optimizers(self):
-        # Init optimizer and scheduler
+        """Init optimizer and scheduler"""
         optimizer = torch.optim.SGD(
             filter(lambda p: p.requires_grad, self.parameters()),
             lr=self.hparams.lr,
