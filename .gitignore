@@ -149,23 +149,16 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
-data
+*.pth
 *.pt
 *.ckpt
 *tar.gz
 *.tar
+*.onnx
 
 *.tiff
 *.tif
 
-*runs/
-*.pth
-
-*.sqlite
-
-**/lightning_logs
-**/train_output
-
-*.onnx
 data
+checkpoints
 
