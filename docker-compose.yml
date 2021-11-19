@@ -4,8 +4,8 @@ version: "3.9"
 x-deploy: &default-deploy
   replicas: 1
   resources:
-    limits:
-      memory: 8G
+#    limits:
+#      memory: 8G
     reservations:
       memory: 2G
       devices:
@@ -70,7 +70,6 @@ services:
           "--swa_epoch_start=75",
           "--batch_size=16",
           "--precision=16",
-          "--log_every_n_steps=10",
       ]
 
   mussels-train-deeplabv3-resnet101:
@@ -106,7 +105,6 @@ services:
           "--max_epochs=100",
           "--batch_size=16",
           "--precision=16",
-          "--log_every_n_steps=10",
       ]
 
   kelp-pa-train-lraspp-mobilenetv3:
@@ -143,7 +141,6 @@ services:
           "--swa_epoch_start=75",
           "--batch_size=16",
           "--precision=16",
-          "--log_every_n_steps=10",
       ]
 
   kelp-pa-train-deeplabv3-resnet101:
@@ -179,7 +176,6 @@ services:
           "--max_epochs=100",
           "--batch_size=16",
           "--precision=16",
-          "--log_every_n_steps=10",
       ]
 
   kelp-pa-train-unet:
@@ -212,10 +208,9 @@ services:
           "--gpus=-1",
           "--benchmark",
           "--sync_batchnorm",
-          "--max_epochs=200",
-          "--batch_size=16",
+          "--max_epochs=100",
+          "--batch_size=8",
           "--precision=16",
-          "--log_every_n_steps=10",
       ]
 
   kelp-species-train-lraspp-mobilenetv3:
@@ -253,7 +248,6 @@ services:
           "--swa_epoch_start=75",
           "--batch_size=16",
           "--precision=16",
-          "--log_every_n_steps=10",
       ]
 
   kelp-species-train-deeplabv3-resnet101:
@@ -291,7 +285,6 @@ services:
           "--max_epochs=100",
           "--batch_size=16",
           "--precision=16",
-          "--log_every_n_steps=10",
       ]
 
 volumes:
