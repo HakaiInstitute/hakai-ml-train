@@ -59,7 +59,7 @@ services:
           "--name=lr_aspp_mussels",
           "--num_classes=2",
           "--lr=0.0003",
-          "--weight_decay=0.001",
+          "--weight_decay=3e-6",
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
           "--strategy=ddp",
@@ -95,9 +95,8 @@ services:
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_mussels",
           "--num_classes=2",
-          "--lr=0.001",
-          "--backbone_lr=0.0001",
-          "--weight_decay=0.001",
+          "--lr=0.35",
+          "--weight_decay=3e-6",
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
           "--strategy=ddp",
@@ -132,8 +131,8 @@ services:
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_kelp_pa",
           "--num_classes=2",
-          "--lr=0.001",
-          "--weight_decay=0.001",
+          "--lr=0.35",
+          "--weight_decay=3e-6",
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
           "--strategy=ddp",
@@ -169,9 +168,8 @@ services:
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=deeplab_kelp_pa",
           "--num_classes=2",
-          "--lr=0.001",
-          "--backbone_lr=0.0001",
-          "--weight_decay=0.001",
+          "--lr=0.35",
+          "--weight_decay=3e-6",
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
           "--strategy=ddp",
@@ -179,6 +177,42 @@ services:
           "--benchmark",
           "--sync_batchnorm",
           "--max_epochs=100",
+          "--batch_size=16",
+          "--precision=16",
+          "--log_every_n_steps=10",
+      ]
+
+  kelp-pa-train-unet:
+    image: hakaiinstitute/pytorch-lightning
+    build:
+      context: .
+      dockerfile: Dockerfile
+    tty: true
+    stdin_open: true
+    env_file: ".env"
+    volumes:
+      - "/data/presence/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
+    ipc: host
+    deploy: *default-deploy
+    command:
+      [
+          "python",
+          "lit_unet.py",
+          "train",
+          "/data",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
+          "--name=unet_kelp_pa",
+          "--num_classes=2",
+          "--lr=0.35",
+          "--weight_decay=3e-6",
+          "--gradient_clip_val=0.5",
+          "--accelerator=gpu",
+          "--strategy=ddp",
+          "--gpus=-1",
+          "--benchmark",
+          "--sync_batchnorm",
+          "--max_epochs=200",
           "--batch_size=16",
           "--precision=16",
           "--log_every_n_steps=10",
@@ -208,7 +242,7 @@ services:
           "--num_classes=3",
           "--ignore_index=1",
           "--lr=0.0005",
-          "--weight_decay=0.001",
+          "--weight_decay=3e-6",
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
           "--strategy=ddp",
@@ -245,9 +279,8 @@ services:
           "--name=deeplab_kelp_species",
           "--num_classes=3",
           "--ignore_index=1",
-          "--lr=0.001",
-          "--backbone_lr=0.0001",
-          "--weight_decay=0.001",
+          "--lr=0.35",
+          "--weight_decay=3e-6",
           "--gradient_clip_val=0.5",
           "--pa_weights=/data/best-val_miou=0.9393-epoch=97-step=34789.pt",
           "--accelerator=gpu",

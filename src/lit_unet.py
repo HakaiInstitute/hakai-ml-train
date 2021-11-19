@@ -405,13 +405,13 @@ if __name__ == "__main__":
                 "--accelerator=gpu",
                 "--gpus=-1",
                 "--benchmark",
-                "--max_epochs=100",
+                "--max_epochs=200",
                 # "--swa_epochs_start=100",
                 "--batch_size=2",
                 "--overfit_batches=1",
-                "--log_every_n_steps=4",
+                # "--log_every_n_steps=4",
                 "--num_layers=5",
-                "--features_start=32",
+                "--features_start=48",
             ]
         )
     else:
