@@ -1,44 +1,68 @@
+# Created by: Taylor Denouden
+# Organization: Hakai Institute
+# Date: 2021-05-17
+# Description:
 import os
-from argparse import ArgumentParser
-from pathlib import Path
-
 import pytorch_lightning as pl
 import torch
-from kelp_data_module import KelpDataModule
-from pl_bolts.models.vision import UNet as UNet_Base
+from argparse import ArgumentParser
+from pathlib import Path
+from pl_bolts.models.vision import unet
 from pytorch_lightning.loggers import TensorBoardLogger
-from torchmetrics.functional import accuracy, iou
+from torchmetrics import Accuracy, IoU
+from typing import Any
 
-from utils.checkpoint import get_checkpoint
+from kelp_data_module import KelpDataModule
+from utils import callbacks as cb
 from utils.loss import FocalTverskyMetric
+from utils.mixins import GeoTiffPredictionMixin
 
 
-class UNet(pl.LightningModule):
+class UNet(GeoTiffPredictionMixin, pl.LightningModule):
     def __init__(self, hparams):
+        """hparams must be a dict of {weight_decay, lr, num_classes}"""
+        super().__init__()
         self.save_hyperparameters(hparams)
 
-        super().__init__()
-        self.model = UNet_Base(
-            hparams.num_classes,
-            hparams.input_channels,
-            hparams.num_layers,
-            hparams.features_start,
-            hparams.bilinear,
+        # Create model from pre-trained DeepLabv3
+        self.model = unet.UNet(
+            num_classes=self.hparams.num_classes,
+            num_layers=self.hparams.num_layers,
+            features_start=self.hparams.features_start,
+            bilinear=self.hparams.bilinear,
         )
+        self.model.requires_grad_(True)
 
         # Loss function
         self.focal_tversky_loss = FocalTverskyMetric(
-            self.hparams.num_classes, alpha=0.7, beta=0.3, gamma=4.0 / 3.0
+            self.hparams.num_classes,
+            alpha=0.7,
+            beta=0.3,
+            gamma=4.0 / 3.0,
+            ignore_index=self.hparams.get("ignore_index"),
+        )
+        self.accuracy_metric = Accuracy(ignore_index=self.hparams.get("ignore_index"))
+        self.iou_metric = IoU(
+            num_classes=self.hparams.num_classes,
+            reduction="none",
+            ignore_index=self.hparams.get("ignore_index"),
         )
 
     @property
-    def num_training_steps(self) -> int:
+    def example_input_array(self) -> Any:
+        return torch.rand(2, 3, 512, 512)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model.forward(x)
+
+    @property
+    def steps_per_epoch(self) -> int:
         """Total training steps inferred from datamodule and devices."""
         if self.trainer.max_steps != -1:
             return self.trainer.max_steps
 
         limit_batches = self.trainer.limit_train_batches
-        batches = len(self.train_dataloader())
+        batches = len(self.trainer.datamodule.train_dataloader())
         batches = (
             min(batches, limit_batches)
             if isinstance(limit_batches, int)
@@ -50,65 +74,59 @@ class UNet(pl.LightningModule):
             num_devices = max(num_devices, self.trainer.tpu_cores)
 
         effective_accum = self.trainer.accumulate_grad_batches * num_devices
-        return (batches // effective_accum) * self.trainer.max_epochs
-
-    @property
-    def steps_per_epoch(self) -> int:
-        return self.num_training_steps // self.trainer.max_epochs
+        return batches // effective_accum
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(
-            self.parameters(),
+        """Init optimizer and scheduler"""
+        optimizer = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, self.parameters()),
             lr=self.hparams.lr,
-            amsgrad=True,
             weight_decay=self.hparams.weight_decay,
         )
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.hparams.lr,
-            epochs=self.trainer.max_epochs,
-            steps_per_epoch=self.steps_per_epoch,
-        )
 
+        # return optimizer
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=self.hparams.lr,
+            steps_per_epoch=self.steps_per_epoch,
+            epochs=self.hparams.max_epochs,
+        )
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.model(x)
+        logits = self.model(x)
 
-        logits = y_hat
-        preds = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(preds, y)
+        probs = torch.softmax(logits, dim=1)
+        loss = self.focal_tversky_loss(probs, y)
 
         preds = logits.argmax(dim=1)
-        ious = iou(preds, y, num_classes=self.hparams.num_classes, reduction="none")
-        acc = accuracy(preds, y)
+        ious = self.iou_metric(preds, y)
+        acc = self.accuracy_metric(preds, y)
 
-        self.log("train_loss", loss, on_epoch=True)
-        self.log("train_miou", ious.mean(), on_epoch=True)
-        self.log("train_accuracy", acc, on_epoch=True)
+        self.log("train_loss", loss, on_epoch=True, sync_dist=True)
+        self.log("train_miou", ious.mean(), on_epoch=True, sync_dist=True)
+        self.log("train_accuracy", acc, on_epoch=True, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f"train_c{c}_iou", ious[c], on_epoch=True)
+            self.log(f"train_c{c}_iou", ious[c], on_epoch=True, sync_dist=True)
 
         return loss
 
     def val_test_step(self, batch, batch_idx, phase="val"):
         x, y = batch
-        y_hat = self.model(x)
+        logits = self.model(x)
 
-        logits = y_hat
         probs = torch.softmax(logits, dim=1)
         loss = self.focal_tversky_loss(probs, y)
 
         preds = logits.argmax(dim=1)
-        ious = iou(preds, y, num_classes=self.hparams.num_classes, reduction="none")
-        acc = accuracy(preds, y)
+        ious = self.iou_metric(preds, y)
+        acc = self.accuracy_metric(preds, y)
 
-        self.log(f"{phase}_loss", loss)
-        self.log(f"{phase}_miou", ious.mean())
-        self.log(f"{phase}_accuracy", acc)
+        self.log(f"{phase}_loss", loss, sync_dist=True)
+        self.log(f"{phase}_miou", ious.mean(), sync_dist=True)
+        self.log(f"{phase}_accuracy", acc, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f"{phase}_cls{c}_iou", ious[c])
+            self.log(f"{phase}_cls{c}_iou", ious[c], sync_dist=True)
 
         return loss
 
@@ -118,99 +136,283 @@ class UNet(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         return self.val_test_step(batch, batch_idx, phase="test")
 
+    @classmethod
+    def from_presence_absence_weights(cls, pt_weights_file, hparams):
+        raise NotImplementedError
+        # self = cls(hparams)
+        # weights = torch.load(pt_weights_file)
+        #
+        # # Remove trained weights for previous classifier output layers
+        # del weights["model.classifier.low_classifier.weight"]
+        # del weights["model.classifier.low_classifier.bias"]
+        # del weights["model.classifier.high_classifier.weight"]
+        # del weights["model.classifier.high_classifier.bias"]
+        #
+        # self.load_state_dict(weights, strict=False)
+        # return self
+
     @staticmethod
     def add_argparse_args(parser):
-        parser.add_argument("--num_classes", type=int, default=2)
-        parser.add_argument("--batch_size", type=int, default=32)
-        parser.add_argument("--lr", type=float, default=0.001)
-        parser.add_argument("--weight_decay", type=float, default=1e-4)
-        parser.add_argument("--num_workers", type=int, default=os.cpu_count())
+        group = parser.add_argument_group("UNet")
 
-        parser.add_argument("--input_channels", type=int, default=3)
-        parser.add_argument("--num_layers", type=int, default=5)
-        parser.add_argument("--features_start", type=int, default=64)
-        parser.add_argument("--bilinear", type=bool, default=False)
+        group.add_argument(
+            "--num_classes",
+            type=int,
+            default=2,
+            help="The number of image classes, including background.",
+        )
+        group.add_argument("--lr", type=float, default=0.001, help="the learning rate")
+        group.add_argument(
+            "--weight_decay",
+            type=float,
+            default=1e-3,
+            help="The weight decay factor for L2 regularization.",
+        )
+        group.add_argument(
+            "--ignore_index",
+            type=int,
+            default=None,
+            help="Label of any class to ignore.",
+        )
+
+        group.add_argument(
+            "--num_layers",
+            type=int,
+            default=5,
+            help="Number of layers in each side of U-net"
+        )
+        group.add_argument(
+            "--features_start",
+            type=int,
+            default=64,
+            help="Number of features in first layer"
+        )
+        group.add_argument(
+            "--bilinear",
+            dest="bilinear",
+            action="store_true",
+            help="Whether to use bilinear interpolation or transposed convolutions (default) for upsampling."
+        )
 
         return parser
 
 
-def cli_main():
-    parser = ArgumentParser()
-    parser.add_argument("mode", type=str, choices=["train", "pred"])
-
-    args = parser.parse_args()
-    if args.mode == "train":
-        train(parser)
-    elif args.mode == "pred":
-        pred(parser)
-
-
-def pred(parent_parser):
-    print("TODO: prediction")
-
-
-def train(parent_parser):
+def cli_main(argv=None):
     # ------------
     # args
     # ------------
-    parser = ArgumentParser(parents=parent_parser)
+    parser = ArgumentParser()
+    subparsers = parser.add_subparsers()
 
-    parser.add_argument("data_dir", type=str)
-    parser.add_argument("checkpoint_dir", type=str)
-    parser.add_argument("--name", type=str, default="")
+    parser_train = subparsers.add_parser(name="train", help="Train the model.")
+    parser_train.add_argument(
+        "data_dir",
+        type=str,
+        help="The path to a data directory with subdirectories 'train' and "
+             "'eval', each with 'x' and 'y' subdirectories containing image "
+             "crops and labels, respectively.",
+    )
+    parser_train.add_argument(
+        "checkpoint_dir", type=str, help="The path to save training outputs"
+    )
+    parser_train.add_argument(
+        "--initial_weights_ckpt",
+        type=str,
+        help="Path to checkpoint file to load as initial model weights",
+    )
+    parser_train.add_argument(
+        "--initial_weights",
+        type=str,
+        help="Path to pytorch weights to load as initial model weights",
+    )
+    parser_train.add_argument(
+        "--pa_weights",
+        type=str,
+        help="Presence/Absence model weights to use as initial model weights",
+    )
+    parser_train.add_argument(
+        "--name",
+        type=str,
+        default="",
+        help="Identifier used when creating files and directories for this training run.",
+    )
+    parser_train.add_argument(
+        "--swa_epoch_start",
+        type=int,
+        default=75,
+        help="The epoch at which to start the stochastic weight averaging procedure."
+    )
 
-    parser = UNet.add_argparse_args(parser)
-    parser = pl.Trainer.add_argparse_args(parser)
-    args = parser.parse_args()
+    parser_train = KelpDataModule.add_argparse_args(parser_train)
+    parser_train = UNet.add_argparse_args(parser_train)
+    parser_train = pl.Trainer.add_argparse_args(parser_train)
+    parser_train.set_defaults(func=train)
 
+    parser_pred = subparsers.add_parser(
+        name="pred", help="Predict kelp presence in an image."
+    )
+    parser_pred.add_argument(
+        "seg_in",
+        type=str,
+        help="Path to a *.tif image to do segmentation on in pred mode.",
+    )
+    parser_pred.add_argument(
+        "seg_out",
+        type=str,
+        help="Path to desired output *.tif created by the model in pred mode.",
+    )
+    parser_pred.add_argument(
+        "weights",
+        type=str,
+        help="Path to a model weights file (*.pt). Required for eval and pred " "mode.",
+    )
+    parser_pred.add_argument(
+        "--batch_size", type=int, default=2, help="The batch size per GPU (default 2)."
+    )
+    parser_pred.add_argument(
+        "--crop_pad",
+        type=int,
+        default=128,
+        help="The amount of padding added for classification context to each "
+             "image crop. The output classification on this crop area is not "
+             "output by the model but will influence the classification of "
+             "the area in the (crop_size x crop_size) window "
+             "(defaults to 128).",
+    )
+    parser_pred.add_argument(
+        "--crop_size",
+        type=int,
+        default=512,
+        help="The crop size in pixels for processing the image. Defines the "
+             "length and width of the individual sections the input .tif "
+             "image is cropped to for processing (default 512).",
+    )
+    parser_pred = UNet.add_argparse_args(parser_pred)
+    parser_pred.set_defaults(func=pred)
+
+    args = parser.parse_args(argv)
+    args.func(args)
+
+
+def pred(args):
+    seg_in, seg_out = Path(args.seg_in), Path(args.seg_out)
+    seg_out.parent.mkdir(parents=True, exist_ok=True)
+
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+    # ------------
+    # model
+    # ------------
+    print("Loading model:", args.weights)
+    if Path(args.weights).suffix == "ckpt":
+        model = UNet.load_from_checkpoint(
+            args.weights,
+            batch_size=args.batch_size,
+            crop_size=args.crop_size,
+            padding=args.crop_pad,
+        )
+    else:  # Assumes .pt
+        model = UNet(args)
+        model.load_state_dict(torch.load(args.weights), strict=False)
+
+    model.freeze()
+    model = model.to(device)
+
+    # ------------
+    # inference
+    # ------------
+    model.predict_geotiff(str(seg_in), str(seg_out))
+
+
+def train(args):
     pl.seed_everything(0)
 
     # ------------
     # data
     # ------------
-    kelp_presence_data = KelpDataModule(args.data_dir, batch_size=args.batch_size)
+    kelp_data = KelpDataModule(
+        args.data_dir, num_classes=args.num_classes, batch_size=args.batch_size
+    )
 
     # ------------
     # model
     # ------------
-    # os.environ["TORCH_HOME"] = str(Path(args.checkpoint_dir).parent)
-    # if checkpoint := get_checkpoint(args.checkpoint_dir, args.name):
-    #     print("Loading checkpoint:", checkpoint)
-    #     model = UNet.load_from_checkpoint(checkpoint)
-    # else:
-    model = UNet(args)
+    if args.initial_weights_ckpt:
+        print("Loading initial weights ckpt:", args.initial_weights_ckpt)
+        model = UNet.load_from_checkpoint(args.initial_weights_ckpt)
+    elif args.pa_weights:
+        print("Loading presence/absence weights:", args.pa_weights)
+        model = UNet.from_presence_absence_weights(
+            args.pa_weights, args
+        )
+    else:
+        model = UNet(args)
+
+    if args.initial_weights:
+        print("Loading initial weights:", args.initial_weights)
+        model.load_state_dict(torch.load(args.initial_weights))
+
+    # ------------
+    # callbacks
+    # ------------
+    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name)
+    checkpoint_cb = pl.callbacks.ModelCheckpoint(
+        verbose=True,
+        monitor="val_miou",
+        mode="max",
+        filename="best-{val_miou:.4f}-{epoch}-{step}",
+        save_top_k=1,
+        save_last=True,
+    )
+    callbacks = [
+        # pl.callbacks.StochasticWeightAveraging(swa_epoch_start=args.swa_epoch_start),
+        pl.callbacks.LearningRateMonitor(),
+        checkpoint_cb,
+        cb.SaveBestStateDict(),
+        cb.SaveBestTorchscript(method='trace'),
+        cb.SaveBestOnnx(opset_version=11),
+    ]
 
     # ------------
     # training
     # ------------
-    logger = TensorBoardLogger(args.checkpoint_dir, name=args.name)
+    trainer = pl.Trainer.from_argparse_args(args, logger=logger_cb, callbacks=callbacks)
 
-    callbacks = [
-        pl.callbacks.LearningRateMonitor(),
-        pl.callbacks.ModelCheckpoint(
-            verbose=True,
-            monitor="val_miou",
-            mode="max",
-            prefix="best-val-miou",
-            save_top_k=1,
-            save_last=True,
-        ),
-    ]
-    if isinstance(args.gpus, int):
-        callbacks.append(pl.callbacks.DeviceStatsMonitor())
-
-    trainer = pl.Trainer.from_argparse_args(
-        args, logger=logger, callbacks=callbacks, resume_from_checkpoint=checkpoint
-    )
     # Tune params
-    # trainer.tune(model, datamodule=kelp_presence_data)
+    # trainer.tune(model, datamodule=kelp_data)
 
     # Training
-    trainer.fit(model, datamodule=kelp_presence_data)
+    trainer.fit(model, datamodule=kelp_data)
 
-    # Testing
-    trainer.test(datamodule=kelp_presence_data)
+    # Validation and Test stats
+    trainer.validate(model, datamodule=kelp_data, ckpt_path="best")
+    trainer.test(model, datamodule=kelp_data, ckpt_path="best")
 
 
 if __name__ == "__main__":
-    cli_main()
+    debug = os.getenv("DEBUG", False)
+    if debug:
+        cli_main(
+            [
+                "train",
+                "scripts/presence/train_input/data",
+                "scripts/presence/train_output/checkpoints",
+                "--name=UNET_TEST",
+                "--num_classes=2",
+                "--lr=0.35",
+                "--weight_decay=3e-6",
+                "--gradient_clip_val=0.5",
+                "--accelerator=gpu",
+                "--gpus=-1",
+                "--benchmark",
+                "--max_epochs=100",
+                # "--swa_epochs_start=100",
+                "--batch_size=2",
+                "--overfit_batches=1",
+                "--log_every_n_steps=4",
+                "--num_layers=5",
+                "--features_start=32",
+            ]
+        )
+    else:
+        cli_main()
