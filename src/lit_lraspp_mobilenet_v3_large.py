@@ -85,7 +85,7 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer, max_lr=self.hparams.lr,
             steps_per_epoch=self.steps_per_epoch,
-            epochs=self.max_epochs,
+            epochs=self.hparams.max_epochs,
         )
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
@@ -151,7 +151,7 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
 
     @staticmethod
     def add_argparse_args(parser):
-        group = parser.add_argument_group("L-RASPP-MobileNet-V3-Large")
+        group = parser.add_argument_group("LR-ASPP-MobileNet-V3-Large")
 
         group.add_argument(
             "--num_classes",

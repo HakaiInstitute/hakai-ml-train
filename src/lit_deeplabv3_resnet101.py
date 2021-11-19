@@ -96,7 +96,7 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer, max_lr=self.hparams.lr,
             steps_per_epoch=self.steps_per_epoch,
-            epochs=self.max_epochs,
+            epochs=self.hparams.max_epochs,
         )
 
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
