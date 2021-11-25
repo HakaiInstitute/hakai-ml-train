@@ -105,7 +105,7 @@ services:
           "--benchmark",
           "--sync_batchnorm",
           "--max_epochs=100",
-          "--batch_size=16",
+          "--batch_size=8",
           "--precision=16",
       ]
 
@@ -176,7 +176,7 @@ services:
           "--benchmark",
           "--sync_batchnorm",
           "--max_epochs=100",
-          "--batch_size=16",
+          "--batch_size=8",
           "--precision=16",
       ]
 
@@ -285,7 +285,7 @@ services:
           "--benchmark",
           "--sync_batchnorm",
           "--max_epochs=100",
-          "--batch_size=16",
+          "--batch_size=8",
           "--precision=16",
       ]
 
