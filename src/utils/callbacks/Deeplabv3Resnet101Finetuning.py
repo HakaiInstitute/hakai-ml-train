@@ -3,7 +3,7 @@ from torch.optim import Optimizer
 
 
 class Deeplabv3Resnet101Finetuning(pl.callbacks.BaseFinetuning):
-    def __init__(self, unfreeze_at_epoch=10, train_bn=True):
+    def __init__(self, unfreeze_at_epoch=10, train_bn=False):
         super().__init__()
         self._unfreeze_at_epoch = unfreeze_at_epoch
         self._train_bn = train_bn
@@ -16,10 +16,10 @@ class Deeplabv3Resnet101Finetuning(pl.callbacks.BaseFinetuning):
             opt_idx: int
     ) -> None:
         if epoch == self._unfreeze_at_epoch:
-            self.unfreeze_and_add_param_group(
-                modules=[pl_module.model.backbone.layer4, pl_module.model.backbone.layer3],
-                optimizer=optimizer,
-                train_bn=self._train_bn)
+            self.make_trainable([
+                    pl_module.model.backbone.layer4,
+                    pl_module.model.backbone.layer3
+                ]),
 
     @staticmethod
     def add_argparse_args(parser):

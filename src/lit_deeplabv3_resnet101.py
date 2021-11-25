@@ -3,16 +3,17 @@
 # Date: 2020-06-23
 # Description:
 import os
-import pytorch_lightning as pl
-import torch
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import Any
+
+import pytorch_lightning as pl
+import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchmetrics import Accuracy, IoU
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
-from typing import Any
 
 from kelp_data_module import KelpDataModule
 from utils import callbacks as cb
@@ -87,15 +88,20 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
 
     def configure_optimizers(self):
         """Init optimizer and scheduler"""
-        optimizer = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, self.parameters()),
+        optimizer = torch.optim.SGD([
+            {"params": self.model.aux_classifier.parameters()},
+            {"params": self.model.classifier.parameters()},
+            {"params": self.model.backbone.layer3.parameters(), "lr": self.hparams.lr / 10.0},
+            {"params": self.model.backbone.layer4.parameters(), "lr": self.hparams.lr / 10.0},
+        ],
             lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay,
         )
 
         # return optimizer
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr=self.hparams.lr,
+            optimizer,
+            max_lr=self.hparams.lr,
             steps_per_epoch=self.steps_per_epoch,
             epochs=self.hparams.max_epochs,
         )
