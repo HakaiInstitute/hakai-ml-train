@@ -45,7 +45,7 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/data/mussels/data:/data:ro"
+      - "/data/mussels/v2/data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -81,7 +81,7 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/data/mussels/data:/data:ro"
+      - "/data/mussels/v2/data:/data:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
