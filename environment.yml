@@ -1,27 +1,19 @@
-name: uav-classif
+name: hakai-ml-train
 channels:
   - conda-forge
   - defaults
 dependencies:
-#  - nvidia::cudatoolkit=11.1
-  - fire
-#  - gdal>=3.2
-  - loguru
+  - conda-forge::loguru
+  - conda-forge::pytorch-lightning>=1.5
+  - conda-forge::tensorboard
+  - conda-forge::torchmetrics
+  - conda-forge::tqdm
+  - nvidia::cudatoolkit=10.2
+  - python=3.9
+  - pytorch::pytorch>=1.10
+  - pytorch::torchaudio
+  - pytorch::torchvision
   - pip
-  - pyinstaller>=4.3
-  - python=3.8
-#  - pytorch-lightning
-#  - pytorch::pytorch>=1.8
-  - scikit-image
-  - scikit-learn
-  - tensorboard
-#  - pytorch::torchaudio
-#  - pytorch::torchvision>=0.9
-  - tqdm
   - pip:
     - geotiff_crop_dataset
-    - rasterio
-#    - lightning-bolts
-    - PySide2
-    - test_tube
-#    - torchmetrics
+    - lightning-bolts

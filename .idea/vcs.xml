@@ -13,5 +13,9 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/../geotiff-crop-dataset" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../hakai-ml-dataprep" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../hakai-ml-pred-api" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../hakai-ml-pred-gui" vcs="Git" />
+    <mapping directory="$USER_HOME$/WebstormProjects/hakai-ml-pred-web" vcs="Git" />
   </component>
 </project>

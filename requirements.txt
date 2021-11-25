@@ -1,9 +1,7 @@
 geotiff-crop-dataset
-pytorch-lightning
 lightning-bolts
-loguru
-rasterio
-tensorboard>=2.2.0, !=2.5.0
-test_tube
+pytorch-lightning
+s3fs
+tensorboard
 torchmetrics
-tqdm>=4.46
+tqdm

@@ -8,10 +8,5 @@
 *.tar
 *.gz
 **/lightning_logs
-**/train_input
-**/train_output
-**/raw_data
 data
-scripts
-gui
-data_prep
+checkpoints

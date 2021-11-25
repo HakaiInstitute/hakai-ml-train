@@ -1,0 +1,291 @@
+version: "3.9"
+
+# Default config to use all GPUs
+x-deploy: &default-deploy
+  replicas: 1
+  resources:
+#    limits:
+#      memory: 8G
+    reservations:
+      memory: 2G
+      devices:
+        - driver: nvidia
+          count: all
+          capabilities: [ gpu ]
+
+services:
+  tensorboard:
+    image: tensorflow/tensorflow:2.4.3
+    env_file: ".env"
+    ports:
+      - "0.0.0.0:6006:6006"
+    command: [
+        "tensorboard",
+        "--logdir=s3://hakai-deep-learning-datasets/checkpoints/",
+        "--host=0.0.0.0",
+        "--port=6006"
+    ]
+
+  nvitop:
+    image: hakaiinstitute/nvitop
+    build:
+      context: "https://github.com/Syllo/nvtop.git"
+      dockerfile: Dockerfile
+    tty: true
+    stdin_open: true
+    deploy: *default-deploy
+    pid: "host"
+
+  mussels-train-lraspp-mobilenetv3:
+    image: hakaiinstitute/pytorch-lightning
+    build:
+      context: .
+      dockerfile: Dockerfile
+    tty: true
+    stdin_open: true
+    env_file: ".env"
+    volumes:
+      - "/data/mussels/v2/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
+    ipc: host
+    deploy: *default-deploy
+    command:
+      [
+          "python",
+          "lit_lraspp_mobilenet_v3_large.py",
+          "train",
+          "/data",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
+          "--name=lr_aspp_mussels_v2",
+          "--num_classes=2",
+          "--lr=0.0003",
+          "--weight_decay=3e-6",
+          "--gradient_clip_val=0.5",
+          "--accelerator=gpu",
+          "--strategy=ddp",
+          "--gpus=-1",
+          "--benchmark",
+          "--sync_batchnorm",
+          "--max_epochs=100",
+          "--swa_epoch_start=75",
+          "--batch_size=16",
+          "--precision=16",
+      ]
+
+  mussels-train-deeplabv3-resnet101:
+    image: hakaiinstitute/pytorch-lightning
+    build:
+      context: .
+      dockerfile: Dockerfile
+    tty: true
+    stdin_open: true
+    env_file: ".env"
+    volumes:
+      - "/data/mussels/v2/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
+    ipc: host
+    deploy: *default-deploy
+    command:
+      [
+          "python",
+          "lit_deeplabv3_resnet101.py",
+          "train",
+          "/data",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
+          "--name=deeplab_mussels_v2",
+          "--num_classes=2",
+          "--lr=0.35",
+          "--weight_decay=3e-6",
+          "--gradient_clip_val=0.5",
+          "--accelerator=gpu",
+          "--strategy=ddp",
+          "--gpus=-1",
+          "--benchmark",
+          "--sync_batchnorm",
+          "--max_epochs=100",
+          "--batch_size=16",
+          "--precision=16",
+      ]
+
+  kelp-pa-train-lraspp-mobilenetv3:
+    image: hakaiinstitute/pytorch-lightning
+    build:
+      context: .
+      dockerfile: Dockerfile
+    tty: true
+    stdin_open: true
+    env_file: ".env"
+    volumes:
+      - "/data/presence/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
+    ipc: host
+    deploy: *default-deploy
+    command:
+      [
+          "python",
+          "lit_lraspp_mobilenet_v3_large.py",
+          "train",
+          "/data",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
+          "--name=lr_aspp_kelp_pa",
+          "--num_classes=2",
+          "--lr=0.35",
+          "--weight_decay=3e-6",
+          "--gradient_clip_val=0.5",
+          "--accelerator=gpu",
+          "--strategy=ddp",
+          "--gpus=-1",
+          "--benchmark",
+          "--sync_batchnorm",
+          "--max_epochs=100",
+          "--swa_epoch_start=75",
+          "--batch_size=16",
+          "--precision=16",
+      ]
+
+  kelp-pa-train-deeplabv3-resnet101:
+    image: hakaiinstitute/pytorch-lightning
+    build:
+      context: .
+      dockerfile: Dockerfile
+    tty: true
+    stdin_open: true
+    env_file: ".env"
+    volumes:
+      - "/data/presence/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
+    ipc: host
+    deploy: *default-deploy
+    command:
+      [
+          "python",
+          "lit_deeplabv3_resnet101.py",
+          "train",
+          "/data",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
+          "--name=deeplab_kelp_pa",
+          "--num_classes=2",
+          "--lr=0.35",
+          "--weight_decay=3e-6",
+          "--gradient_clip_val=0.5",
+          "--accelerator=gpu",
+          "--strategy=ddp",
+          "--gpus=-1",
+          "--benchmark",
+          "--sync_batchnorm",
+          "--max_epochs=100",
+          "--batch_size=16",
+          "--precision=16",
+      ]
+
+  kelp-pa-train-unet:
+    image: hakaiinstitute/pytorch-lightning
+    build:
+      context: .
+      dockerfile: Dockerfile
+    tty: true
+    stdin_open: true
+    env_file: ".env"
+    volumes:
+      - "/data/presence/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
+    ipc: host
+    deploy: *default-deploy
+    command:
+      [
+          "python",
+          "lit_unet.py",
+          "train",
+          "/data",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
+          "--name=unet_kelp_pa",
+          "--num_classes=2",
+          "--lr=0.35",
+          "--weight_decay=3e-6",
+          "--gradient_clip_val=0.5",
+          "--accelerator=gpu",
+          "--strategy=ddp",
+          "--gpus=-1",
+          "--benchmark",
+          "--sync_batchnorm",
+          "--max_epochs=100",
+          "--batch_size=8",
+          "--precision=16",
+      ]
+
+  kelp-species-train-lraspp-mobilenetv3:
+    image: hakaiinstitute/pytorch-lightning
+    build:
+      context: .
+      dockerfile: Dockerfile
+    tty: true
+    stdin_open: true
+    env_file: ".env"
+    volumes:
+      - "/data/species/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
+    ipc: host
+    deploy: *default-deploy
+    command:
+      [
+          "python",
+          "lit_lraspp_mobilenet_v3_large.py",
+          "train",
+          "/data",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
+          "--name=lr_aspp_kelp_species",
+          "--num_classes=3",
+          "--ignore_index=1",
+          "--lr=0.0005",
+          "--weight_decay=3e-6",
+          "--gradient_clip_val=0.5",
+          "--accelerator=gpu",
+          "--strategy=ddp",
+          "--gpus=-1",
+          "--benchmark",
+          "--sync_batchnorm",
+          "--max_epochs=100",
+          "--swa_epoch_start=75",
+          "--batch_size=16",
+          "--precision=16",
+      ]
+
+  kelp-species-train-deeplabv3-resnet101:
+    image: hakaiinstitute/pytorch-lightning
+    build:
+      context: .
+      dockerfile: Dockerfile
+    tty: true
+    stdin_open: true
+    env_file: ".env"
+    volumes:
+      - "/data/species/data:/data:ro"
+      - "torch_cache:/root/.cache/torch"
+    ipc: host
+    deploy: *default-deploy
+    command:
+      [
+          "python",
+          "lit_deeplabv3_resnet101.py",
+          "train",
+          "/data",
+          "s3a://hakai-deep-learning-datasets/checkpoints",
+          "--name=deeplab_kelp_species",
+          "--num_classes=3",
+          "--ignore_index=1",
+          "--lr=0.35",
+          "--weight_decay=3e-6",
+          "--gradient_clip_val=0.5",
+          "--pa_weights=/data/best-val_miou=0.9393-epoch=97-step=34789.pt",
+          "--accelerator=gpu",
+          "--strategy=ddp",
+          "--gpus=-1",
+          "--benchmark",
+          "--sync_batchnorm",
+          "--max_epochs=100",
+          "--batch_size=16",
+          "--precision=16",
+      ]
+
+volumes:
+  torch_cache:
