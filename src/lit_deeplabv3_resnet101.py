@@ -40,6 +40,7 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
 
         # Setup trainable layers
         self.model.requires_grad_(True)
+        self.model.backbone.requires_grad_(False)
 
         # Loss function and metrics
         self.focal_tversky_loss = FocalTverskyMetric(
