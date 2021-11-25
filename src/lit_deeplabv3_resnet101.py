@@ -89,10 +89,10 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
     def configure_optimizers(self):
         """Init optimizer and scheduler"""
         optimizer = torch.optim.SGD([
-            self.model.aux_classifier.parameters(),
-            self.model.classifier.parameters(),
-            self.model.backbone.layer3.parameters(),
-            self.model.backbone.layer4.parameters(),
+            {"params": self.model.aux_classifier.parameters(), "lr": self.hparams.lr},
+            {"params": self.model.classifier.parameters(), "lr": self.hparams.lr},
+            {"params": self.model.backbone.layer3.parameters(), "lr": self.hparams.lr / 10.0},
+            {"params": self.model.backbone.layer4.parameters(), "lr": self.hparams.lr / 10.0},
         ],
             lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay,
