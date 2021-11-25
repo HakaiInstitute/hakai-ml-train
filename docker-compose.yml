@@ -104,7 +104,7 @@ services:
           "--gpus=-1",
           "--benchmark",
           "--sync_batchnorm",
-          "--unfreeze_backbone_epoch=1",
+          "--unfreeze_backbone_epoch=0",
           "--train_backbone_bn",
           "--max_epochs=100",
           "--batch_size=8",
