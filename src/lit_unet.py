@@ -110,8 +110,8 @@ class UnetEfficientnet(GeoTiffPredictionMixin, pl.LightningModule):
             lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay,
         )
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.hparams.max_epochs)
+        return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
 
     def training_step(self, batch, batch_idx):
         x, y = batch
