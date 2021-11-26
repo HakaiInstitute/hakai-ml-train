@@ -10,7 +10,7 @@ from typing import Any
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
-from segmentation_models_pytorch import Unet
+from segmentation_models_pytorch import DeepLabV3Plus, Unet
 from torch.optim import Optimizer
 from torchmetrics import Accuracy, IoU
 
@@ -20,7 +20,7 @@ from utils.loss import FocalTverskyMetric
 from utils.mixins import GeoTiffPredictionMixin
 
 
-class UnetEfficientnetFinetuning(pl.callbacks.BaseFinetuning):
+class Deeplabv3PlusResnet101Finetuning(pl.callbacks.BaseFinetuning):
     def __init__(self, unfreeze_at_epoch=10, train_bn=False):
         super().__init__()
         self._unfreeze_at_epoch = unfreeze_at_epoch
@@ -40,7 +40,7 @@ class UnetEfficientnetFinetuning(pl.callbacks.BaseFinetuning):
 
     @staticmethod
     def add_argparse_args(parser):
-        group = parser.add_argument_group("UnetEfficientnetFinetuning")
+        group = parser.add_argument_group("Deeplabv3PlusResnet101Finetuning")
 
         group.add_argument(
             "--unfreeze_backbone_epoch",
@@ -65,9 +65,16 @@ class UnetEfficientnetFinetuning(pl.callbacks.BaseFinetuning):
         return parser
 
 
-class UnetEfficientnet(GeoTiffPredictionMixin, pl.LightningModule):
+class DeepLabv3PlusResnet101(GeoTiffPredictionMixin, pl.LightningModule):
     def __init__(self, hparams):
-        """hparams must be a dict of {weight_decay, lr, num_classes}"""
+        """hparams must be a dict of
+                    weight_decay
+                    lr
+                    unfreeze_backbone_epoch
+                    aux_loss_factor
+                    num_classes
+                    train_backbone_bn
+                """
         super().__init__()
         self.save_hyperparameters(hparams)
 
@@ -176,7 +183,7 @@ class UnetEfficientnet(GeoTiffPredictionMixin, pl.LightningModule):
 
     @staticmethod
     def add_argparse_args(parser):
-        group = parser.add_argument_group("UnetEfficientnet")
+        group = parser.add_argument_group("DeeplabV3Plus")
 
         group.add_argument(
             "--num_classes",
@@ -246,8 +253,8 @@ def cli_main(argv=None):
     )
 
     parser_train = KelpDataModule.add_argparse_args(parser_train)
-    parser_train = UnetEfficientnet.add_argparse_args(parser_train)
-    parser_train = UnetEfficientnetFinetuning.add_argparse_args(parser_train)
+    parser_train = DeepLabv3PlusResnet101.add_argparse_args(parser_train)
+    parser_train = Deeplabv3PlusResnet101Finetuning.add_argparse_args(parser_train)
     parser_train = pl.Trainer.add_argparse_args(parser_train)
     parser_train.set_defaults(func=train)
 
@@ -290,7 +297,7 @@ def cli_main(argv=None):
              "length and width of the individual sections the input .tif "
              "image is cropped to for processing (defaults 256).",
     )
-    parser_pred = UnetEfficientnet.add_argparse_args(parser_pred)
+    parser_pred = DeepLabv3PlusResnet101.add_argparse_args(parser_pred)
     parser_pred.set_defaults(func=pred)
 
     args = parser.parse_args(argv)
@@ -308,14 +315,14 @@ def pred(args):
     # ------------
     print("Loading model:", args.weights)
     if Path(args.weights).suffix == "ckpt":
-        model = UnetEfficientnet.load_from_checkpoint(
+        model = DeepLabv3PlusResnet101.load_from_checkpoint(
             args.weights,
             batch_size=args.batch_size,
             crop_size=args.crop_size,
             padding=args.crop_pad,
         )
     else:  # Assumes .pt
-        model = UnetEfficientnet(args)
+        model = DeepLabv3PlusResnet101(args)
         model.load_state_dict(torch.load(args.weights), strict=False)
 
     model.freeze()
@@ -347,7 +354,7 @@ def train(args):
     #     print("Loading presence/absence weights:", args.pa_weights)
     #     model = DeepLabv3PlusResNet101.from_presence_absence_weights(args.pa_weights, args)
     # else:
-    model = UnetEfficientnet(args)
+    model = DeepLabv3PlusResnet101(args)
 
     if args.initial_weights:
         print("Loading initial weights:", args.initial_weights)
@@ -366,13 +373,13 @@ def train(args):
         save_last=True,
     )
     callbacks = [
-        UnetEfficientnetFinetuning(unfreeze_at_epoch=args.unfreeze_backbone_epoch,
-                                   train_bn=args.train_backbone_bn),
+        Deeplabv3PlusResnet101Finetuning(unfreeze_at_epoch=args.unfreeze_backbone_epoch,
+                                         train_bn=args.train_backbone_bn),
         pl.callbacks.LearningRateMonitor(),
         checkpoint_cb,
         cb.SaveBestStateDict(),
-        # cb.SaveBestTorchscript(method='trace'),
-        # cb.SaveBestOnnx(opset_version=11),
+        cb.SaveBestTorchscript(method='trace'),
+        cb.SaveBestOnnx(opset_version=11),
     ]
 
     # ------------

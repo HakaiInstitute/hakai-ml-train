@@ -17,3 +17,4 @@ dependencies:
   - pip:
     - geotiff_crop_dataset
     - lightning-bolts
+    - segmentation-models-pytorch

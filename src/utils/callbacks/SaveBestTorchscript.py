@@ -14,8 +14,6 @@ class SaveBestTorchscript(pl.callbacks.Callback):
         self.example_inputs = example_inputs
         self.kwargs = kwargs
 
-
-
     def on_fit_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         if not trainer.checkpoint_callback:
             warnings.warn("SaveBestOnnx callback requires a checkpoint calback to be present")
