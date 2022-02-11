@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="Hal9000">
+  <component name="PublishConfigData">
     <serverData>
-      <paths name="Hal9000">
+      <paths name="taylor@10.10.1.13">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/taylor/Git/hakai-ml-dataprep" local="$PROJECT_DIR$/../hakai-ml-dataprep" />
+            <mapping deploy="/Git/hakai-ml-train" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/Git/geotiff-crop-dataset" local="$PROJECT_DIR$/../geotiff-crop-dataset" web="/" />
+            <mapping deploy="/Git/hakai-ml-pred-api" local="$PROJECT_DIR$/../hakai-ml-pred-api" web="/" />
+            <mapping deploy="/Git/hakai-ml-dataprep" local="$PROJECT_DIR$/../hakai-ml-dataprep" web="/" />
+            <mapping deploy="/Git/hakai-ml-pred-gui" local="$PROJECT_DIR$/../hakai-ml-pred-gui" web="/" />
+            <mapping deploy="/Git/hakai-ml-pred-web" local="$USER_HOME$/WebstormProjects/hakai-ml-pred-web" web="/" />
           </mappings>
-          <excludedPaths>
-            <excludedPath local="true" path="$PROJECT_DIR$/kelp/presence/train_output" />
-            <excludedPath path="/home/taylor/Git/uav-classif/kelp/presence/train_output" />
-          </excludedPaths>
         </serverdata>
       </paths>
     </serverData>
