@@ -130,10 +130,10 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
         acc = self.accuracy_metric(preds, y)
 
         self.log("train_loss", loss, on_epoch=True, sync_dist=True)
-        self.log("train_miou", ious.mean(), on_epoch=True, sync_dist=True)
+        self.log("train_miou", ious.mean(), on_epoch=True, sync_dist=True, prog_bar=True)
         self.log("train_accuracy", acc, on_epoch=True, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f"train_c{c}_iou", ious[c], on_epoch=True, sync_dist=True)
+            self.log(f"train_c{c}_iou", ious[c], on_epoch=True, sync_dist=True, prog_bar=True)
 
         return loss
 
