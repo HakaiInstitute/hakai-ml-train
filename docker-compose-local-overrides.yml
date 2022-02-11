@@ -1,17 +1,10 @@
 version: "3.9"
 
-# See https://github.com/NVIDIA/nvidia-docker/issues/1447
-x-devices: &default-devices
-  - /dev/nvidia0:/dev/nvidia0
-  - /dev/nvidia-modeset:/dev/nvidia-modeset
-  - /dev/nvidia-uvm:/dev/nvidia-uvm
-  - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
-  - /dev/nvidiactl:/dev/nvidiactl
-
 services:
   tensorboard:
     volumes:
       - "checkpoints:/checkpoints:ro"
+      - "./data:/data:ro"
     command: [
         "tensorboard",
         "--logdir=/checkpoints",
@@ -19,14 +12,11 @@ services:
         "--port=6006",
         "--load_fast=false",
     ]
-  nvitop:
-    devices: *default-devices
 
   mussels-train-lraspp-mobilenetv3:
     volumes:
-      - "./data/mussels:/data"
       - "checkpoints:/checkpoints"
-    devices: *default-devices
+      - "./data:/data:ro"
     command:
       [
           "python",
@@ -50,7 +40,7 @@ services:
   mussels-train-deeplabv3-resnet101:
     volumes:
       - "checkpoints:/checkpoints"
-    devices: *default-devices
+      - "./data:/data:ro"
     command:
       [
           "python",
@@ -78,13 +68,15 @@ services:
   kelp-pa-train-lraspp-mobilenetv3:
     volumes:
       - "checkpoints:/checkpoints"
-    devices: *default-devices
+      - "/mnt/Scratch/Taylor/ml/kelp_presence_data/Jan2022:/data:ro"
+    tty: true
+    stdin_open: true
     command:
       [
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "train",
-          "/data/kelp/May2020",
+          "/data",
           "/checkpoints",
           "--name=lr_aspp_kelp_pa",
           "--num_classes=2",
@@ -93,23 +85,22 @@ services:
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
           "--gpus=-1",
-#          "--benchmark",
-          "--max_epochs=100",
+          "--max_epochs=2",
           "--swa_epoch_start=75",
           "--batch_size=4",
-#          "--overfit_batches=10",
+          "--overfit_batches=100",
       ]
 
   kelp-pa-train-deeplabv3-resnet101:
     volumes:
       - "checkpoints:/checkpoints"
-    devices: *default-devices
+      - "/mnt/Scratch/Taylor/ml/kelp_presence_data/Jan2022:/data:ro"
     command:
       [
           "python",
           "lit_deeplabv3_resnet101.py",
           "train",
-          "/data/kelp/May2020",
+          "/data",
           "/checkpoints",
           "--name=deeplab_kelp_pa",
           "--num_classes=2",
@@ -130,7 +121,7 @@ services:
   kelp-species-train-lraspp-mobilenetv3:
     volumes:
       - "checkpoints:/checkpoints"
-    devices: *default-devices
+      - "./data:/data:ro"
     command:
       [
           "python",
@@ -156,7 +147,7 @@ services:
   kelp-species-train-deeplabv3-resnet101:
     volumes:
       - "checkpoints:/checkpoints"
-    devices: *default-devices
+      - "./data:/data:ro"
     command:
       [
           "python",
