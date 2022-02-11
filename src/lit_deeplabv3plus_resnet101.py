@@ -12,7 +12,7 @@ import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from segmentation_models_pytorch import DeepLabV3Plus, Unet
 from torch.optim import Optimizer
-from torchmetrics import Accuracy, IoU
+from torchmetrics import Accuracy, JaccardIndex
 
 from kelp_data_module import KelpDataModule
 from utils import callbacks as cb
@@ -97,7 +97,7 @@ class DeepLabv3PlusResnet101(GeoTiffPredictionMixin, pl.LightningModule):
             ignore_index=self.hparams.get("ignore_index"),
         )
         self.accuracy_metric = Accuracy(ignore_index=self.hparams.get("ignore_index"))
-        self.iou_metric = IoU(
+        self.iou_metric = JaccardIndex(
             num_classes=self.hparams.num_classes,
             reduction="none",
             ignore_index=self.hparams.get("ignore_index"),
@@ -378,8 +378,8 @@ def train(args):
         pl.callbacks.LearningRateMonitor(),
         checkpoint_cb,
         cb.SaveBestStateDict(),
-        cb.SaveBestTorchscript(method='trace'),
-        cb.SaveBestOnnx(opset_version=11),
+        # cb.SaveBestTorchscript(method='trace'),
+        # cb.SaveBestOnnx(opset_version=11),
     ]
 
     # ------------
@@ -410,7 +410,7 @@ if __name__ == "__main__":
                 "--lr=0.35",
                 "--weight_decay=3e-6",
                 "--gradient_clip_val=0.5",
-                "--max_epochs=100",
+                "--max_epochs=1",
                 "--batch_size=2",
                 "--log_every_n_steps=2",
                 '--overfit_batches=2',

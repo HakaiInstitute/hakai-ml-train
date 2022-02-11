@@ -8,7 +8,7 @@ import torch
 from argparse import ArgumentParser
 from pathlib import Path
 from pytorch_lightning.loggers import TensorBoardLogger
-from torchmetrics import Accuracy, IoU
+from torchmetrics import Accuracy, JaccardIndex
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 from typing import Any
 
@@ -39,7 +39,7 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
             ignore_index=self.hparams.get("ignore_index"),
         )
         self.accuracy_metric = Accuracy(ignore_index=self.hparams.get("ignore_index"))
-        self.iou_metric = IoU(
+        self.iou_metric = JaccardIndex(
             num_classes=self.hparams.num_classes,
             reduction="none",
             ignore_index=self.hparams.get("ignore_index"),

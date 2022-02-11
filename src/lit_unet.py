@@ -12,7 +12,7 @@ import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from segmentation_models_pytorch import Unet
 from torch.optim import Optimizer
-from torchmetrics import Accuracy, IoU
+from torchmetrics import Accuracy, JaccardIndex
 
 from kelp_data_module import KelpDataModule
 from utils import callbacks as cb
@@ -90,7 +90,7 @@ class UnetEfficientnet(GeoTiffPredictionMixin, pl.LightningModule):
             ignore_index=self.hparams.get("ignore_index"),
         )
         self.accuracy_metric = Accuracy(ignore_index=self.hparams.get("ignore_index"))
-        self.iou_metric = IoU(
+        self.iou_metric = JaccardIndex(
             num_classes=self.hparams.num_classes,
             reduction="none",
             ignore_index=self.hparams.get("ignore_index"),

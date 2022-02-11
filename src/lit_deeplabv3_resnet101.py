@@ -10,7 +10,7 @@ from typing import Any
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
-from torchmetrics import Accuracy, IoU
+from torchmetrics import Accuracy, JaccardIndex
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
@@ -52,7 +52,7 @@ class DeepLabv3ResNet101(GeoTiffPredictionMixin, pl.LightningModule):
             ignore_index=self.hparams.get("ignore_index"),
         )
         self.accuracy_metric = Accuracy(ignore_index=self.hparams.get("ignore_index"))
-        self.iou_metric = IoU(
+        self.iou_metric = JaccardIndex(
             num_classes=self.hparams.num_classes,
             reduction="none",
             ignore_index=self.hparams.get("ignore_index"),
