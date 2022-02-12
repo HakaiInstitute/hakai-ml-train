@@ -80,14 +80,8 @@ class LRASPPMobileNetV3Large(GeoTiffPredictionMixin, pl.LightningModule):
             lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay,
         )
-
-        # return optimizer
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr=self.hparams.lr,
-            steps_per_epoch=self.steps_per_epoch,
-            epochs=self.hparams.max_epochs,
-        )
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.hparams.max_epochs)
+        return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
 
     def training_step(self, batch, batch_idx):
         x, y = batch
