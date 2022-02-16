@@ -1,10 +1,9 @@
-from types import SimpleNamespace
-
 import numpy as np
 import torch
 import torchvision.transforms.functional as F
 from PIL import Image
 from torchvision import transforms as t
+from types import SimpleNamespace
 
 
 def _target_to_tensor_func(mask: np.ndarray) -> torch.Tensor:

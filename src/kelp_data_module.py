@@ -1,12 +1,10 @@
 import os
+import pytorch_lightning as pl
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import List, Optional, Union
-
-import pytorch_lightning as pl
-import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from torchvision import transforms as t
+from typing import List, Optional, Union
 
 from utils.datasets.SegmentationDataset import SegmentationDataset
 from utils.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
@@ -14,12 +12,12 @@ from utils.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tens
 
 class KelpDataModule(pl.LightningDataModule):
     def __init__(
-        self,
-        data_dir: str,
-        num_classes: int,
-        batch_size: int,
-        num_workers: int = os.cpu_count(),
-        pin_memory=True,
+            self,
+            data_dir: str,
+            num_classes: int,
+            batch_size: int,
+            num_workers: int = os.cpu_count(),
+            pin_memory=True,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -54,10 +52,10 @@ class KelpDataModule(pl.LightningDataModule):
             ]
         )
         self.test_trans = t.Compose(
-            [PadOut(512, 512), ImageClip(min_=0, max_=255), t.ToTensor(), normalize,]
+            [PadOut(512, 512), ImageClip(min_=0, max_=255), t.ToTensor(), normalize]
         )
         self.test_target_trans = t.Compose(
-            [PadOut(512, 512), target_to_tensor, Clamp(0, self.num_classes - 1),]
+            [PadOut(512, 512), target_to_tensor, Clamp(0, self.num_classes - 1)]
         )
 
     def prepare_data(self, *args, **kwargs):
@@ -115,7 +113,7 @@ class KelpDataModule(pl.LightningDataModule):
 
     @classmethod
     def add_argparse_args(
-        cls, parent_parser: ArgumentParser, **kwargs
+            cls, parent_parser: ArgumentParser, **kwargs
     ) -> ArgumentParser:
         parser = parent_parser.add_argument_group("KelpDataModule")
 
