@@ -7,6 +7,7 @@
       <w>chunksize</w>
       <w>ckpt</w>
       <w>classif</w>
+      <w>dtype</w>
       <w>finetune</w>
       <w>hpad</w>
       <w>jaccard</w>
