@@ -54,9 +54,9 @@ class DeepLabv3ResNet101(pl.LightningModule):
             ignore_index=self.ignore_index,
         )
         self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                          average='weighted', mdmc_average='samplewise')
+                                          average='weighted', mdmc_average='global')
         self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                    average='weighted', mdmc_average='samplewise')
+                                    average='weighted', mdmc_average='global')
 
     @property
     def example_input_array(self) -> Any:

@@ -36,8 +36,10 @@ class LawinnMiTB3(pl.LightningModule):
         self.accuracy_metric = Accuracy(ignore_index=self.ignore_index)
         self.iou_metric = JaccardIndex(num_classes=self.num_classes, reduction="none",
                                        ignore_index=self.ignore_index)
-        self.precision_metric = Precision(num_classes=self.num_classes, average='weighted', mdmc_average='samplewise', ignore_index=self.ignore_index)
-        self.recall_metric = Recall(num_classes=self.num_classes, average='weighted', mdmc_average='samplewise', ignore_index=self.ignore_index)
+        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                          average='weighted', mdmc_average='global')
+        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                    average='weighted', mdmc_average='global')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
@@ -192,7 +194,7 @@ def cli_main(argv=None):
         model = LawinnMiTB3.load_from_checkpoint(args.weights)
     else:
         model = LawinnMiTB3(num_classes=args.num_classes, ignore_index=args.ignore_index,
-                                       lr=args.lr, weight_decay=args.weight_decay)
+                            lr=args.lr, weight_decay=args.weight_decay)
     if args.weights and Path(args.weights).suffix == ".pt":
         print("Loading state_dict:", args.weights)
         model.load_state_dict(torch.load(args.weights), strict=False)

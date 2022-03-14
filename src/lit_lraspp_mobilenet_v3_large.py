@@ -37,9 +37,9 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         self.iou_metric = JaccardIndex(num_classes=self.num_classes, reduction="none",
                                        ignore_index=self.ignore_index)
         self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                          average='weighted', mdmc_average='samplewise')
+                                          average='weighted', mdmc_average='global')
         self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                    average='weighted', mdmc_average='samplewise')
+                                    average='weighted', mdmc_average='global')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)["out"]
