@@ -8,7 +8,7 @@ import torch
 from argparse import ArgumentParser
 from pathlib import Path
 from pytorch_lightning.loggers import TensorBoardLogger
-from torchmetrics import Accuracy, JaccardIndex
+from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
@@ -53,6 +53,10 @@ class DeepLabv3ResNet101(pl.LightningModule):
             reduction="none",
             ignore_index=self.ignore_index,
         )
+        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                          average='weighted', mdmc_average='samplewise')
+        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                    average='weighted', mdmc_average='samplewise')
 
     @property
     def example_input_array(self) -> Any:
@@ -143,15 +147,23 @@ class DeepLabv3ResNet101(pl.LightningModule):
 
         preds = logits.argmax(dim=1)
         ious = self.iou_metric(preds, y)
+        miou = ious.mean()
         acc = self.accuracy_metric(preds, y)
+        precision = self.precision_metric(preds, y)
+        recall = self.recall_metric(preds, y)
 
+        if phase == 'val':
+            self.log(f"hp_metric", miou)
         self.log(f"{phase}_loss", loss, sync_dist=True)
-        self.log(f"{phase}_miou", ious.mean(), sync_dist=True)
+        self.log(f"{phase}_miou", miou, sync_dist=True)
         self.log(f"{phase}_accuracy", acc, sync_dist=True)
+        self.log(f"{phase}_precision", precision, sync_dist=True)
+        self.log(f"{phase}_recall", recall, sync_dist=True)
         for c in range(len(ious)):
             self.log(f"{phase}_cls{c}_iou", ious[c], sync_dist=True)
 
         return loss
+
 
     def validation_step(self, batch, batch_idx):
         return self.val_test_step(batch, batch_idx, phase="val")
@@ -255,7 +267,7 @@ def cli_main(argv=None):
     # ------------
     # callbacks
     # ------------
-    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name)
+    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name, default_hp_metric=False)
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
         verbose=True,
         monitor="val_miou",

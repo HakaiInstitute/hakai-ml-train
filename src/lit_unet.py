@@ -12,8 +12,7 @@ import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from segmentation_models_pytorch import Unet
 from torch.optim import Optimizer
-from torchmetrics import Accuracy, JaccardIndex
-
+from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from kelp_data_module import KelpDataModule
 from utils import callbacks as cb
 from utils.loss import FocalTverskyMetric
@@ -95,6 +94,10 @@ class UnetEfficientnet(GeoTiffPredictionMixin, pl.LightningModule):
             reduction="none",
             ignore_index=self.hparams.get("ignore_index"),
         )
+        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                          average='weighted', mdmc_average='samplewise')
+        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                    average='weighted', mdmc_average='samplewise')
 
     @property
     def example_input_array(self) -> Any:
@@ -139,11 +142,18 @@ class UnetEfficientnet(GeoTiffPredictionMixin, pl.LightningModule):
 
         preds = logits.argmax(dim=1)
         ious = self.iou_metric(preds, y)
+        miou = ious.mean()
         acc = self.accuracy_metric(preds, y)
+        precision = self.precision_metric(preds, y)
+        recall = self.recall_metric(preds, y)
 
+        if phase == 'val':
+            self.log(f"hp_metric", miou)
         self.log(f"{phase}_loss", loss, sync_dist=True)
-        self.log(f"{phase}_miou", ious.mean(), sync_dist=True)
+        self.log(f"{phase}_miou", miou, sync_dist=True)
         self.log(f"{phase}_accuracy", acc, sync_dist=True)
+        self.log(f"{phase}_precision", precision, sync_dist=True)
+        self.log(f"{phase}_recall", recall, sync_dist=True)
         for c in range(len(ious)):
             self.log(f"{phase}_cls{c}_iou", ious[c], sync_dist=True)
 
@@ -356,7 +366,7 @@ def train(args):
     # ------------
     # callbacks
     # ------------
-    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name)
+    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name, default_hp_metric=False)
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
         verbose=True,
         monitor="val_miou",
