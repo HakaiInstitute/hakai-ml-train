@@ -1,7 +1,7 @@
 name: hakai-ml-train
 channels:
+  - pytorch
   - conda-forge
-  - defaults
 dependencies:
   - conda-forge::loguru
   - conda-forge::pytorch-lightning>=1.5
@@ -15,6 +15,8 @@ dependencies:
   - pytorch::torchvision
   - pip
   - pip:
-    - geotiff_crop_dataset
     - lightning-bolts
     - segmentation-models-pytorch
+    - git+https://github.com/sithu31296/semantic-segmentation
+dev-dependencies:
+  - conda-forge::pytest
