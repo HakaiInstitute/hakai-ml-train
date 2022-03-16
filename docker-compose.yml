@@ -174,7 +174,6 @@ services:
           "--benchmark",
           "--sync_batchnorm",
           "--max_epochs=100",
-          "--swa_epoch_start=75",
           "--batch_size=16",
           "--precision=16",
       ]
