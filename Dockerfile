@@ -11,6 +11,10 @@ RUN apt-get update && \
     apt-get install --assume-yes git && \
     pip install -r requirements.txt
 
+RUN git clone https://github.com/sithu31296/semantic-segmentation && \
+    cd semantic-segmentation && \
+    pip install -e .
+
 # Copy the code to the image
 COPY src .
 

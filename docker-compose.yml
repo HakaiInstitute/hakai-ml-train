@@ -143,7 +143,8 @@ services:
         "--batch_size=8",
         "--precision=16",
       ]
-  kelp-pa-train-lawinn-mitb3:
+
+  kelp-pa-train-lawinn-aspp:
     image: hakaiinstitute/pytorch-lightning
     build:
       context: .
@@ -162,7 +163,7 @@ services:
         "lit_lawinn_aspp.py",
         "/data",
         "s3a://hakai-deep-learning-datasets/checkpoints",
-        "--name=lawinn_mitb3_kelp_pa",
+        "--name=lawinn_mitb0_kelp_pa",
         "--num_classes=2",
         "--lr=0.35",
         "--weight_decay=3e-6",
@@ -174,7 +175,7 @@ services:
         "--sync_batchnorm",
         "--max_epochs=100",
 #        "--swa_epoch_start=75",
-        "--batch_size=16",
+        "--batch_size=8",
         "--precision=16",
       ]
 

@@ -18,7 +18,7 @@ from utils.loss import FocalTverskyMetric
 
 class LawinnASPP(pl.LightningModule):
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
-                 weight_decay: float = 3e-6, backbone='MiT-B3'):
+                 weight_decay: float = 3e-6, backbone='MiT-B0'):
         super().__init__()
         self.num_classes = num_classes
         self.ignore_index = ignore_index
@@ -28,7 +28,7 @@ class LawinnASPP(pl.LightningModule):
 
         # Create model from pre-trained DeepLabv3
         self.model = Lawin(backbone=self.backbone, num_classes=self.num_classes)
-        # self.model.requires_grad_(True)
+        self.model.requires_grad_(True)
 
         # Loss function
         self.focal_tversky_loss = FocalTverskyMetric(self.num_classes, alpha=0.7, beta=0.3,
