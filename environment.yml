@@ -17,6 +17,5 @@ dependencies:
   - pip:
     - lightning-bolts
     - segmentation-models-pytorch
-    - git+https://github.com/sithu31296/semantic-segmentation
 dev-dependencies:
   - conda-forge::pytest
