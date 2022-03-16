@@ -115,15 +115,14 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
     def configure_optimizers(self):
         """Init optimizer and scheduler"""
         optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
-                                    lr=self.lr, weight_decay=self.weight_decay, )
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
-                                                                  T_max=self.trainer.max_epochs)
+                                    lr=self.lr, weight_decay=self.weight_decay)
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.max_epochs)
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
 
     @classmethod
     def from_presence_absence_weights(cls, pt_weights_file, args):
-        self = cls(num_classes=args.num_classes, ignore_index=args.ignore_index, lr=args.lr,
-                   weight_decay=args.weight_decay)
+        self = cls(num_classes=args.num_classes, ignore_index=args.ignore_index,
+                   lr=args.lr, weight_decay=args.weight_decay)
         weights = torch.load(pt_weights_file)
 
         # Remove trained weights for previous classifier output layers
@@ -237,7 +236,7 @@ if __name__ == "__main__":
                   "--name=LR_ASPP", "--num_classes=2", "--lr=0.35", "--weight_decay=3e-6",
                   "--gradient_clip_val=0.5", "--accelerator=gpu", "--gpus=-1", "--benchmark",
                   "--max_epochs=10", "--batch_size=2",
-                  "--overfit_batches=2",
+                  "--overfit_batches=10",
                   ])
     else:
         cli_main()

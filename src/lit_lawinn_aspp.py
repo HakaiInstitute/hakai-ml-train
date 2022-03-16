@@ -16,17 +16,18 @@ from kelp_data_module import KelpDataModule
 from utils.loss import FocalTverskyMetric
 
 
-class LawinnMiTB3(pl.LightningModule):
+class LawinnASPP(pl.LightningModule):
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
-                 weight_decay: float = 3e-6):
+                 weight_decay: float = 3e-6, backbone='MiT-B3'):
         super().__init__()
         self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.lr = lr
         self.weight_decay = weight_decay
+        self.backbone = backbone
 
         # Create model from pre-trained DeepLabv3
-        self.model = Lawin(backbone='MiT-B3', num_classes=self.num_classes)
+        self.model = Lawin(backbone=self.backbone, num_classes=self.num_classes)
         # self.model.requires_grad_(True)
 
         # Loss function
@@ -173,7 +174,7 @@ def cli_main(argv=None):
     parser.add_argument("--test-only", action="store_true", help="Only run the test dataset")
 
     parser = KelpDataModule.add_argparse_args(parser)
-    parser = LawinnMiTB3.add_argparse_args(parser)
+    parser = LawinnASPP.add_argparse_args(parser)
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args(argv)
 
@@ -188,13 +189,13 @@ def cli_main(argv=None):
     # ------------
     if args.pa_weights:
         print("Loading presence/absence weights:", args.pa_weights)
-        model = LawinnMiTB3.from_presence_absence_weights(args.pa_weights, args)
+        model = LawinnASPP.from_presence_absence_weights(args.pa_weights, args)
     elif args.weights and Path(args.weights).suffix == ".ckpt":
         print("Loading checkpoint:", args.weights)
-        model = LawinnMiTB3.load_from_checkpoint(args.weights)
+        model = LawinnASPP.load_from_checkpoint(args.weights)
     else:
-        model = LawinnMiTB3(num_classes=args.num_classes, ignore_index=args.ignore_index,
-                            lr=args.lr, weight_decay=args.weight_decay)
+        model = LawinnASPP(num_classes=args.num_classes, ignore_index=args.ignore_index,
+                           lr=args.lr, weight_decay=args.weight_decay)
     if args.weights and Path(args.weights).suffix == ".pt":
         print("Loading state_dict:", args.weights)
         model.load_state_dict(torch.load(args.weights), strict=False)
