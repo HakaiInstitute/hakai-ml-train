@@ -114,8 +114,8 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
 
     def configure_optimizers(self):
         """Init optimizer and scheduler"""
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
-                                     lr=self.lr, weight_decay=self.weight_decay)
+        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
+                                    lr=self.lr, weight_decay=self.weight_decay, nesterov=True)
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.max_epochs)
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
 
