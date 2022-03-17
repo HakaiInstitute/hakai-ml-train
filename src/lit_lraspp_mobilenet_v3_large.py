@@ -27,7 +27,8 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
 
         # Create model from pre-trained DeepLabv3
         self.model = lraspp_mobilenet_v3_large(progress=True, num_classes=self.num_classes)
-        self.model.requires_grad_(True)
+        self.model.classifier.requires_grad_(True)
+        self.model.backbone.requires_grad_(False)
 
         # Loss function
         self.focal_tversky_loss = FocalTverskyMetric(self.num_classes, alpha=0.7, beta=0.3,
