@@ -11,6 +11,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 from typing import Any, Optional
+from pytorch_lightning.plugins import DDPPlugin
 
 from kelp_data_module import KelpDataModule
 from utils.loss import FocalTverskyMetric
@@ -213,7 +214,8 @@ def cli_main(argv=None):
     # ------------
     # training
     # ------------
-    trainer = pl.Trainer.from_argparse_args(args, logger=logger_cb, callbacks=callbacks)
+    trainer = pl.Trainer.from_argparse_args(args, plugins=DDPPlugin(find_unused_parameters=False),
+                                            logger=logger_cb, callbacks=callbacks)
     if args.test_only:
         with torch.no_grad():
             trainer.validate(model, datamodule=kelp_data)
