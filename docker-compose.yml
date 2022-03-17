@@ -154,6 +154,7 @@ services:
     env_file: ".env"
     volumes:
       - "/mnt/data/presence/data:/data:ro"
+      - "/mnt/data/presence/weights:/weights:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -165,7 +166,7 @@ services:
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_kelp_pa",
           "--num_classes=2",
-          "--weights=/data/best-val_miou=0.8023-epoch=18-step=17593.pt",
+          "--weights=/weights/best-val_miou=0.8023-epoch=18-step=17593.pt",
           "--lr=1e-4",
           "--weight_decay=3e-6",
           "--gradient_clip_val=0.5",
