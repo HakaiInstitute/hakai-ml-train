@@ -115,9 +115,10 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
     def configure_optimizers(self):
         """Init optimizer and scheduler"""
         optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
-                                    lr=self.lr, weight_decay=self.weight_decay, nesterov=True)
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.max_epochs)
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
+                                    lr=self.lr, weight_decay=self.weight_decay)
+        return optimizer
+        # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.max_epochs)
+        # return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
 
     @classmethod
     def from_presence_absence_weights(cls, pt_weights_file, args):
@@ -203,7 +204,7 @@ def cli_main(argv=None):
     # ------------
     # callbacks
     # ------------
-    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name, default_hp_metric=False)
+    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name)
     checkpoint_cb = pl.callbacks.ModelCheckpoint(verbose=True, monitor="val_miou", mode="max",
                                                  filename="best-{val_miou:.4f}-{epoch}-{step}", save_top_k=1, save_last=True, )
     callbacks = [  # pl.callbacks.StochasticWeightAveraging(swa_epoch_start=args.swa_epoch_start),
@@ -232,11 +233,11 @@ if __name__ == "__main__":
         cli_main(["data/kelp_pa/Feb2022",
                   "checkpoints/kelp_pa",
                   # "--test-only",
-                  # "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/last.ckpt",
-                  "--name=LR_ASPP", "--num_classes=2", "--lr=0.35", "--weight_decay=3e-6",
+                  "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/best-val_miou=0.8023-epoch=18-step=17593.pt",
+                  "--name=LRASPP_DEV", "--num_classes=2", "--lr=3e-5", "--weight_decay=3e-6",
                   "--gradient_clip_val=0.5", "--accelerator=gpu", "--gpus=-1", "--benchmark",
                   "--max_epochs=10", "--batch_size=2",
-                  "--overfit_batches=10",
+                  # "--overfit_batches=10",
                   ])
     else:
         cli_main()

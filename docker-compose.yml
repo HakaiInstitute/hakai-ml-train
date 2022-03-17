@@ -165,7 +165,8 @@ services:
           "s3a://hakai-deep-learning-datasets/checkpoints",
           "--name=lr_aspp_kelp_pa",
           "--num_classes=2",
-          "--lr=0.35",
+          "--weights=/data/best-val_miou=0.8023-epoch=18-step=17593.pt",
+          "--lr=1e-4",
           "--weight_decay=3e-6",
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
@@ -173,7 +174,7 @@ services:
           "--gpus=-1",
           "--benchmark",
           "--sync_batchnorm",
-          "--max_epochs=100",
+          "--max_epochs=10",
           "--batch_size=16",
           "--precision=16",
       ]
