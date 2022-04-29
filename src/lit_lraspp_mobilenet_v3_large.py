@@ -3,14 +3,15 @@
 # Date: 2021-05-17
 # Description:
 import os
-import pytorch_lightning as pl
-import torch
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import Any, Optional
+
+import pytorch_lightning as pl
+import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
-from typing import Any, Optional
 
 from kelp_data_module import KelpDataModule
 from utils.loss import FocalTverskyMetric
@@ -87,11 +88,13 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
 
         if phase == 'val':
             self.log(f"hp_metric", miou)
+
         self.log(f"{phase}_loss", loss, sync_dist=True)
         self.log(f"{phase}_miou", miou, sync_dist=True)
         self.log(f"{phase}_accuracy", acc, sync_dist=True)
         self.log(f"{phase}_precision", precision, sync_dist=True)
         self.log(f"{phase}_recall", recall, sync_dist=True)
+
         for c in range(len(ious)):
             self.log(f"{phase}_cls{c}_iou", ious[c], sync_dist=True)
 
@@ -115,7 +118,7 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
     def configure_optimizers(self):
         """Init optimizer and scheduler"""
         optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
-                                    lr=self.lr, weight_decay=self.weight_decay, nesterov=True)
+                                    lr=self.lr, weight_decay=self.weight_decay, nesterov=True, momentum=0.9)
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.max_epochs)
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
 
@@ -126,10 +129,11 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         weights = torch.load(pt_weights_file)
 
         # Remove trained weights for previous classifier output layers
-        del weights["model.classifier.low_classifier.weight"]
-        del weights["model.classifier.low_classifier.bias"]
-        del weights["model.classifier.high_classifier.weight"]
-        del weights["model.classifier.high_classifier.bias"]
+        if args.keep_pretrained_output_layers:
+            del weights["model.classifier.low_classifier.weight"]
+            del weights["model.classifier.low_classifier.bias"]
+            del weights["model.classifier.high_classifier.weight"]
+            del weights["model.classifier.high_classifier.bias"]
 
         self.load_state_dict(weights, strict=False)
         return self
@@ -144,6 +148,8 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         group.add_argument("--weight_decay", type=float, default=1e-3,
                            help="The weight decay factor for L2 regularization.")
         group.add_argument("--ignore_index", type=int, default=None,
+                           help="Label of any class to ignore.")
+        group.add_argument("--keep_pretrained_output_layers", action="store_true", default=False,
                            help="Label of any class to ignore.")
         return parser
 
@@ -204,10 +210,20 @@ def cli_main(argv=None):
     # callbacks
     # ------------
     logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name, default_hp_metric=False)
-    checkpoint_cb = pl.callbacks.ModelCheckpoint(verbose=True, monitor="val_miou", mode="max",
-                                                 filename="best-{val_miou:.4f}-{epoch}-{step}", save_top_k=1, save_last=True, )
-    callbacks = [  # pl.callbacks.StochasticWeightAveraging(swa_epoch_start=args.swa_epoch_start),
-        pl.callbacks.LearningRateMonitor(), checkpoint_cb, ]
+    checkpoint_cb = pl.callbacks.ModelCheckpoint(
+        verbose=True,
+        monitor="val_miou", mode="max",
+        filename="best-{val_miou:.4f}-{epoch}-{step}",
+        save_top_k=1, save_last=True,
+        save_on_train_epoch_end=False,
+        every_n_epochs=1,
+    )
+
+    callbacks = [
+        # pl.callbacks.StochasticWeightAveraging(swa_epoch_start=args.swa_epoch_start),
+        pl.callbacks.LearningRateMonitor(),
+        checkpoint_cb
+    ]
 
     # ------------
     # training
@@ -222,21 +238,28 @@ def cli_main(argv=None):
         trainer.test(model, datamodule=kelp_data, ckpt_path="best")
 
 
-def train():
-    pass
+# def train():
+#     pass
 
 
 if __name__ == "__main__":
     debug = os.getenv("DEBUG", False)
     if debug:
-        cli_main(["data/kelp_pa/Feb2022",
-                  "checkpoints/kelp_pa",
-                  # "--test-only",
-                  # "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/last.ckpt",
-                  "--name=LR_ASPP", "--num_classes=2", "--lr=0.35", "--weight_decay=3e-6",
-                  "--gradient_clip_val=0.5", "--accelerator=gpu", "--gpus=-1", "--benchmark",
-                  "--max_epochs=10", "--batch_size=2",
-                  "--overfit_batches=10",
-                  ])
+        cli_main([
+            "data/kelp_pa/Feb2022",
+            "checkpoints/kelp_pa",
+            # "--test-only",
+            "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/"
+            "best-val_miou=0.8023-epoch=18-step=17593.pt",
+            "--name=LR_ASPP_ACO_DEV", "--num_classes=2", "--lr=0.00035", "--weight_decay=3e-6",
+            "--gradient_clip_val=0.5",
+            "--accelerator=gpu", "--gpus=-1", "--benchmark",
+            "--keep_pretrained_output_layers",
+            "--max_epochs=10", "--batch_size=2",
+            '--limit_train_batches=10',
+            "--limit_val_batches=10",
+            "--limit_test_batches=10",
+            "--log_every_n_steps=5",
+        ])
     else:
         cli_main()

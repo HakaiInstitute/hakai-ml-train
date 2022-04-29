@@ -2,9 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/../hakai-ml-dataprep/.idea/hakai-ml-dataprep.iml" filepath="$PROJECT_DIR$/../hakai-ml-dataprep/.idea/hakai-ml-dataprep.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/hakai-ml-train.iml" filepath="$PROJECT_DIR$/.idea/hakai-ml-train.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../hakai-segmentation/.idea/hakai-segmentation.iml" filepath="$PROJECT_DIR$/../hakai-segmentation/.idea/hakai-segmentation.iml" />
     </modules>
   </component>
 </project>

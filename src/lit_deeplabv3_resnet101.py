@@ -3,16 +3,17 @@
 # Date: 2020-06-23
 # Description:
 import os
-import pytorch_lightning as pl
-import torch
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import Any, Optional
+
+import pytorch_lightning as pl
+import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 from torchvision.models.segmentation.fcn import FCNHead
-from typing import Any, Optional
 
 from kelp_data_module import KelpDataModule
 from utils import callbacks as cb
@@ -164,7 +165,6 @@ class DeepLabv3ResNet101(pl.LightningModule):
 
         return loss
 
-
     def validation_step(self, batch, batch_idx):
         return self.val_test_step(batch, batch_idx, phase="val")
 
@@ -270,12 +270,13 @@ def cli_main(argv=None):
     logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name, default_hp_metric=False)
     checkpoint_cb = pl.callbacks.ModelCheckpoint(
         verbose=True,
-        monitor="val_miou",
-        mode="max",
+        monitor="val_miou", mode="max",
         filename="best-{val_miou:.4f}-{epoch}-{step}",
-        save_top_k=1,
-        save_last=True,
+        save_top_k=1, save_last=True,
+        save_on_train_epoch_end=False,
+        every_n_epochs=1,
     )
+
     callbacks = [
         cb.Deeplabv3Resnet101Finetuning(unfreeze_at_epoch=args.unfreeze_backbone_epoch,
                                         train_bn=args.train_backbone_bn),
