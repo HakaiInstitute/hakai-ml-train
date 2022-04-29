@@ -13,7 +13,6 @@ dependencies:
   - pytorch::pytorch>=1.11
   - pytorch::torchaudio
   - pytorch::torchvision
-  - huggingface::transformers
   - pip
   - pip:
     - lightning-bolts
