@@ -187,7 +187,7 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/presence/data:/data:ro"
+      - "/mnt/data/presence/data/Apr2022ACO:/data:ro"
       - "/mnt/data/presence/weights:/weights:ro"
       - "torch_cache:/root/.cache/torch"
     ipc: host
