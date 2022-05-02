@@ -19,7 +19,7 @@ from utils.loss import FocalTverskyMetric
 
 class LRASPPMobileNetV3Large(pl.LightningModule):
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
-                 weight_decay: float = 3e-6):
+                 weight_decay: float = 0):
         super().__init__()
         self.num_classes = num_classes
         self.ignore_index = ignore_index
@@ -145,7 +145,7 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         group.add_argument("--num_classes", type=int, default=2,
                            help="The number of image classes, including background.")
         group.add_argument("--lr", type=float, default=0.001, help="the learning rate")
-        group.add_argument("--weight_decay", type=float, default=1e-3,
+        group.add_argument("--weight_decay", type=float, default=0,
                            help="The weight decay factor for L2 regularization.")
         group.add_argument("--ignore_index", type=int, default=None,
                            help="Label of any class to ignore.")
@@ -174,9 +174,12 @@ def cli_main(argv=None):
     parser.add_argument("--name", type=str, default="",
                         help="Identifier used when creating files and directories for this "
                              "training run.")
-    # parser.add_argument("--swa_epoch_start", type=int, default=75,
-    #                     help="The epoch at which to start the stochastic weight averaging "
-    #                          "procedure.")
+    parser.add_argument("--swa_epoch_start", type=float,
+                        help="The epoch at which to start the stochastic weight averaging procedure.")
+    parser.add_argument("--swa_lrs", type=float, default=0.05,
+                        help="The lr to start the annealing procedure for stochastic weight averaging.")
+    parser.add_argument("--tune_lr", action='store_true', default=False,
+                        help="Flag to run the lr finder procedure before training.")
     parser.add_argument("--test-only", action="store_true", help="Only run the test dataset")
 
     parser = KelpDataModule.add_argparse_args(parser)
@@ -209,31 +212,38 @@ def cli_main(argv=None):
     # ------------
     # callbacks
     # ------------
-    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name, default_hp_metric=False)
-    checkpoint_cb = pl.callbacks.ModelCheckpoint(
-        verbose=True,
-        monitor="val_miou", mode="max",
-        filename="best-{val_miou:.4f}-{epoch}-{step}",
-        save_top_k=1, save_last=True,
-        save_on_train_epoch_end=False,
-        every_n_epochs=1,
-    )
-
     callbacks = [
-        # pl.callbacks.StochasticWeightAveraging(swa_epoch_start=args.swa_epoch_start),
         pl.callbacks.LearningRateMonitor(),
-        checkpoint_cb
+        pl.callbacks.ModelCheckpoint(
+            verbose=True,
+            monitor="val_miou", mode="max",
+            filename="best-{val_miou:.4f}-{epoch}-{step}",
+            save_top_k=1, save_last=True,
+            save_on_train_epoch_end=False,
+            every_n_epochs=1,
+        )
     ]
+
+    if args.swa_epoch_start:
+        callbacks.append(pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
 
     # ------------
     # training
     # ------------
-    trainer = pl.Trainer.from_argparse_args(args, logger=logger_cb, callbacks=callbacks)
+    tensorboard_logger = TensorBoardLogger(args.checkpoint_dir, name=args.name, default_hp_metric=False)
+
+    trainer = pl.Trainer.from_argparse_args(args, logger=tensorboard_logger, callbacks=callbacks)
     if args.test_only:
         with torch.no_grad():
             trainer.validate(model, datamodule=kelp_data)
             trainer.test(model, datamodule=kelp_data)
     else:
+        if args.tune_lr:
+            lr_finder = trainer.tuner.lr_find(model, datamodule=kelp_data, early_stop_threshold=None)
+            lr = lr_finder.suggestion()
+            print(f"Found lr: {lr}")
+            model.lr = lr
+
         trainer.fit(model, datamodule=kelp_data)
         trainer.test(model, datamodule=kelp_data, ckpt_path="best")
 
@@ -251,7 +261,8 @@ if __name__ == "__main__":
             # "--test-only",
             "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/"
             "best-val_miou=0.8023-epoch=18-step=17593.pt",
-            "--name=LR_ASPP_ACO_DEV", "--num_classes=2", "--lr=0.00035", "--weight_decay=3e-6",
+            "--name=LR_ASPP_ACO_DEV", "--num_classes=2", "--lr=0.00035",
+            "--weight_decay=3e-6",
             "--gradient_clip_val=0.5",
             "--accelerator=gpu", "--gpus=-1", "--benchmark",
             "--keep_pretrained_output_layers",
@@ -260,6 +271,8 @@ if __name__ == "__main__":
             "--limit_val_batches=10",
             "--limit_test_batches=10",
             "--log_every_n_steps=5",
+            "--tune_lr",
+            # "--swa_epoch_start=0.8"
         ])
     else:
         cli_main()
