@@ -151,7 +151,27 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
                            help="Label of any class to ignore.")
         group.add_argument("--keep_pretrained_output_layers", action="store_true", default=False,
                            help="Label of any class to ignore.")
+        group.add_argument("--backbone_finetuning_epoch", type=int, default=None,
+                           help="Set a value to unlock the epoch that the backbone network should be unfrozen."
+                                "Leave as None to train all layers from the start.")
         return parser
+
+
+class Finetuning(pl.callbacks.BaseFinetuning):
+    def __init__(self, unfreeze_at_epoch=30):
+        super().__init__()
+        self._unfreeze_at_epoch = unfreeze_at_epoch
+
+    def freeze_before_training(self, pl_module):
+        self.freeze(pl_module.model.backbone, train_bn=True)
+
+    def finetune_function(self, pl_module, current_epoch, optimizer, optimizer_idx):
+        if current_epoch == self._unfreeze_at_epoch:
+            self.unfreeze_and_add_param_group(
+                modules=pl_module.model.backbone,
+                optimizer=optimizer,
+                train_bn=False,
+            )
 
 
 def cli_main(argv=None):
@@ -224,6 +244,8 @@ def cli_main(argv=None):
         )
     ]
 
+    if args.backbone_finetuning_epoch is not None:
+        callbacks.append(Finetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
     if args.swa_epoch_start:
         callbacks.append(pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
 
@@ -261,7 +283,7 @@ if __name__ == "__main__":
             # "--test-only",
             "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/"
             "best-val_miou=0.8023-epoch=18-step=17593.pt",
-            "--name=LR_ASPP_ACO_DEV", "--num_classes=2", "--lr=0.00035",
+            "--name=LR_ASPP_ACO_DEV", "--num_classes=2", "--lr=0.0035",
             "--weight_decay=3e-6",
             "--gradient_clip_val=0.5",
             "--accelerator=gpu", "--gpus=-1", "--benchmark",
@@ -271,7 +293,7 @@ if __name__ == "__main__":
             "--limit_val_batches=10",
             "--limit_test_batches=10",
             "--log_every_n_steps=5",
-            "--tune_lr",
+            "--backbone_finetuning_epoch=5",
             # "--swa_epoch_start=0.8"
         ])
     else:
