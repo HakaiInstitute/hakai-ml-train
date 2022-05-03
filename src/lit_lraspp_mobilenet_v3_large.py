@@ -223,8 +223,8 @@ def train(config, args):
                 "accuracy": "val_accuracy",
                 "precision": "val_precision",
                 "recall": "val_recall",
-                "cls0_iou": "val_cl0_iou",
-                "cls1_iou": "val_cl1_iou"
+                "cls0_iou": "val_cls0_iou",
+                "cls1_iou": "val_cls1_iou"
             },
             on="validation_end"
         )
