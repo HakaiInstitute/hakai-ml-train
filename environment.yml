@@ -17,3 +17,4 @@ dependencies:
   - pip:
     - lightning-bolts
     - segmentation-models-pytorch
+    - "ray[tune]"

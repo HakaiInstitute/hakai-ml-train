@@ -10,6 +10,10 @@ from typing import Any, Optional
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
+from ray import tune
+from ray.tune import CLIReporter
+from ray.tune.integration.pytorch_lightning import TuneReportCallback
+from ray.tune.schedulers import ASHAScheduler
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 
@@ -173,6 +177,60 @@ class Finetuning(pl.callbacks.BaseFinetuning):
                 train_bn=False,
             )
 
+def train(config, args):
+    # ------------
+    # data
+    # ------------
+    kelp_data = KelpDataModule(args.data_dir, num_classes=args.num_classes,
+                               batch_size=config['batch_size'])
+
+    # ------------
+    # model
+    # ------------
+    if args.pa_weights:
+        print("Loading presence/absence weights:", args.pa_weights)
+        model = LRASPPMobileNetV3Large.from_presence_absence_weights(args.pa_weights, args)
+    elif args.weights and Path(args.weights).suffix == ".ckpt":
+        print("Loading checkpoint:", args.weights)
+        model = LRASPPMobileNetV3Large.load_from_checkpoint(args.weights)
+    else:
+        model = LRASPPMobileNetV3Large(num_classes=args.num_classes, ignore_index=args.ignore_index,
+                                       lr=config['lr'], weight_decay=config['weight_decay'])
+    if args.weights and Path(args.weights).suffix == ".pt":
+        print("Loading state_dict:", args.weights)
+        model.load_state_dict(torch.load(args.weights), strict=False)
+
+    # ------------
+    # callbacks
+    # ------------
+    callbacks = [
+        pl.callbacks.LearningRateMonitor(),
+        pl.callbacks.ModelCheckpoint(
+            verbose=True,
+            monitor="val_miou", mode="max",
+            filename="best-{val_miou:.4f}-{epoch}-{step}",
+            save_top_k=1, save_last=True,
+            save_on_train_epoch_end=False,
+            every_n_epochs=1,
+        ),
+        TuneReportCallback(
+            {"loss": "val_loss", "miou": "val_miou"},
+            on="validation_end"
+        )
+    ]
+
+    if args.backbone_finetuning_epoch is not None:
+        callbacks.append(Finetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
+    if args.swa_epoch_start:
+        callbacks.append(
+            pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
+
+    tensorboard_logger = TensorBoardLogger(save_dir=tune.get_trial_dir(), name="", version=".", default_hp_metric=False)
+
+    trainer = pl.Trainer.from_argparse_args(args, logger=tensorboard_logger,
+                                            callbacks=callbacks, enable_progress_bar=False)
+    trainer.fit(model, datamodule=kelp_data)
+
 
 def cli_main(argv=None):
     pl.seed_everything(0)
@@ -208,66 +266,53 @@ def cli_main(argv=None):
     args = parser.parse_args(argv)
 
     # ------------
-    # data
-    # ------------
-    kelp_data = KelpDataModule(args.data_dir, num_classes=args.num_classes,
-                               batch_size=args.batch_size)
-
-    # ------------
-    # model
-    # ------------
-    if args.pa_weights:
-        print("Loading presence/absence weights:", args.pa_weights)
-        model = LRASPPMobileNetV3Large.from_presence_absence_weights(args.pa_weights, args)
-    elif args.weights and Path(args.weights).suffix == ".ckpt":
-        print("Loading checkpoint:", args.weights)
-        model = LRASPPMobileNetV3Large.load_from_checkpoint(args.weights)
-    else:
-        model = LRASPPMobileNetV3Large(num_classes=args.num_classes, ignore_index=args.ignore_index,
-                                       lr=args.lr, weight_decay=args.weight_decay)
-    if args.weights and Path(args.weights).suffix == ".pt":
-        print("Loading state_dict:", args.weights)
-        model.load_state_dict(torch.load(args.weights), strict=False)
-
-    # ------------
-    # callbacks
-    # ------------
-    callbacks = [
-        pl.callbacks.LearningRateMonitor(),
-        pl.callbacks.ModelCheckpoint(
-            verbose=True,
-            monitor="val_miou", mode="max",
-            filename="best-{val_miou:.4f}-{epoch}-{step}",
-            save_top_k=1, save_last=True,
-            save_on_train_epoch_end=False,
-            every_n_epochs=1,
-        )
-    ]
-
-    if args.backbone_finetuning_epoch is not None:
-        callbacks.append(Finetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
-    if args.swa_epoch_start:
-        callbacks.append(pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
-
-    # ------------
     # training
     # ------------
-    tensorboard_logger = TensorBoardLogger(args.checkpoint_dir, name=args.name, default_hp_metric=False)
+    config = {
+        "lr": tune.loguniform(1e-4, 1e-1),
+        "weight_decay": tune.loguniform(1e-6, 1e-2),
+        "batch_size": tune.choice([2]),
+    }
+    scheduler = ASHAScheduler(
+        max_t=args.max_epochs,
+        grace_period=10,
+        reduction_factor=2
+    )
+    reporter = CLIReporter(
+        parameter_columns=["lr", "weight_decay", "batch_size"],
+        metric_columns=["loss", "miou", "training_iteration"],
+    )
 
-    trainer = pl.Trainer.from_argparse_args(args, logger=tensorboard_logger, callbacks=callbacks)
-    if args.test_only:
-        with torch.no_grad():
-            trainer.validate(model, datamodule=kelp_data)
-            trainer.test(model, datamodule=kelp_data)
-    else:
-        if args.tune_lr:
-            lr_finder = trainer.tuner.lr_find(model, datamodule=kelp_data, early_stop_threshold=None)
-            lr = lr_finder.suggestion()
-            print(f"Found lr: {lr}")
-            model.lr = lr
+    train_fn_with_parameters = tune.with_parameters(train, args=args)
 
-        trainer.fit(model, datamodule=kelp_data)
-        trainer.test(model, datamodule=kelp_data, ckpt_path="best")
+    analysis = tune.run(
+        train_fn_with_parameters,
+        resources_per_trial={ "cpu": 1, "gpu": 1},
+        metric="miou",
+        mode="max",
+        config=config,
+        num_samples=20,
+        scheduler=scheduler,
+        progress_reporter=reporter,
+        name="LR_ASPP_ACO",
+        local_dir=args.checkpoint_dir
+    )
+
+    print("Best hyperparameters found were: ", analysis.best_config)
+
+    # if args.test_only:
+    #     with torch.no_grad():
+    #         trainer.validate(model, datamodule=kelp_data)
+    #         trainer.test(model, datamodule=kelp_data)
+    # else:
+    #     if args.tune_lr:
+    #         lr_finder = trainer.tuner.lr_find(model, datamodule=kelp_data, early_stop_threshold=None)
+    #         lr = lr_finder.suggestion()
+    #         print(f"Found lr: {lr}")
+    #         model.lr = lr
+    #
+    #     trainer.fit(model, datamodule=kelp_data)
+    #     trainer.test(model, datamodule=kelp_data, ckpt_path="best")
 
 
 # def train():
@@ -278,8 +323,8 @@ if __name__ == "__main__":
     debug = os.getenv("DEBUG", False)
     if debug:
         cli_main([
-            "data/kelp_pa/Feb2022",
-            "checkpoints/kelp_pa",
+            "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_pa/Feb2022",
+            "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/",
             # "--test-only",
             "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/"
             "best-val_miou=0.8023-epoch=18-step=17593.pt",
@@ -288,10 +333,13 @@ if __name__ == "__main__":
             "--gradient_clip_val=0.5",
             "--benchmark",
             "--accelerator=gpu",
+            # "--accelerator=cpu",
             "--devices=auto",
-            "--strategy=ddp_find_unused_parameters_false",
+            # "--strategy=ddp_find_unused_parameters_false",
             "--keep_pretrained_output_layers",
-            "--max_epochs=10", "--batch_size=2",
+            "--max_epochs=10",
+            # "--batch_size=2",
+            # "--overfit_batches=10",
             '--limit_train_batches=10',
             "--limit_val_batches=10",
             "--limit_test_batches=10",
