@@ -284,7 +284,7 @@ def cli_main(argv=None):
     }
     scheduler = ASHAScheduler(
         max_t=args.max_epochs,
-        grace_period=10,
+        grace_period=3,
         reduction_factor=2
     )
     reporter = CLIReporter(
