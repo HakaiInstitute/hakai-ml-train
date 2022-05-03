@@ -123,7 +123,8 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         """Init optimizer and scheduler"""
         optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
                                     lr=self.lr, weight_decay=self.weight_decay, nesterov=True, momentum=0.9)
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr, total_steps=self.trainer.estimated_stepping_batches)
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr,
+                                                           total_steps=self.trainer.estimated_stepping_batches)
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     @classmethod
@@ -216,7 +217,15 @@ def train(config, args):
             every_n_epochs=1,
         ),
         TuneReportCallback(
-            {"loss": "val_loss", "miou": "val_miou"},
+            {
+                "loss": "val_loss",
+                "miou": "val_miou",
+                "accuracy": "val_accuracy",
+                "precision": "val_precision",
+                "recall": "val_recall",
+                "cls0_iou": "val_cl0_iou",
+                "cls1_iou": "val_cl1_iou"
+            },
             on="validation_end"
         )
     ]
@@ -229,8 +238,7 @@ def train(config, args):
 
     tensorboard_logger = TensorBoardLogger(save_dir=tune.get_trial_dir(), name="", version=".", default_hp_metric=False)
 
-    trainer = pl.Trainer.from_argparse_args(args, logger=tensorboard_logger,
-                                            callbacks=callbacks, enable_progress_bar=False)
+    trainer = pl.Trainer.from_argparse_args(args, logger=tensorboard_logger, callbacks=callbacks, enable_progress_bar=False)
     trainer.fit(model, datamodule=kelp_data)
 
 
