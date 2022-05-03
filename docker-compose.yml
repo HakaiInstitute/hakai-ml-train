@@ -19,11 +19,13 @@ services:
     env_file: ".env"
     tty: true
     stdin_open: true
+    volumes:
+      - "/mnt/data/presence/checkpoints:/checkpoints"
     ports:
-      - "0.0.0.0:6006:6006"
+      - "0.0.0.0:80:6006"
     command: [
         "tensorboard",
-        "--logdir=s3://hakai-deep-learning-datasets/checkpoints/",
+        "--logdir=/checkpoints/",
         "--host=0.0.0.0",
         "--port=6006"
     ]
@@ -189,6 +191,7 @@ services:
     volumes:
       - "/mnt/data/presence/data/Apr2022ACO:/data:ro"
       - "/mnt/data/presence/weights:/weights:ro"
+      - "/mnt/data/presence/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -197,7 +200,7 @@ services:
         "python",
         "lit_lraspp_mobilenet_v3_large.py",
         "/data",
-        "s3a://hakai-deep-learning-datasets/checkpoints",
+        "/checkpoints",
         "--name=lr_aspp_kelp_pa_aco",
         "--num_classes=2",
         "--weights=/weights/best-val_miou=0.8023-epoch=18-step=17593.pt",
@@ -208,7 +211,7 @@ services:
         "--gradient_clip_val=0.5",
         "--accelerator=gpu",
         "--devices=auto",
-        "--strategy=ddp_find_unused_parameters_false",
+        #"--strategy=ddp_find_unused_parameters_false",
         "--benchmark",
         "--sync_batchnorm",
         "--max_epochs=30",

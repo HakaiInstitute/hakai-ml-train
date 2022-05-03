@@ -124,7 +124,7 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
                                     lr=self.lr, weight_decay=self.weight_decay, nesterov=True, momentum=0.9)
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr, total_steps=self.trainer.estimated_stepping_batches)
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
+        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     @classmethod
     def from_presence_absence_weights(cls, pt_weights_file, args):
@@ -288,7 +288,7 @@ def cli_main(argv=None):
 
     analysis = tune.run(
         train_fn_with_parameters,
-        resources_per_trial={"cpu": 6, "gpu": 1},
+        resources_per_trial={"cpu": 8, "gpu": 1},
         metric="miou",
         mode="max",
         config=config,
