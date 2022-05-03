@@ -201,8 +201,7 @@ services:
         "--name=lr_aspp_kelp_pa_aco",
         "--num_classes=2",
         "--weights=/weights/best-val_miou=0.8023-epoch=18-step=17593.pt",
-        "--lr=0.035",
-        "--backbone_finetuning_epoch=20",
+        "--batch_size=16",
         "--limit_val_batches=0.2",
         "--keep_pretrained_output_layers",
         "--weight_decay=3e-5",
@@ -212,7 +211,7 @@ services:
         "--strategy=ddp_find_unused_parameters_false",
         "--benchmark",
         "--sync_batchnorm",
-        "--max_epochs=100",
+        "--max_epochs=30",
         "--batch_size=16",
         "--precision=16",
       ]

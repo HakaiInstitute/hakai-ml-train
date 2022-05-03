@@ -123,7 +123,7 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         """Init optimizer and scheduler"""
         optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
                                     lr=self.lr, weight_decay=self.weight_decay, nesterov=True, momentum=0.9)
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.max_epochs)
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr, total_steps=self.trainer.estimated_stepping_batches)
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
 
     @classmethod
@@ -177,12 +177,14 @@ class Finetuning(pl.callbacks.BaseFinetuning):
                 train_bn=False,
             )
 
+
 def train(config, args):
     # ------------
     # data
     # ------------
-    kelp_data = KelpDataModule(args.data_dir, num_classes=args.num_classes,
-                               batch_size=config['batch_size'])
+    kelp_data = KelpDataModule(args.data_dir,
+                               num_classes=args.num_classes,
+                               batch_size=args.batch_size)
 
     # ------------
     # model
@@ -271,7 +273,6 @@ def cli_main(argv=None):
     config = {
         "lr": tune.loguniform(1e-4, 1e-1),
         "weight_decay": tune.loguniform(1e-6, 1e-2),
-        "batch_size": tune.choice([2]),
     }
     scheduler = ASHAScheduler(
         max_t=args.max_epochs,
@@ -279,7 +280,7 @@ def cli_main(argv=None):
         reduction_factor=2
     )
     reporter = CLIReporter(
-        parameter_columns=["lr", "weight_decay", "batch_size"],
+        parameter_columns=["lr", "weight_decay"],
         metric_columns=["loss", "miou", "training_iteration"],
     )
 
@@ -287,14 +288,14 @@ def cli_main(argv=None):
 
     analysis = tune.run(
         train_fn_with_parameters,
-        resources_per_trial={ "cpu": 1, "gpu": 1},
+        resources_per_trial={"cpu": 6, "gpu": 1},
         metric="miou",
         mode="max",
         config=config,
         num_samples=20,
         scheduler=scheduler,
         progress_reporter=reporter,
-        name="LR_ASPP_ACO",
+        name=args.name,
         local_dir=args.checkpoint_dir
     )
 
@@ -344,7 +345,6 @@ if __name__ == "__main__":
             "--limit_val_batches=10",
             "--limit_test_batches=10",
             "--log_every_n_steps=5",
-            "--backbone_finetuning_epoch=5",
             # "--swa_epoch_start=0.8"
         ])
     else:
