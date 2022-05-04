@@ -7,8 +7,8 @@ WORKDIR /opt/code
 # Install dependancies
 COPY requirements.txt .
 RUN apt-get update && \
-    apt-get install --assume-yes git gcc rsync apt-utils && \
     apt-get upgrade --assume-yes && \
+    apt-get install --assume-yes git gcc rsync && \
     pip install -r requirements.txt
 
 # Copy the code to the image
