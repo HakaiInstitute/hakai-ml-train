@@ -206,15 +206,12 @@ services:
         "--weights=/weights/best-val_miou=0.8023-epoch=18-step=17593.pt",
         "--batch_size=16",
         "--keep_pretrained_output_layers",
-        "--weight_decay=3e-5",
         "--gradient_clip_val=0.5",
         "--accelerator=gpu",
         "--devices=auto",
         #"--strategy=ddp_find_unused_parameters_false",
-        "--benchmark",
         "--sync_batchnorm",
-        "--max_epochs=30",
-        "--batch_size=16",
+        "--max_epochs=20",
         "--precision=16",
       ]
 

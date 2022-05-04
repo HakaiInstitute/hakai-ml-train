@@ -6,3 +6,4 @@ tensorboard
 torchmetrics
 tqdm
 ray[tune]
+HEBO>=0.2.0

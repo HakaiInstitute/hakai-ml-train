@@ -14,6 +14,7 @@ from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.integration.pytorch_lightning import TuneReportCallback
 from ray.tune.schedulers import ASHAScheduler
+from ray.tune.suggest.hebo import HEBOSearch
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 
@@ -291,6 +292,7 @@ def cli_main(argv=None):
         parameter_columns=["lr", "weight_decay"],
         metric_columns=["loss", "miou", "training_iteration"],
     )
+    search_alg = HEBOSearch(metric="miou", mode="max")
 
     train_fn_with_parameters = tune.with_parameters(train, args=args)
 
@@ -300,6 +302,7 @@ def cli_main(argv=None):
         metric="miou",
         mode="max",
         config=config,
+        search_alg=search_alg,
         num_samples=20,
         scheduler=scheduler,
         progress_reporter=reporter,
@@ -332,8 +335,8 @@ if __name__ == "__main__":
     debug = os.getenv("DEBUG", False)
     if debug:
         cli_main([
-            "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_pa/Feb2022",
-            "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/",
+            "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_pa_aco",
+            "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa_aco/",
             # "--test-only",
             "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/"
             "best-val_miou=0.8023-epoch=18-step=17593.pt",
@@ -347,11 +350,11 @@ if __name__ == "__main__":
             # "--strategy=ddp_find_unused_parameters_false",
             "--keep_pretrained_output_layers",
             "--max_epochs=10",
-            # "--batch_size=2",
+            "--batch_size=2",
             # "--overfit_batches=10",
-            '--limit_train_batches=10',
-            "--limit_val_batches=10",
-            "--limit_test_batches=10",
+            # '--limit_train_batches=10',
+            # "--limit_val_batches=10",
+            # "--limit_test_batches=10",
             "--log_every_n_steps=5",
             # "--swa_epoch_start=0.8"
         ])

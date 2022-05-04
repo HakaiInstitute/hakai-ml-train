@@ -18,3 +18,4 @@ dependencies:
     - lightning-bolts
     - segmentation-models-pytorch
     - "ray[tune]"
+    - HEBO>=0.2.0
