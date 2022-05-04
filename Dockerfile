@@ -8,7 +8,7 @@ WORKDIR /opt/code
 COPY requirements.txt .
 RUN apt-get update && \
     apt-get upgrade --assume-yes && \
-    apt-get install --assume-yes git && \
+    apt-get install --assume-yes git gcc rsync && \
     pip install -r requirements.txt
 
 # Copy the code to the image
