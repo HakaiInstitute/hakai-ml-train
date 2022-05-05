@@ -12,7 +12,7 @@ import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from ray import tune
 from ray.tune import CLIReporter
-from ray.tune.integration.pytorch_lightning import TuneReportCallback
+from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
 from ray.tune.schedulers import ASHAScheduler
 from ray.tune.suggest.hebo import HEBOSearch
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
@@ -24,7 +24,7 @@ from utils.loss import FocalTverskyMetric
 
 class LRASPPMobileNetV3Large(pl.LightningModule):
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
-                 weight_decay: float = 0):
+                 weight_decay: float = 0, loss_alpha: float = 0.7, loss_gamma: float = 4.0 / 3.0):
         super().__init__()
         self.num_classes = num_classes
         self.ignore_index = ignore_index
@@ -36,9 +36,8 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         self.model.requires_grad_(True)
 
         # Loss function
-        self.focal_tversky_loss = FocalTverskyMetric(self.num_classes, alpha=0.7, beta=0.3,
-                                                     gamma=4.0 / 3.0,
-                                                     ignore_index=self.ignore_index)
+        self.focal_tversky_loss = FocalTverskyMetric(self.num_classes, ignore_index=self.ignore_index,
+                                                     alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
         self.accuracy_metric = Accuracy(ignore_index=self.ignore_index)
         self.iou_metric = JaccardIndex(num_classes=self.num_classes, reduction="none",
                                        ignore_index=self.ignore_index)
@@ -62,11 +61,11 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         ious = self.iou_metric(preds, y)
         acc = self.accuracy_metric(preds, y)
 
-        self.log("train_loss", loss, on_epoch=True, sync_dist=True)
-        self.log("train_miou", ious.mean(), on_epoch=True, sync_dist=True)
-        self.log("train_accuracy", acc, on_epoch=True, sync_dist=True)
+        self.log("train_loss", loss, sync_dist=True)
+        self.log("train_miou", ious.mean(), sync_dist=True)
+        self.log("train_accuracy", acc, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f"train_c{c}_iou", ious[c], on_epoch=True, sync_dist=True)
+            self.log(f"train_c{c}_iou", ious[c], sync_dist=True)
 
         return loss
 
@@ -180,7 +179,7 @@ class Finetuning(pl.callbacks.BaseFinetuning):
             )
 
 
-def train(config, args):
+def train(config, args, checkpoint_dir=None):
     # ------------
     # data
     # ------------
@@ -191,34 +190,33 @@ def train(config, args):
     # ------------
     # model
     # ------------
-    if args.pa_weights:
+    model = LRASPPMobileNetV3Large(
+        num_classes=args.num_classes,
+        ignore_index=args.ignore_index,
+        lr=config['lr'],
+        loss_alpha=config['alpha'],
+        # weight_decay=config['weight_decay'],
+        # loss_gamma=config['gamma']
+    )
+
+    if checkpoint_dir is not None:
+        pass
+    elif args.pa_weights:
         print("Loading presence/absence weights:", args.pa_weights)
         model = LRASPPMobileNetV3Large.from_presence_absence_weights(args.pa_weights, args)
+    elif args.weights and Path(args.weights).suffix == ".pt":
+        print("Loading state_dict:", args.weights)
+        model.load_state_dict(torch.load(args.weights), strict=False)
     elif args.weights and Path(args.weights).suffix == ".ckpt":
         print("Loading checkpoint:", args.weights)
         model = LRASPPMobileNetV3Large.load_from_checkpoint(args.weights)
-    else:
-        model = LRASPPMobileNetV3Large(num_classes=args.num_classes, ignore_index=args.ignore_index,
-                                       lr=config['lr'], weight_decay=config['weight_decay'])
-    if args.weights and Path(args.weights).suffix == ".pt":
-        print("Loading state_dict:", args.weights)
-        model.load_state_dict(torch.load(args.weights), strict=False)
 
     # ------------
     # callbacks
     # ------------
     callbacks = [
-        pl.callbacks.LearningRateMonitor(),
-        pl.callbacks.ModelCheckpoint(
-            verbose=True,
-            monitor="val_miou", mode="max",
-            filename="best-{val_miou:.4f}-{epoch}-{step}",
-            save_top_k=1, save_last=True,
-            save_on_train_epoch_end=False,
-            every_n_epochs=1,
-        ),
-        TuneReportCallback(
-            {
+        TuneReportCheckpointCallback(
+            metrics={
                 "loss": "val_loss",
                 "miou": "val_miou",
                 "accuracy": "val_accuracy",
@@ -227,8 +225,10 @@ def train(config, args):
                 "cls0_iou": "val_cls0_iou",
                 "cls1_iou": "val_cls1_iou"
             },
+            filename="checkpoint",
             on="validation_end"
-        )
+        ),
+        # pl.callbacks.LearningRateMonitor()
     ]
 
     if args.backbone_finetuning_epoch is not None:
@@ -239,7 +239,18 @@ def train(config, args):
 
     tensorboard_logger = TensorBoardLogger(save_dir=tune.get_trial_dir(), name="", version=".", default_hp_metric=False)
 
-    trainer = pl.Trainer.from_argparse_args(args, logger=tensorboard_logger, callbacks=callbacks, enable_progress_bar=False)
+    if checkpoint_dir is not None:
+        trainer = pl.Trainer.from_argparse_args(args,
+                                                resume_from_checkpoint=os.path.join(checkpoint_dir, "checkpoint"),
+                                                logger=tensorboard_logger,
+                                                callbacks=callbacks,
+                                                enable_progress_bar=False)
+    else:
+        trainer = pl.Trainer.from_argparse_args(args,
+                                                logger=tensorboard_logger,
+                                                callbacks=callbacks,
+                                                enable_progress_bar=False)
+
     trainer.fit(model, datamodule=kelp_data)
 
 
@@ -280,19 +291,27 @@ def cli_main(argv=None):
     # training
     # ------------
     config = {
-        "lr": tune.loguniform(1e-4, 1e-1),
-        "weight_decay": tune.loguniform(1e-6, 1e-2),
+        "alpha": tune.quniform(0.1, 0.9, 0.1),
+        # "gamma": tune.choice([4.0 / 3.0]),
+        "lr": tune.qloguniform(1e-5, 0.1, 1e-5),
+        # "weight_decay": tune.choice([0, 1e-5]),
     }
     scheduler = ASHAScheduler(
         max_t=args.max_epochs,
-        grace_period=3,
-        reduction_factor=2
+        grace_period=2,
+        reduction_factor=2,
+
     )
+    # scheduler = PopulationBasedTraining(
+    #     time_attr='time_total_s',
+    #     perturbation_interval=30.0,
+    #     # perturbation_interval=300.0,
+    #     hyperparam_mutations=config,
+    # )
     reporter = CLIReporter(
-        parameter_columns=["lr", "weight_decay"],
-        metric_columns=["loss", "miou", "training_iteration"],
+        parameter_columns=["lr", "alpha"],
+        metric_columns=["miou", "cls1_iou", "cls0_iou", "loss", "training_iteration"],
     )
-    search_alg = HEBOSearch(metric="miou", mode="max")
 
     train_fn_with_parameters = tune.with_parameters(train, args=args)
 
@@ -302,33 +321,35 @@ def cli_main(argv=None):
         metric="miou",
         mode="max",
         config=config,
-        search_alg=search_alg,
-        num_samples=20,
+        search_alg=HEBOSearch(),
+        num_samples=30,
         scheduler=scheduler,
         progress_reporter=reporter,
         name=args.name,
-        local_dir=args.checkpoint_dir
+        local_dir=args.checkpoint_dir,
     )
 
     print("Best hyperparameters found were: ", analysis.best_config)
+
+    torch.save(analysis, f"{args.checkpoint_dir}/analysis.pkl")
+    # with open(f"{args.checkpoint_dir}/analysis.pkl", "wb") as f:
+    #     pickle.dump(analysis, f)
+
+    checkpoint_path = os.path.join(analysis.best_checkpoint.local_path, "checkpoint")
+    checkpoint = torch.load(checkpoint_path)
+
+    save_path_name = Path(args.checkpoint_dir).joinpath(f"best-miou={analysis.best_result['miou']:.4f}")
+    torch.save(checkpoint, save_path_name.with_suffix(".ckpt"))
+    torch.save(checkpoint['state_dict'], save_path_name.with_suffix(".pt"))
+    analysis.best_result_df.to_csv(save_path_name.with_suffix(".csv"))
 
     # if args.test_only:
     #     with torch.no_grad():
     #         trainer.validate(model, datamodule=kelp_data)
     #         trainer.test(model, datamodule=kelp_data)
     # else:
-    #     if args.tune_lr:
-    #         lr_finder = trainer.tuner.lr_find(model, datamodule=kelp_data, early_stop_threshold=None)
-    #         lr = lr_finder.suggestion()
-    #         print(f"Found lr: {lr}")
-    #         model.lr = lr
-    #
     #     trainer.fit(model, datamodule=kelp_data)
     #     trainer.test(model, datamodule=kelp_data, ckpt_path="best")
-
-
-# def train():
-#     pass
 
 
 if __name__ == "__main__":
@@ -338,18 +359,20 @@ if __name__ == "__main__":
             "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_pa_aco",
             "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa_aco/",
             # "--test-only",
-            "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/"
+            "--keep_pretrained_output_layers",
+            "--pa_weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/"
             "best-val_miou=0.8023-epoch=18-step=17593.pt",
-            "--name=LR_ASPP_ACO_DEV", "--num_classes=2", "--lr=0.0035",
-            "--weight_decay=3e-6",
+            "--name=LR_ASPP_ACO_DEV",
+            "--num_classes=2",
+            # "--lr=0.0035",
+            # "--weight_decay=3e-6",
             "--gradient_clip_val=0.5",
-            "--benchmark",
             "--accelerator=gpu",
             # "--accelerator=cpu",
+            # "--backbone_finetuning_epoch=1",
             "--devices=auto",
             # "--strategy=ddp_find_unused_parameters_false",
-            "--keep_pretrained_output_layers",
-            "--max_epochs=10",
+            "--max_epochs=20",
             "--batch_size=2",
             # "--overfit_batches=10",
             # '--limit_train_batches=10',

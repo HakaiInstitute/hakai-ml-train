@@ -3,19 +3,21 @@ channels:
   - pytorch
   - conda-forge
 dependencies:
+  - python=3.9
   - conda-forge::loguru
+  - conda-forge::jupyter
   - conda-forge::pytorch-lightning>=1.6
+  - conda-forge::s3fs
   - conda-forge::tensorboard
   - conda-forge::torchmetrics
   - conda-forge::tqdm
-  - nvidia::cudatoolkit=10.2
-  - python=3.9
+  - nvidia::cudatoolkit=11.3
   - pytorch::pytorch>=1.11
   - pytorch::torchaudio
   - pytorch::torchvision
   - pip
   - pip:
-    - lightning-bolts
-    - segmentation-models-pytorch
     - "ray[tune]"
     - HEBO>=0.2.0
+    - lightning-bolts
+    - segmentation-models-pytorch
