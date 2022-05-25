@@ -303,9 +303,7 @@ def cli_main(argv=None):
         # "weight_decay": tune.choice([0, 1e-5]),
     }
     scheduler = ASHAScheduler(
-        max_t=args.max_epochs,
-        grace_period=1,
-        reduction_factor=2,
+        max_t=args.max_epochs
     )
     # scheduler = PopulationBasedTraining(
     #     time_attr='time_total_s',
