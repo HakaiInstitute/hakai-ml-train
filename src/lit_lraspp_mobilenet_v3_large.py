@@ -106,12 +106,12 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
 
     # @torch.jit.export
     def predict_step(self, batch: Any) -> Any:
+        """Work in Progress. Use regular forward method for now."""
         mc_iteration = 5
 
         # enable Monte Carlo Dropout
         for m in self.model.modules():
             if m.__class__.__name__.startswith('Dropout'):
-                print(m)
                 m.train()
 
         # take average of `self.mc_iteration` iterations
@@ -183,9 +183,11 @@ def train(config, args, checkpoint_dir=None):
     # ------------
     # data
     # ------------
-    kelp_data = KelpDataModule(args.data_dir,
-                               num_classes=args.num_classes,
-                               batch_size=args.batch_size)
+    kelp_data = KelpDataModule(
+        args.data_dir,
+        num_classes=args.num_classes,
+        batch_size=args.batch_size
+    )
 
     # ------------
     # model
@@ -240,16 +242,20 @@ def train(config, args, checkpoint_dir=None):
     tensorboard_logger = TensorBoardLogger(save_dir=tune.get_trial_dir(), name="", version=".", default_hp_metric=False)
 
     if checkpoint_dir is not None:
-        trainer = pl.Trainer.from_argparse_args(args,
-                                                resume_from_checkpoint=os.path.join(checkpoint_dir, "checkpoint"),
-                                                logger=tensorboard_logger,
-                                                callbacks=callbacks,
-                                                enable_progress_bar=False)
+        trainer = pl.Trainer.from_argparse_args(
+            args,
+            resume_from_checkpoint=os.path.join(checkpoint_dir, "checkpoint"),
+            logger=tensorboard_logger,
+            callbacks=callbacks,
+            enable_progress_bar=False
+        )
     else:
-        trainer = pl.Trainer.from_argparse_args(args,
-                                                logger=tensorboard_logger,
-                                                callbacks=callbacks,
-                                                enable_progress_bar=False)
+        trainer = pl.Trainer.from_argparse_args(
+            args,
+            logger=tensorboard_logger,
+            callbacks=callbacks,
+            enable_progress_bar=False
+        )
 
     trainer.fit(model, datamodule=kelp_data)
 
@@ -291,16 +297,15 @@ def cli_main(argv=None):
     # training
     # ------------
     config = {
-        "alpha": tune.quniform(0.1, 0.9, 0.1),
+        "alpha": tune.uniform(0.1, 0.9),
         # "gamma": tune.choice([4.0 / 3.0]),
-        "lr": tune.qloguniform(1e-5, 0.1, 1e-5),
+        "lr": tune.loguniform(1e-8, 0.1),
         # "weight_decay": tune.choice([0, 1e-5]),
     }
     scheduler = ASHAScheduler(
         max_t=args.max_epochs,
-        grace_period=2,
+        grace_period=1,
         reduction_factor=2,
-
     )
     # scheduler = PopulationBasedTraining(
     #     time_attr='time_total_s',
@@ -321,7 +326,7 @@ def cli_main(argv=None):
         metric="miou",
         mode="max",
         config=config,
-        search_alg=HEBOSearch(),
+        search_alg=HEBOSearch(points_to_evaluate=[{'lr': 1e-5, 'alpha': 0.75}]),
         num_samples=30,
         scheduler=scheduler,
         progress_reporter=reporter,
