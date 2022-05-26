@@ -324,7 +324,7 @@ def cli_main(argv=None):
         metric="miou",
         mode="max",
         config=config,
-        search_alg=HEBOSearch(points_to_evaluate=[{'lr': 1e-5, 'alpha': 0.75}]),
+        search_alg=HEBOSearch(points_to_evaluate=[{'lr': 0.017499612055727733, 'alpha': 0.7345556425842962 }]),
         num_samples=30,
         scheduler=scheduler,
         progress_reporter=reporter,
