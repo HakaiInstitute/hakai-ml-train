@@ -284,8 +284,21 @@ def cli_main(argv=None):
                         help="The epoch at which to start the stochastic weight averaging procedure.")
     parser.add_argument("--swa_lrs", type=float, default=0.05,
                         help="The lr to start the annealing procedure for stochastic weight averaging.")
-    parser.add_argument("--tune_lr", action='store_true', default=False,
-                        help="Flag to run the lr finder procedure before training.")
+
+    parser.add_argument("--tune_trials", type=int, default=30,
+                        help="Number of Ray Tune trials to run.")
+    parser.add_argument("--init_lr", type=float, default=0.006,
+                        help="The initial LR to test with Ray Tune.")
+    parser.add_argument("--min_lr", type=float, default=1e-6,
+                        help="The lower limit of the range of LRs to optimize with Ray Tune.")
+    parser.add_argument("--max_lr", type=float, default=0.1,
+                        help="The upper limit of the range of LRs to optimize with Ray Tune.")
+    parser.add_argument("--init_alpha", type=float, default=0.6,
+                        help="The initial alpha (a FTLoss hyperparameter) to test with Ray Tune.")
+    parser.add_argument("--min_alpha", type=float, default=0.1,
+                        help="The lower limit of the range of alpha hyperparameters to optimize with Ray Tune.")
+    parser.add_argument("--max_alpha", type=float, default=0.9,
+                        help="The upper limit of the range of alpha hyperparameters to optimize with Ray Tune.")
     parser.add_argument("--test-only", action="store_true", help="Only run the test dataset")
 
     parser = KelpDataModule.add_argparse_args(parser)
@@ -297,20 +310,14 @@ def cli_main(argv=None):
     # training
     # ------------
     config = {
-        "alpha": tune.uniform(0.1, 0.9),
+        "alpha": tune.uniform(args.min_alpha, args.max_alpha),
         # "gamma": tune.choice([4.0 / 3.0]),
-        "lr": tune.loguniform(1e-8, 0.1),
+        "lr": tune.loguniform(args.min_lr, args.max_lr),
         # "weight_decay": tune.choice([0, 1e-5]),
     }
     scheduler = ASHAScheduler(
         max_t=args.max_epochs
     )
-    # scheduler = PopulationBasedTraining(
-    #     time_attr='time_total_s',
-    #     perturbation_interval=30.0,
-    #     # perturbation_interval=300.0,
-    #     hyperparam_mutations=config,
-    # )
     reporter = CLIReporter(
         parameter_columns=["lr", "alpha"],
         metric_columns=["miou", "cls1_iou", "cls0_iou", "loss", "training_iteration"],
@@ -324,8 +331,8 @@ def cli_main(argv=None):
         metric="miou",
         mode="max",
         config=config,
-        search_alg=HEBOSearch(points_to_evaluate=[{'lr': 0.017499612055727733, 'alpha': 0.7345556425842962 }]),
-        num_samples=30,
+        search_alg=HEBOSearch(points_to_evaluate=[{'lr': args.init_lr, 'alpha': args.init_alpha}]),
+        num_samples=args.tune_trials,
         scheduler=scheduler,
         progress_reporter=reporter,
         name=args.name,
