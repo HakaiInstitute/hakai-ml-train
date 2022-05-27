@@ -17,7 +17,7 @@ from torchvision.models.segmentation.fcn import FCNHead
 
 from kelp_data_module import KelpDataModule
 from utils import callbacks as cb
-from utils.loss import FocalTverskyMetric
+from utils.loss import FocalTverskyLoss
 
 
 class DeepLabv3ResNet101(pl.LightningModule):
@@ -41,7 +41,7 @@ class DeepLabv3ResNet101(pl.LightningModule):
         self.model.backbone.requires_grad_(False)
 
         # Loss function and metrics
-        self.focal_tversky_loss = FocalTverskyMetric(
+        self.focal_tversky_loss = FocalTverskyLoss(
             self.num_classes,
             alpha=0.7,
             beta=0.3,

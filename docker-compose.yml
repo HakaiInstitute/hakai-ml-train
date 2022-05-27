@@ -20,7 +20,7 @@ services:
     tty: true
     stdin_open: true
     volumes:
-      - "/mnt/data/presence/checkpoints:/checkpoints"
+      - "/mnt/data/species/checkpoints:/checkpoints"
     ports:
       - "0.0.0.0:80:6006"
     command: [
@@ -205,7 +205,6 @@ services:
         "--num_classes=2",
         "--weights=/weights/best-val_miou=0.8023-epoch=18-step=17593.pt",
         "--batch_size=16",
-        "--keep_pretrained_output_layers",
         "--gradient_clip_val=0.5",
         "--accelerator=gpu",
         "--devices=auto",
@@ -284,8 +283,6 @@ services:
           "--precision=16",
       ]
 
-
-
   kelp-species-train-lraspp-mobilenetv3:
     image: hakaiinstitute/pytorch-lightning
     build:
@@ -311,6 +308,7 @@ services:
         "--num_classes=3",
         "--ignore_index=1",
         "--weights=/weights/best-val_miou=0.8023-epoch=18-step=17593.pt",
+        "--drop_output_layer_weights",
         "--batch_size=16",
         "--gradient_clip_val=0.5",
         "--accelerator=gpu",

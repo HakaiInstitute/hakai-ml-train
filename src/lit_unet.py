@@ -15,7 +15,7 @@ from torch.optim import Optimizer
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from kelp_data_module import KelpDataModule
 from utils import callbacks as cb
-from utils.loss import FocalTverskyMetric
+from utils.loss import FocalTverskyLoss
 from utils.mixins import GeoTiffPredictionMixin
 
 
@@ -81,7 +81,7 @@ class UnetEfficientnet(GeoTiffPredictionMixin, pl.LightningModule):
         self.model.encoder.requires_grad_(False)
 
         # Loss function and metrics
-        self.focal_tversky_loss = FocalTverskyMetric(
+        self.focal_tversky_loss = FocalTverskyLoss(
             self.hparams.num_classes,
             alpha=0.7,
             beta=0.3,

@@ -19,7 +19,7 @@ from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 
 from kelp_data_module import KelpDataModule
-from utils.loss import FocalTverskyMetric
+from utils.loss import FocalTverskyLoss
 
 
 class LRASPPMobileNetV3Large(pl.LightningModule):
@@ -36,8 +36,8 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         self.model.requires_grad_(True)
 
         # Loss function
-        self.focal_tversky_loss = FocalTverskyMetric(self.num_classes, ignore_index=self.ignore_index,
-                                                     alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
+        self.focal_tversky_loss = FocalTverskyLoss(self.num_classes, ignore_index=self.ignore_index,
+                                                   alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
         self.accuracy_metric = Accuracy(ignore_index=self.ignore_index)
         self.iou_metric = JaccardIndex(num_classes=self.num_classes, reduction="none",
                                        ignore_index=self.ignore_index)
@@ -127,34 +127,13 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
                                                            total_steps=self.trainer.estimated_stepping_batches)
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
-    @classmethod
-    def from_presence_absence_weights(cls, pt_weights_file, args):
-        self = cls(num_classes=args.num_classes, ignore_index=args.ignore_index,
-                   lr=args.lr, weight_decay=args.weight_decay)
-        weights = torch.load(pt_weights_file)
-
-        # Remove trained weights for previous classifier output layers
-        if args.keep_pretrained_output_layers:
-            del weights["model.classifier.low_classifier.weight"]
-            del weights["model.classifier.low_classifier.bias"]
-            del weights["model.classifier.high_classifier.weight"]
-            del weights["model.classifier.high_classifier.bias"]
-
-        self.load_state_dict(weights, strict=False)
-        return self
-
     @staticmethod
     def add_argparse_args(parser):
         group = parser.add_argument_group("LR-ASPP-MobileNet-V3-Large")
 
         group.add_argument("--num_classes", type=int, default=2,
                            help="The number of image classes, including background.")
-        group.add_argument("--lr", type=float, default=0.001, help="the learning rate")
-        group.add_argument("--weight_decay", type=float, default=0,
-                           help="The weight decay factor for L2 regularization.")
         group.add_argument("--ignore_index", type=int, default=None,
-                           help="Label of any class to ignore.")
-        group.add_argument("--keep_pretrained_output_layers", action="store_true", default=False,
                            help="Label of any class to ignore.")
         group.add_argument("--backbone_finetuning_epoch", type=int, default=None,
                            help="Set a value to unlock the epoch that the backbone network should be unfrozen."
@@ -179,7 +158,9 @@ class Finetuning(pl.callbacks.BaseFinetuning):
             )
 
 
-def train(config, args, checkpoint_dir=None):
+def train(config, args):
+    pl.seed_everything(0)
+
     # ------------
     # data
     # ------------
@@ -197,18 +178,23 @@ def train(config, args, checkpoint_dir=None):
         ignore_index=args.ignore_index,
         lr=config['lr'],
         loss_alpha=config['alpha'],
-        # weight_decay=config['weight_decay'],
+        weight_decay=config['weight_decay'],
         # loss_gamma=config['gamma']
     )
 
-    if checkpoint_dir is not None:
-        pass
-    elif args.pa_weights:
-        print("Loading presence/absence weights:", args.pa_weights)
-        model = LRASPPMobileNetV3Large.from_presence_absence_weights(args.pa_weights, args)
-    elif args.weights and Path(args.weights).suffix == ".pt":
+    if args.weights and Path(args.weights).suffix == ".pt":
         print("Loading state_dict:", args.weights)
-        model.load_state_dict(torch.load(args.weights), strict=False)
+        weights = torch.load(args.weights)
+
+        # Remove trained weights for previous classifier output layers
+        if args.drop_output_layer_weights:
+            del weights["model.classifier.low_classifier.weight"]
+            del weights["model.classifier.low_classifier.bias"]
+            del weights["model.classifier.high_classifier.weight"]
+            del weights["model.classifier.high_classifier.bias"]
+
+        model.load_state_dict(weights, strict=False)
+
     elif args.weights and Path(args.weights).suffix == ".ckpt":
         print("Loading checkpoint:", args.weights)
         model = LRASPPMobileNetV3Large.load_from_checkpoint(args.weights)
@@ -241,21 +227,12 @@ def train(config, args, checkpoint_dir=None):
 
     tensorboard_logger = TensorBoardLogger(save_dir=tune.get_trial_dir(), name="", version=".", default_hp_metric=False)
 
-    if checkpoint_dir is not None:
-        trainer = pl.Trainer.from_argparse_args(
-            args,
-            resume_from_checkpoint=os.path.join(checkpoint_dir, "checkpoint"),
-            logger=tensorboard_logger,
-            callbacks=callbacks,
-            enable_progress_bar=False
-        )
-    else:
-        trainer = pl.Trainer.from_argparse_args(
-            args,
-            logger=tensorboard_logger,
-            callbacks=callbacks,
-            enable_progress_bar=False
-        )
+    trainer = pl.Trainer.from_argparse_args(
+        args,
+        logger=tensorboard_logger,
+        callbacks=callbacks,
+        enable_progress_bar=False
+    )
 
     trainer.fit(model, datamodule=kelp_data)
 
@@ -273,13 +250,14 @@ def cli_main(argv=None):
                              "'test', each with 'x' and 'y' subdirectories containing image crops "
                              "and labels, respectively.")
     parser.add_argument("checkpoint_dir", type=str, help="The path to save training outputs")
+    parser.add_argument("--name", type=str, default="",
+                        help="Identifier used when creating files and directories for this training run.")
     parser.add_argument("--weights", type=str,
                         help="Path to pytorch weights to load as initial model weights")
-    parser.add_argument("--pa_weights", type=str,
-                        help="Presence/Absence model weights to use as initial model weights")
-    parser.add_argument("--name", type=str, default="",
-                        help="Identifier used when creating files and directories for this "
-                             "training run.")
+    parser.add_argument("--drop_output_layer_weights", action="store_true", default=False,
+                       help="Drop the output layer weights before restoring them. "
+                            "Use for finetuning to different class outputs.")
+
     parser.add_argument("--swa_epoch_start", type=float,
                         help="The epoch at which to start the stochastic weight averaging procedure.")
     parser.add_argument("--swa_lrs", type=float, default=0.05,
@@ -287,18 +265,24 @@ def cli_main(argv=None):
 
     parser.add_argument("--tune_trials", type=int, default=30,
                         help="Number of Ray Tune trials to run.")
-    parser.add_argument("--init_lr", type=float, default=0.006,
+    parser.add_argument("--init_lr", type=float, default=0.028147503791496848,
                         help="The initial LR to test with Ray Tune.")
     parser.add_argument("--min_lr", type=float, default=1e-6,
                         help="The lower limit of the range of LRs to optimize with Ray Tune.")
     parser.add_argument("--max_lr", type=float, default=0.1,
                         help="The upper limit of the range of LRs to optimize with Ray Tune.")
-    parser.add_argument("--init_alpha", type=float, default=0.6,
+    parser.add_argument("--init_alpha", type=float, default=0.777442699607719,
                         help="The initial alpha (a FTLoss hyperparameter) to test with Ray Tune.")
     parser.add_argument("--min_alpha", type=float, default=0.1,
                         help="The lower limit of the range of alpha hyperparameters to optimize with Ray Tune.")
     parser.add_argument("--max_alpha", type=float, default=0.9,
                         help="The upper limit of the range of alpha hyperparameters to optimize with Ray Tune.")
+    parser.add_argument("--init_weight_decay", type=float, default=2.7891888551808663e-06,
+                        help="The initial weight decay to test with Ray Tune.")
+    parser.add_argument("--min_weight_decay", type=float, default=0,
+                        help="The lower limit of the range of weight decay values to optimize with Ray Tune.")
+    parser.add_argument("--max_weight_decay", type=float, default=1e-3,
+                        help="The upper limit of the range of weight decay values to optimize with Ray Tune.")
     parser.add_argument("--test-only", action="store_true", help="Only run the test dataset")
 
     parser = KelpDataModule.add_argparse_args(parser)
@@ -313,13 +297,13 @@ def cli_main(argv=None):
         "alpha": tune.uniform(args.min_alpha, args.max_alpha),
         # "gamma": tune.choice([4.0 / 3.0]),
         "lr": tune.loguniform(args.min_lr, args.max_lr),
-        # "weight_decay": tune.choice([0, 1e-5]),
+        "weight_decay": tune.choice([args.min_weight_decay, args.max_weight_decay]),
     }
     scheduler = ASHAScheduler(
         max_t=args.max_epochs
     )
     reporter = CLIReporter(
-        parameter_columns=["lr", "alpha"],
+        parameter_columns=["lr", "alpha", "weight_decay"],
         metric_columns=["miou", "cls1_iou", "cls0_iou", "loss", "training_iteration"],
     )
 
@@ -331,7 +315,7 @@ def cli_main(argv=None):
         metric="miou",
         mode="max",
         config=config,
-        search_alg=HEBOSearch(points_to_evaluate=[{'lr': args.init_lr, 'alpha': args.init_alpha}]),
+        search_alg=HEBOSearch(points_to_evaluate=[{'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay}]),
         num_samples=args.tune_trials,
         scheduler=scheduler,
         progress_reporter=reporter,
@@ -340,10 +324,6 @@ def cli_main(argv=None):
     )
 
     print("Best hyperparameters found were: ", analysis.best_config)
-
-    torch.save(analysis, f"{args.checkpoint_dir}/analysis.pkl")
-    # with open(f"{args.checkpoint_dir}/analysis.pkl", "wb") as f:
-    #     pickle.dump(analysis, f)
 
     checkpoint_path = os.path.join(analysis.best_checkpoint.local_path, "checkpoint")
     checkpoint = torch.load(checkpoint_path)
@@ -366,30 +346,27 @@ if __name__ == "__main__":
     debug = os.getenv("DEBUG", False)
     if debug:
         cli_main([
-            "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_pa_aco",
-            "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa_aco/",
-            # "--test-only",
-            "--keep_pretrained_output_layers",
-            "--pa_weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/"
+            "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_species",
+            "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_species",
+            "--name=lr_aspp_kelp_species_DEV",
+            "--num_classes=3",
+            "--ignore_index=1",
+            "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/"
             "best-val_miou=0.8023-epoch=18-step=17593.pt",
-            "--name=LR_ASPP_ACO_DEV",
-            "--num_classes=2",
-            # "--lr=0.0035",
-            # "--weight_decay=3e-6",
+            "--drop_output_layer_weights",
+            "--batch_size=2",
             "--gradient_clip_val=0.5",
-            "--accelerator=gpu",
-            # "--accelerator=cpu",
+            # "--accelerator=gpu",
+            "--accelerator=cpu",
             # "--backbone_finetuning_epoch=1",
             "--devices=auto",
             # "--strategy=ddp_find_unused_parameters_false",
-            "--max_epochs=20",
-            "--batch_size=2",
-            # "--overfit_batches=10",
+            "--sync_batchnorm",
+            "--max_epochs=10",
             # '--limit_train_batches=10',
             # "--limit_val_batches=10",
             # "--limit_test_batches=10",
             "--log_every_n_steps=5",
-            # "--swa_epoch_start=0.8"
         ])
     else:
         cli_main()

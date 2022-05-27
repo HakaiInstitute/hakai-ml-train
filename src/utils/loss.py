@@ -248,7 +248,7 @@ def focal_tversky_loss(
     return torch.sum(res, dim=0)
 
 
-class FocalTverskyMetric(Metric):
+class FocalTverskyLoss(Metric):
     def __init__(
         self,
         num_classes,
