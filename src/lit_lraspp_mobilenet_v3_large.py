@@ -14,7 +14,7 @@ from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
 from ray.tune.schedulers import ASHAScheduler
-from ray.tune.suggest.hebo import HEBOSearch
+from ray.tune.suggest.skopt import SkOptSearch
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 
@@ -38,7 +38,7 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         # Loss function
         self.focal_tversky_loss = FocalTverskyLoss(self.num_classes, ignore_index=self.ignore_index,
                                                    alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
-        self.accuracy_metric = Accuracy(ignore_index=self.ignore_index)
+        self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index)
         self.iou_metric = JaccardIndex(num_classes=self.num_classes, reduction="none",
                                        ignore_index=self.ignore_index)
         self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
@@ -65,7 +65,8 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         self.log("train_miou", ious.mean(), sync_dist=True)
         self.log("train_accuracy", acc, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f"train_c{c}_iou", ious[c], sync_dist=True)
+            name = f"train_cls{(c + 1) if c >= self.ignore_index else c}_iou"
+            self.log(name, ious[c], sync_dist=True)
 
         return loss
 
@@ -100,7 +101,8 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         self.log(f"{phase}_recall", recall, sync_dist=True)
 
         for c in range(len(ious)):
-            self.log(f"{phase}_cls{c}_iou", ious[c], sync_dist=True)
+            name = f"{phase}_cls{(c + 1) if c >= self.ignore_index else c}_iou"
+            self.log(name, ious[c], sync_dist=True)
 
         return loss
 
@@ -204,15 +206,18 @@ def train(config, args):
     # ------------
     callbacks = [
         TuneReportCheckpointCallback(
-            metrics={
-                "loss": "val_loss",
-                "miou": "val_miou",
-                "accuracy": "val_accuracy",
-                "precision": "val_precision",
-                "recall": "val_recall",
-                "cls0_iou": "val_cls0_iou",
-                "cls1_iou": "val_cls1_iou"
-            },
+            metrics=dict(
+                [
+                    ("loss", "val_loss"),
+                    ("miou", "val_miou"),
+                    ("accuracy", "val_accuracy"),
+                    ("precision", "val_precision"),
+                    ("recall", "val_recall"),
+                ] + [
+                    (f"cls{i}_iou", f"val_cls{i}_iou") for i in
+                    filter(lambda i: i != args.ignore_index,
+                           range(args.num_classes))
+                ]),
             filename="checkpoint",
             on="validation_end"
         ),
@@ -255,8 +260,8 @@ def cli_main(argv=None):
     parser.add_argument("--weights", type=str,
                         help="Path to pytorch weights to load as initial model weights")
     parser.add_argument("--drop_output_layer_weights", action="store_true", default=False,
-                       help="Drop the output layer weights before restoring them. "
-                            "Use for finetuning to different class outputs.")
+                        help="Drop the output layer weights before restoring them. "
+                             "Use for finetuning to different class outputs.")
 
     parser.add_argument("--swa_epoch_start", type=float,
                         help="The epoch at which to start the stochastic weight averaging procedure.")
@@ -279,7 +284,7 @@ def cli_main(argv=None):
                         help="The upper limit of the range of alpha hyperparameters to optimize with Ray Tune.")
     parser.add_argument("--init_weight_decay", type=float, default=2.7891888551808663e-06,
                         help="The initial weight decay to test with Ray Tune.")
-    parser.add_argument("--min_weight_decay", type=float, default=0,
+    parser.add_argument("--min_weight_decay", type=float, default=1e-8,
                         help="The lower limit of the range of weight decay values to optimize with Ray Tune.")
     parser.add_argument("--max_weight_decay", type=float, default=1e-3,
                         help="The upper limit of the range of weight decay values to optimize with Ray Tune.")
@@ -297,14 +302,16 @@ def cli_main(argv=None):
         "alpha": tune.uniform(args.min_alpha, args.max_alpha),
         # "gamma": tune.choice([4.0 / 3.0]),
         "lr": tune.loguniform(args.min_lr, args.max_lr),
-        "weight_decay": tune.choice([args.min_weight_decay, args.max_weight_decay]),
+        "weight_decay": tune.loguniform(args.min_weight_decay, args.max_weight_decay),
     }
     scheduler = ASHAScheduler(
         max_t=args.max_epochs
     )
     reporter = CLIReporter(
         parameter_columns=["lr", "alpha", "weight_decay"],
-        metric_columns=["miou", "cls1_iou", "cls0_iou", "loss", "training_iteration"],
+        metric_columns=(["miou", "loss", "training_iteration"] + [f"cls{i}_iou" for i in
+                                                                  filter(lambda i: i != args.ignore_index,
+                                                                         range(args.num_classes))]),
     )
 
     train_fn_with_parameters = tune.with_parameters(train, args=args)
@@ -315,7 +322,8 @@ def cli_main(argv=None):
         metric="miou",
         mode="max",
         config=config,
-        search_alg=HEBOSearch(points_to_evaluate=[{'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay}]),
+        search_alg=SkOptSearch(
+            points_to_evaluate=[{'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay}]),
         num_samples=args.tune_trials,
         scheduler=scheduler,
         progress_reporter=reporter,
@@ -349,19 +357,19 @@ if __name__ == "__main__":
             "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_species",
             "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_species",
             "--name=lr_aspp_kelp_species_DEV",
-            "--num_classes=3",
+            "--num_classes=4",
             "--ignore_index=1",
             "--weights=/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa/LRASPP/"
             "best-val_miou=0.8023-epoch=18-step=17593.pt",
             "--drop_output_layer_weights",
             "--batch_size=2",
             "--gradient_clip_val=0.5",
-            # "--accelerator=gpu",
-            "--accelerator=cpu",
+            "--accelerator=gpu",
+            # "--accelerator=cpu",
             # "--backbone_finetuning_epoch=1",
             "--devices=auto",
             # "--strategy=ddp_find_unused_parameters_false",
-            "--sync_batchnorm",
+            # "--sync_batchnorm",
             "--max_epochs=10",
             # '--limit_train_batches=10',
             # "--limit_val_batches=10",

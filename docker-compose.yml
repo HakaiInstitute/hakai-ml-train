@@ -305,7 +305,7 @@ services:
         "/data",
         "/checkpoints",
         "--name=lr_aspp_kelp_species",
-        "--num_classes=3",
+        "--num_classes=4",
         "--ignore_index=1",
         "--weights=/weights/best-val_miou=0.8023-epoch=18-step=17593.pt",
         "--drop_output_layer_weights",
