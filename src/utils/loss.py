@@ -249,6 +249,10 @@ def focal_tversky_loss(
 
 
 class FocalTverskyLoss(Metric):
+    full_state_update = False
+    is_differentiable = True
+    higher_is_better = False
+
     def __init__(
         self,
         num_classes,

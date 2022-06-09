@@ -38,9 +38,10 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         # Loss function
         self.focal_tversky_loss = FocalTverskyLoss(self.num_classes, ignore_index=self.ignore_index,
                                                    alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
-        self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index)
-        self.iou_metric = JaccardIndex(num_classes=self.num_classes, reduction="none",
-                                       ignore_index=self.ignore_index)
+        self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                        mdmc_average='global')
+        self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                       average="none")
         self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
                                           average='weighted', mdmc_average='global')
         self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,

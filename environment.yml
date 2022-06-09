@@ -18,6 +18,6 @@ dependencies:
   - pip
   - pip:
     - "ray[tune]"
-    - HEBO>=0.2.0
+    - scikit-optimize
     - lightning-bolts
     - segmentation-models-pytorch
