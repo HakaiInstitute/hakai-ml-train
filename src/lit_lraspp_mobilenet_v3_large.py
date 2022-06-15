@@ -66,7 +66,7 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         self.log("train_miou", ious.mean(), sync_dist=True)
         self.log("train_accuracy", acc, sync_dist=True)
         for c in range(len(ious)):
-            name = f"train_cls{(c + 1) if c >= self.ignore_index else c}_iou"
+            name = f"train_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
             self.log(name, ious[c], sync_dist=True)
 
         return loss
@@ -102,7 +102,7 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
         self.log(f"{phase}_recall", recall, sync_dist=True)
 
         for c in range(len(ious)):
-            name = f"{phase}_cls{(c + 1) if c >= self.ignore_index else c}_iou"
+            name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
             self.log(name, ious[c], sync_dist=True)
 
         return loss
@@ -365,8 +365,8 @@ if __name__ == "__main__":
             "--drop_output_layer_weights",
             "--batch_size=2",
             "--gradient_clip_val=0.5",
-            "--accelerator=gpu",
-            # "--accelerator=cpu",
+            # "--accelerator=gpu",
+            "--accelerator=cpu",
             # "--backbone_finetuning_epoch=1",
             "--devices=auto",
             # "--strategy=ddp_find_unused_parameters_false",
