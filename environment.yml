@@ -18,6 +18,6 @@ dependencies:
   - pip
   - pip:
     - "ray[tune]"
-    - scikit-optimize
+    - optuna
     - lightning-bolts
     - segmentation-models-pytorch

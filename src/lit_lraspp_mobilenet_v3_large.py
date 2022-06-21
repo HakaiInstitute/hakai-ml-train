@@ -14,6 +14,7 @@ from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
 from ray.tune.schedulers import ASHAScheduler
+from ray.tune.suggest.optuna import OptunaSearch
 from ray.tune.suggest.skopt import SkOptSearch
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
@@ -271,21 +272,21 @@ def cli_main(argv=None):
 
     parser.add_argument("--tune_trials", type=int, default=30,
                         help="Number of Ray Tune trials to run.")
-    parser.add_argument("--init_lr", type=float, default=0.028147503791496848,
+    parser.add_argument("--init_lr", type=float, default=0.03,
                         help="The initial LR to test with Ray Tune.")
     parser.add_argument("--min_lr", type=float, default=1e-6,
                         help="The lower limit of the range of LRs to optimize with Ray Tune.")
     parser.add_argument("--max_lr", type=float, default=0.1,
                         help="The upper limit of the range of LRs to optimize with Ray Tune.")
-    parser.add_argument("--init_alpha", type=float, default=0.777442699607719,
+    parser.add_argument("--init_alpha", type=float, default=0.4,
                         help="The initial alpha (a FTLoss hyperparameter) to test with Ray Tune.")
     parser.add_argument("--min_alpha", type=float, default=0.1,
                         help="The lower limit of the range of alpha hyperparameters to optimize with Ray Tune.")
     parser.add_argument("--max_alpha", type=float, default=0.9,
                         help="The upper limit of the range of alpha hyperparameters to optimize with Ray Tune.")
-    parser.add_argument("--init_weight_decay", type=float, default=2.7891888551808663e-06,
+    parser.add_argument("--init_weight_decay", type=float, default=0,
                         help="The initial weight decay to test with Ray Tune.")
-    parser.add_argument("--min_weight_decay", type=float, default=1e-8,
+    parser.add_argument("--min_weight_decay", type=float, default=0,
                         help="The lower limit of the range of weight decay values to optimize with Ray Tune.")
     parser.add_argument("--max_weight_decay", type=float, default=1e-3,
                         help="The upper limit of the range of weight decay values to optimize with Ray Tune.")
@@ -299,11 +300,11 @@ def cli_main(argv=None):
     # ------------
     # training
     # ------------
-    config = {
+    search_space = {
         "alpha": tune.uniform(args.min_alpha, args.max_alpha),
         # "gamma": tune.choice([4.0 / 3.0]),
         "lr": tune.loguniform(args.min_lr, args.max_lr),
-        "weight_decay": tune.loguniform(args.min_weight_decay, args.max_weight_decay),
+        "weight_decay": tune.uniform(args.min_weight_decay, args.max_weight_decay),
     }
     scheduler = ASHAScheduler(
         max_t=args.max_epochs
@@ -319,11 +320,11 @@ def cli_main(argv=None):
 
     analysis = tune.run(
         train_fn_with_parameters,
-        resources_per_trial={"cpu": 8, "gpu": 1},
+        resources_per_trial={"cpu": os.cpu_count(), "gpu": 1},
         metric="miou",
         mode="max",
-        config=config,
-        search_alg=SkOptSearch(
+        config=search_space,
+        search_alg=OptunaSearch(
             points_to_evaluate=[{'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay}]),
         num_samples=args.tune_trials,
         scheduler=scheduler,
@@ -365,9 +366,9 @@ if __name__ == "__main__":
             "--drop_output_layer_weights",
             "--batch_size=2",
             "--gradient_clip_val=0.5",
-            # "--accelerator=gpu",
-            "--accelerator=cpu",
-            # "--backbone_finetuning_epoch=1",
+            "--accelerator=gpu",
+            # "--accelerator=cpu",
+            "--backbone_finetuning_epoch=100",
             "--devices=auto",
             # "--strategy=ddp_find_unused_parameters_false",
             # "--sync_batchnorm",

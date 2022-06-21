@@ -6,5 +6,5 @@ tensorboard
 torchmetrics
 tqdm
 ray[tune]
-scikit-optimize
+optuna
 protobuf<4.21.0
