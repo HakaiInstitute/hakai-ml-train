@@ -20,7 +20,7 @@ services:
     tty: true
     stdin_open: true
     volumes:
-      - "/mnt/data/species/checkpoints:/checkpoints"
+      - "/mnt/data/presence/checkpoints:/checkpoints"
     ports:
       - "0.0.0.0:80:6006"
     command: [
@@ -155,7 +155,8 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/presence/data:/data:ro"
+      - "/mnt/data/presence/data/July2022:/data:ro"
+      - "/mnt/data/presence/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -164,16 +165,12 @@ services:
           "python",
           "lit_lraspp_mobilenet_v3_large.py",
           "/data",
-          "s3a://hakai-deep-learning-datasets/checkpoints",
+          "/checkpoints",
           "--name=lr_aspp_kelp_pa",
           "--num_classes=2",
-          "--lr=0.35",
-          "--weight_decay=3e-6",
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
-          "--strategy=ddp",
-          "--gpus=-1",
-          "--benchmark",
+          "--devices=auto",
           "--sync_batchnorm",
           "--max_epochs=100",
           "--batch_size=16",
