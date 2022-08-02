@@ -2,11 +2,6 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/../geotiff-crop-dataset/.idea/geotiff-crop-dataset.iml" filepath="$PROJECT_DIR$/../geotiff-crop-dataset/.idea/geotiff-crop-dataset.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../hakai-ml-dataprep/.idea/hakai-ml-dataprep.iml" filepath="$PROJECT_DIR$/../hakai-ml-dataprep/.idea/hakai-ml-dataprep.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../hakai-ml-pred-api/.idea/hakai-ml-pred-api.iml" filepath="$PROJECT_DIR$/../hakai-ml-pred-api/.idea/hakai-ml-pred-api.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../hakai-ml-pred-gui/.idea/hakai-ml-pred-gui.iml" filepath="$PROJECT_DIR$/../hakai-ml-pred-gui/.idea/hakai-ml-pred-gui.iml" />
-      <module fileurl="file://$USER_HOME$/WebstormProjects/hakai-ml-pred-web/.idea/hakai-ml-pred-web.iml" filepath="$USER_HOME$/WebstormProjects/hakai-ml-pred-web/.idea/hakai-ml-pred-web.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/hakai-ml-train.iml" filepath="$PROJECT_DIR$/.idea/hakai-ml-train.iml" />
     </modules>
   </component>

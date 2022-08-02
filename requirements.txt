@@ -1,7 +1,9 @@
-geotiff-crop-dataset
 lightning-bolts
-pytorch-lightning
+pytorch-lightning>=1.5.0,<1.6.0
 s3fs
+segmentation-models-pytorch
 tensorboard
 torchmetrics
 tqdm
+optuna
+protobuf<4.21.0

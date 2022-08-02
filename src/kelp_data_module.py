@@ -1,12 +1,10 @@
 import os
+import pytorch_lightning as pl
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import List, Optional, Union
-
-import pytorch_lightning as pl
-import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from torchvision import transforms as t
+from typing import List, Optional, Union
 
 from utils.datasets.SegmentationDataset import SegmentationDataset
 from utils.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
@@ -14,12 +12,12 @@ from utils.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tens
 
 class KelpDataModule(pl.LightningDataModule):
     def __init__(
-        self,
-        data_dir: str,
-        num_classes: int,
-        batch_size: int,
-        num_workers: int = os.cpu_count(),
-        pin_memory=True,
+            self,
+            data_dir: str,
+            num_classes: int,
+            batch_size: int,
+            num_workers: int = os.cpu_count(),
+            pin_memory=True,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -28,7 +26,8 @@ class KelpDataModule(pl.LightningDataModule):
         self.pin_memory = pin_memory
 
         self.train_data_dir = Path(data_dir).joinpath("train")
-        self.val_data_dir = Path(data_dir).joinpath("eval")
+        self.val_data_dir = Path(data_dir).joinpath("val")
+        self.test_data_dir = Path(data_dir).joinpath("test")
 
         self.train_trans = t.Compose(
             [
@@ -53,10 +52,10 @@ class KelpDataModule(pl.LightningDataModule):
             ]
         )
         self.test_trans = t.Compose(
-            [PadOut(512, 512), ImageClip(min_=0, max_=255), t.ToTensor(), normalize,]
+            [PadOut(512, 512), ImageClip(min_=0, max_=255), t.ToTensor(), normalize]
         )
         self.test_target_trans = t.Compose(
-            [PadOut(512, 512), target_to_tensor, Clamp(0, self.num_classes - 1),]
+            [PadOut(512, 512), target_to_tensor, Clamp(0, self.num_classes - 1)]
         )
 
     def prepare_data(self, *args, **kwargs):
@@ -68,19 +67,15 @@ class KelpDataModule(pl.LightningDataModule):
             transform=self.train_trans,
             target_transform=self.train_target_trans,
         )
-        eval_full = SegmentationDataset(
+        self.ds_val = SegmentationDataset(
             self.val_data_dir,
             transform=self.test_trans,
             target_transform=self.test_target_trans,
         )
-
-        val_size = int(len(eval_full) * 0.5)
-        test_size = len(eval_full) - val_size
-
-        self.ds_val, self.ds_test = random_split(
-            eval_full,
-            [val_size, test_size],
-            generator=torch.Generator().manual_seed(42),
+        self.ds_test = SegmentationDataset(
+            self.test_data_dir,
+            transform=self.test_trans,
+            target_transform=self.test_target_trans,
         )
 
         # self.dims = tuple(self.ds_train[0][0].shape)
@@ -118,7 +113,7 @@ class KelpDataModule(pl.LightningDataModule):
 
     @classmethod
     def add_argparse_args(
-        cls, parent_parser: ArgumentParser, **kwargs
+            cls, parent_parser: ArgumentParser, **kwargs
     ) -> ArgumentParser:
         parser = parent_parser.add_argument_group("KelpDataModule")
 

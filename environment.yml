@@ -1,19 +1,22 @@
-name: hakai-ml-train
+name: ml-train
 channels:
+  - pytorch
   - conda-forge
-  - defaults
 dependencies:
+  - python=3.10
+  - conda-forge::cudatoolkit=11.6
+  - conda-forge::jupyter
   - conda-forge::loguru
-  - conda-forge::pytorch-lightning>=1.5
+  - conda-forge::optuna
+  - conda-forge::pytorch-lightning>=1.5.0,<1.6.0
+  - conda-forge::s3fs
   - conda-forge::tensorboard
   - conda-forge::torchmetrics
   - conda-forge::tqdm
-  - nvidia::cudatoolkit=10.2
-  - python=3.9
-  - pytorch::pytorch>=1.10
+  - pytorch::pytorch>=1.11.0
   - pytorch::torchaudio
   - pytorch::torchvision
   - pip
   - pip:
-    - geotiff_crop_dataset
     - lightning-bolts
+    - segmentation-models-pytorch

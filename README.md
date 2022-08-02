@@ -1,4 +1,4 @@
-# uav-classif
+# hakai-ml-train
 
 ## Kelp segmentation instructions
 
