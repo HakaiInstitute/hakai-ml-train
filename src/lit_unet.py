@@ -2,119 +2,59 @@
 # Organization: Hakai Institute
 # Date: 2020-06-23
 # Description:
+import argparse
 import os
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Any
+from typing import Optional
 
+import optuna
 import pytorch_lightning as pl
 import torch
+from optuna.integration import PyTorchLightningPruningCallback
 from pytorch_lightning.loggers import TensorBoardLogger
 from segmentation_models_pytorch import Unet
 from torch.optim import Optimizer
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
+
 from kelp_data_module import KelpDataModule
-from utils import callbacks as cb
 from utils.loss import FocalTverskyLoss
-from utils.mixins import GeoTiffPredictionMixin
 
 
-class UnetEfficientnetFinetuning(pl.callbacks.BaseFinetuning):
-    def __init__(self, unfreeze_at_epoch=10, train_bn=False):
+class UnetEfficientnet(pl.LightningModule):
+    def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
+                 weight_decay: float = 0, loss_alpha: float = 0.7, loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100):
         super().__init__()
-        self._unfreeze_at_epoch = unfreeze_at_epoch
-        self._train_bn = train_bn
+        self.num_classes = num_classes
+        self.ignore_index = ignore_index
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.max_epochs = max_epochs
 
-    def freeze_before_training(self, pl_module: "pl.LightningModule") -> None:
-        self.freeze(pl_module.model.encoder, train_bn=self._train_bn)
-
-    def finetune_function(
-            self, pl_module: "pl.LightningModule", epoch: int, optimizer: Optimizer, opt_idx: int
-    ) -> None:
-        if epoch == self._unfreeze_at_epoch:
-            self.unfreeze_and_add_param_group(
-                pl_module.model.encoder,
-                optimizer,
-                train_bn=self._train_bn)
-
-    @staticmethod
-    def add_argparse_args(parser):
-        group = parser.add_argument_group("UnetEfficientnetFinetuning")
-
-        group.add_argument(
-            "--unfreeze_backbone_epoch",
-            type=int,
-            default=-1,
-            help="The training epoch to unfreeze earlier layers of Deeplabv3 for fine tuning.",
-        )
-        group.add_argument(
-            "--train_backbone_bn",
-            dest="train_backbone_bn",
-            action="store_true",
-            help="Flag to indicate if backbone batch norm layers should be trained.",
-        )
-        group.add_argument(
-            "--no_train_backbone_bn",
-            dest="train_backbone_bn",
-            action="store_false",
-            help="Flag to indicate if backbone batch norm layers should not be trained.",
-        )
-        group.set_defaults(train_backbone_bn=True)
-
-        return parser
-
-
-class UnetEfficientnet(GeoTiffPredictionMixin, pl.LightningModule):
-    def __init__(self, hparams):
-        """hparams must be a dict of {weight_decay, lr, num_classes}"""
-        super().__init__()
-        self.save_hyperparameters(hparams)
-
-        # Create model from pre-trained DeepLabv3
+        # Create model from pre-trained UNet
         self.model = Unet(
             encoder_name="efficientnet-b4",
             encoder_weights="imagenet",
             in_channels=3,
-            classes=self.hparams.num_classes,
+            classes=self.num_classes,
         )
         self.model.requires_grad_(True)
         self.model.encoder.requires_grad_(False)
 
-        # Loss function and metrics
-        self.focal_tversky_loss = FocalTverskyLoss(
-            self.hparams.num_classes,
-            alpha=0.7,
-            beta=0.3,
-            gamma=4.0 / 3.0,
-            ignore_index=self.hparams.get("ignore_index"),
-        )
-        self.accuracy_metric = Accuracy(ignore_index=self.hparams.get("ignore_index"))
-        self.iou_metric = JaccardIndex(
-            num_classes=self.hparams.num_classes,
-            reduction="none",
-            ignore_index=self.hparams.get("ignore_index"),
-        )
+        # Loss function
+        self.focal_tversky_loss = FocalTverskyLoss(self.num_classes, ignore_index=self.ignore_index,
+                                                   alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
+        self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                        mdmc_average='global')
+        self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                       average="none")
         self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
                                           average='weighted', mdmc_average='global')
         self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
                                     average='weighted', mdmc_average='global')
 
-    @property
-    def example_input_array(self) -> Any:
-        return torch.rand(2, 3, 512, 512)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model.forward(x)
-
-    def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, self.model.parameters()),
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay,
-        )
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.hparams.max_epochs)
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
+        return self.model.forward(x)["out"]
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -126,15 +66,22 @@ class UnetEfficientnet(GeoTiffPredictionMixin, pl.LightningModule):
         ious = self.iou_metric(preds, y)
         acc = self.accuracy_metric(preds, y)
 
-        self.log("train_loss", loss, on_epoch=True, sync_dist=True)
-        self.log("train_miou", ious.mean(), on_epoch=True, sync_dist=True)
-        self.log("train_accuracy", acc, on_epoch=True, sync_dist=True)
+        self.log("train_loss", loss, sync_dist=True)
+        self.log("train_miou", ious.mean(), sync_dist=True)
+        self.log("train_accuracy", acc, sync_dist=True)
         for c in range(len(ious)):
-            self.log(f"train_c{c}_iou", ious[c], on_epoch=True, sync_dist=True)
+            name = f"train_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
+            self.log(name, ious[c], sync_dist=True)
 
         return loss
 
-    def val_test_step(self, batch, batch_idx, phase="val"):
+    def validation_step(self, batch, batch_idx):
+        return self._val_test_step(batch, batch_idx, phase="val")
+
+    def test_step(self, batch, batch_idx):
+        return self._val_test_step(batch, batch_idx, phase="test")
+
+    def _val_test_step(self, batch, batch_idx, phase="val"):
         x, y = batch
         logits = self.model(x)
         probs = torch.softmax(logits, dim=1)
@@ -149,277 +96,269 @@ class UnetEfficientnet(GeoTiffPredictionMixin, pl.LightningModule):
 
         if phase == 'val':
             self.log(f"hp_metric", miou)
+
         self.log(f"{phase}_loss", loss, sync_dist=True)
         self.log(f"{phase}_miou", miou, sync_dist=True)
         self.log(f"{phase}_accuracy", acc, sync_dist=True)
         self.log(f"{phase}_precision", precision, sync_dist=True)
         self.log(f"{phase}_recall", recall, sync_dist=True)
+
         for c in range(len(ious)):
-            self.log(f"{phase}_cls{c}_iou", ious[c], sync_dist=True)
+            name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
+            self.log(name, ious[c], sync_dist=True)
 
         return loss
 
-    def validation_step(self, batch, batch_idx):
-        return self.val_test_step(batch, batch_idx, phase="val")
+    @property
+    def estimated_stepping_batches(self) -> int:
+        """Total training steps inferred from datamodule and devices."""
+        if self.trainer.max_steps != -1:
+            return self.trainer.max_steps
 
-    def test_step(self, batch, batch_idx):
-        return self.val_test_step(batch, batch_idx, phase="test")
+        limit_batches = self.trainer.limit_train_batches
+        batches = len(self.trainer.datamodule.train_dataloader())
+        batches = (
+            min(batches, limit_batches)
+            if isinstance(limit_batches, int)
+            else int(limit_batches * batches)
+        )
 
-    @staticmethod
-    def ckpt2pt(ckpt_file, pt_path):
-        checkpoint = torch.load(ckpt_file, map_location=torch.device("cpu"))
-        torch.save(checkpoint["state_dict"], pt_path)
+        num_devices = max(1, self.trainer.num_gpus, self.trainer.num_processes)
+        if self.trainer.tpu_cores:
+            num_devices = max(num_devices, self.trainer.tpu_cores)
 
-    # @classmethod
-    # def from_presence_absence_weights(cls, pt_weights_file, hparams):
-    #     self = cls(hparams)
-    #     weights = torch.load(pt_weights_file)
-    #
-    #     # Remove trained weights for previous classifier output layers
-    #     del weights["model.classifier.4.weight"]
-    #     del weights["model.classifier.4.bias"]
-    #     del weights["model.aux_classifier.4.weight"]
-    #     del weights["model.aux_classifier.4.bias"]
-    #
-    #     self.load_state_dict(weights, strict=False)
-    #     return self
+        effective_accum = self.trainer.accumulate_grad_batches * num_devices
+        return (batches // effective_accum) * self.max_epochs
+
+    def configure_optimizers(self):
+        """Init optimizer and scheduler"""
+        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
+                                    lr=self.lr, weight_decay=self.weight_decay, nesterov=True, momentum=0.9)
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr,
+                                                           total_steps=self.estimated_stepping_batches)
+        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     @staticmethod
     def add_argparse_args(parser):
-        group = parser.add_argument_group("UnetEfficientnet")
+        group = parser.add_argument_group("LR-ASPP-MobileNet-V3-Large")
 
-        group.add_argument(
-            "--num_classes",
-            type=int,
-            default=2,
-            help="The number of image classes, including background.",
-        )
-        group.add_argument("--lr", type=float, default=0.001, help="the learning rate")
-        group.add_argument(
-            "--weight_decay",
-            type=float,
-            default=1e-3,
-            help="The weight decay factor for L2 regularization.",
-        )
-        group.add_argument(
-            "--ignore_index", type=int, help="Label of any class to ignore."
-        )
-        group.add_argument(
-            "--aux_loss_factor",
-            type=float,
-            default=0.3,
-            help="The proportion of loss backpropagated to classifier built only on early layers.",
-        )
-
+        group.add_argument("--num_classes", type=int, default=2,
+                           help="The number of image classes, including background.")
+        group.add_argument("--ignore_index", type=int, default=None,
+                           help="Label of any class to ignore.")
+        group.add_argument("--backbone_finetuning_epoch", type=int, default=None,
+                           help="Set a value to unlock the epoch that the backbone network should be unfrozen."
+                                "Leave as None to train all layers from the start.")
         return parser
 
 
+class Finetuning(pl.callbacks.BaseFinetuning):
+    def __init__(self, unfreeze_at_epoch=10, train_bn=False):
+        super().__init__()
+        self._unfreeze_at_epoch = unfreeze_at_epoch
+        self._train_bn = train_bn
+
+    def freeze_before_training(self, pl_module: "pl.LightningModule") -> None:
+        self.freeze(pl_module.model.encoder, train_bn=False)
+
+    def finetune_function(self, pl_module: "pl.LightningModule", epoch: int, optimizer: Optimizer, opt_idx: int) -> None:
+        if epoch == self._unfreeze_at_epoch:
+            self.unfreeze_and_add_param_group(
+                pl_module.model.encoder,
+                optimizer,
+                train_bn=self._train_bn)
+
+
+# Objective function to be maximized by Optuna
+class Objective(object):
+    def __init__(self, args: argparse.Namespace):
+        self.args = args
+
+    def __call__(self, trial: optuna.trial.Trial):
+        args = self.args
+
+        # ------------
+        # data
+        # ------------
+        kelp_data = KelpDataModule(
+            args.data_dir,
+            # num_workers=0,
+            # pin_memory=False,
+            num_classes=args.num_classes,
+            batch_size=args.batch_size
+        )
+
+        # ------------
+        # hyperparameter search space
+        # ------------
+        lr = trial.suggest_float('lr', args.min_lr, args.max_lr, log=True)
+        alpha = trial.suggest_float('alpha', args.min_alpha, args.max_alpha)
+        weight_decay = trial.suggest_float('weight_decay', args.min_weight_decay, args.max_weight_decay)
+
+        # ------------
+        # model
+        # ------------
+        model = UnetEfficientnet(
+            num_classes=args.num_classes,
+            ignore_index=args.ignore_index,
+            lr=lr,
+            loss_alpha=alpha,
+            weight_decay=weight_decay,
+            max_epochs=args.max_epochs,
+        )
+
+        if args.weights and Path(args.weights).suffix == ".pt":
+            print("Loading state_dict:", args.weights)
+            weights = torch.load(args.weights)
+
+            # Remove trained weights for previous classifier output layers
+            if args.drop_output_layer_weights:
+                del weights["model.classifier.low_classifier.weight"]
+                del weights["model.classifier.low_classifier.bias"]
+                del weights["model.classifier.high_classifier.weight"]
+                del weights["model.classifier.high_classifier.bias"]
+
+            model.load_state_dict(weights, strict=False)
+
+        elif args.weights and Path(args.weights).suffix == ".ckpt":
+            print("Loading checkpoint:", args.weights)
+            model = UnetEfficientnet.load_from_checkpoint(args.weights)
+
+        # ------------
+        # callbacks
+        # ------------
+        checkpoint_callback = pl.callbacks.ModelCheckpoint(
+            # verbose=True,
+            monitor="val_miou", mode="max",
+            filename="best-{val_miou:.4f}-{epoch}",
+            save_top_k=1, save_last=True,
+            save_on_train_epoch_end=False,
+            every_n_epochs=1,
+        )
+        callbacks = [
+            checkpoint_callback,
+            pl.callbacks.LearningRateMonitor(),
+            pl.callbacks.EarlyStopping(monitor="val_miou", mode="max", patience=10),
+            PyTorchLightningPruningCallback(trial, monitor='val_miou'),
+        ]
+
+        if args.backbone_finetuning_epoch is not None:
+            callbacks.append(Finetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
+        if args.swa_epoch_start:
+            callbacks.append(
+                pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
+
+        logger = TensorBoardLogger(save_dir=args.checkpoint_dir, name=f'{args.name}/trial_{trial.number}',
+                                   default_hp_metric=False)
+        trainer = pl.Trainer.from_argparse_args(
+            args,
+            logger=logger,
+            callbacks=callbacks,
+        )
+        trainer.logger.log_hyperparams({
+            'lr': lr,
+            'alpha': alpha,
+            'weight_decay': weight_decay,
+            'batch_size': args.batch_size,
+        })
+        trainer.fit(model, datamodule=kelp_data)
+
+        return checkpoint_callback.best_model_score.detach().cpu()
+
+
 def cli_main(argv=None):
+    pl.seed_everything(0)
+
     # ------------
     # args
     # ------------
     parser = ArgumentParser()
-    subparsers = parser.add_subparsers()
 
-    parser_train = subparsers.add_parser(name="train", help="Train the model.")
-    parser_train.add_argument(
-        "data_dir",
-        type=str,
-        help="The path to a data directory with subdirectories 'train' and "
-             "'eval', each with 'x' and 'y' subdirectories containing image "
-             "crops and labels, respectively.",
-    )
-    parser_train.add_argument(
-        "checkpoint_dir", type=str, help="The path to save training outputs"
-    )
-    parser_train.add_argument(
-        "--initial_weights_ckpt",
-        type=str,
-        help="Path to checkpoint file to load as initial model weights",
-    )
-    parser_train.add_argument(
-        "--initial_weights",
-        type=str,
-        help="Path to pytorch weights to load as initial model weights",
-    )
-    parser_train.add_argument(
-        "--pa_weights",
-        type=str,
-        help="Presence/Absence model weights to use as initial model weights",
-    )
-    parser_train.add_argument(
-        "--name",
-        type=str,
-        default="",
-        help="Identifier used when creating files and directories for this "
-             "training run.",
-    )
+    parser.add_argument("data_dir", type=str,
+                        help="The path to a data directory with subdirectories 'train', 'val', and "
+                             "'test', each with 'x' and 'y' subdirectories containing image crops "
+                             "and labels, respectively.")
+    parser.add_argument("checkpoint_dir", type=str, help="The path to save training outputs")
+    parser.add_argument("--name", type=str, default="",
+                        help="Identifier used when creating files and directories for this training run.")
+    parser.add_argument("--weights", type=str,
+                        help="Path to pytorch weights to load as initial model weights")
+    parser.add_argument("--drop_output_layer_weights", action="store_true", default=False,
+                        help="Drop the output layer weights before restoring them. "
+                             "Use for finetuning to different class outputs.")
 
-    parser_train = KelpDataModule.add_argparse_args(parser_train)
-    parser_train = UnetEfficientnet.add_argparse_args(parser_train)
-    parser_train = UnetEfficientnetFinetuning.add_argparse_args(parser_train)
-    parser_train = pl.Trainer.add_argparse_args(parser_train)
-    parser_train.set_defaults(func=train)
+    parser.add_argument("--swa_epoch_start", type=float,
+                        help="The epoch at which to start the stochastic weight averaging procedure.")
+    parser.add_argument("--swa_lrs", type=float, default=0.05,
+                        help="The lr to start the annealing procedure for stochastic weight averaging.")
 
-    parser_pred = subparsers.add_parser(
-        name="pred", help="Predict kelp presence in an image."
-    )
-    parser_pred.add_argument(
-        "seg_in",
-        type=str,
-        help="Path to a *.tif image to do segmentation on in pred mode.",
-    )
-    parser_pred.add_argument(
-        "seg_out",
-        type=str,
-        help="Path to desired output *.tif created by the model in pred mode.",
-    )
-    parser_pred.add_argument(
-        "weights",
-        type=str,
-        help="Path to a model weights file (*.pt). " "Required for eval and pred mode.",
-    )
-    parser_pred.add_argument(
-        "--batch_size", type=int, default=2, help="The batch size per GPU (default 2)."
-    )
-    parser_pred.add_argument(
-        "--crop_pad",
-        type=int,
-        default=128,
-        help="The amount of padding added for classification context to each "
-             "image crop. The output classification on this crop area is not "
-             "output by the model but will influence the classification of "
-             "the area in the (crop_size x crop_size) window "
-             "(defaults to 128).",
-    )
-    parser_pred.add_argument(
-        "--crop_size",
-        type=int,
-        default=256,
-        help="The crop size in pixels for processing the image. Defines the "
-             "length and width of the individual sections the input .tif "
-             "image is cropped to for processing (defaults 256).",
-    )
-    parser_pred = UnetEfficientnet.add_argparse_args(parser_pred)
-    parser_pred.set_defaults(func=pred)
+    parser.add_argument("--tune_trials", type=int, default=30,
+                        help="Number of Ray Tune trials to run.")
+    parser.add_argument("--init_lr", type=float, default=0.03,
+                        help="The initial LR to test with Ray Tune.")
+    parser.add_argument("--min_lr", type=float, default=1e-6,
+                        help="The lower limit of the range of LRs to optimize with Ray Tune.")
+    parser.add_argument("--max_lr", type=float, default=0.1,
+                        help="The upper limit of the range of LRs to optimize with Ray Tune.")
+    parser.add_argument("--init_alpha", type=float, default=0.4,
+                        help="The initial alpha (a FTLoss hyperparameter) to test with Ray Tune.")
+    parser.add_argument("--min_alpha", type=float, default=0.1,
+                        help="The lower limit of the range of alpha hyperparameters to optimize with Ray Tune.")
+    parser.add_argument("--max_alpha", type=float, default=0.9,
+                        help="The upper limit of the range of alpha hyperparameters to optimize with Ray Tune.")
+    parser.add_argument("--init_weight_decay", type=float, default=0,
+                        help="The initial weight decay to test with Ray Tune.")
+    parser.add_argument("--min_weight_decay", type=float, default=0,
+                        help="The lower limit of the range of weight decay values to optimize with Ray Tune.")
+    parser.add_argument("--max_weight_decay", type=float, default=1e-3,
+                        help="The upper limit of the range of weight decay values to optimize with Ray Tune.")
+    parser.add_argument("--test-only", action="store_true", help="Only run the test dataset")
 
+    parser = KelpDataModule.add_argparse_args(parser)
+    parser = UnetEfficientnet.add_argparse_args(parser)
+    parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args(argv)
-    args.func(args)
 
+    # Make checkpoint directory
+    Path(args.checkpoint_dir, args.name).mkdir(exist_ok=True, parents=True)
 
-def pred(args):
-    seg_in, seg_out = Path(args.seg_in), Path(args.seg_out)
-    seg_out.parent.mkdir(parents=True, exist_ok=True)
+    objective = Objective(args)
+    pruner: optuna.pruners.BasePruner = optuna.pruners.SuccessiveHalvingPruner()
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    study = optuna.create_study(direction="maximize", pruner=pruner,
+                                storage=f'sqlite:///{args.checkpoint_dir}/{args.name}/hyper_opt.db')
+    study.enqueue_trial({'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay})
+    study.optimize(objective, n_trials=args.tune_trials, gc_after_trial=True)
 
-    # ------------
-    # model
-    # ------------
-    print("Loading model:", args.weights)
-    if Path(args.weights).suffix == "ckpt":
-        model = UnetEfficientnet.load_from_checkpoint(
-            args.weights,
-            batch_size=args.batch_size,
-            crop_size=args.crop_size,
-            padding=args.crop_pad,
-        )
-    else:  # Assumes .pt
-        model = UnetEfficientnet(args)
-        model.load_state_dict(torch.load(args.weights), strict=False)
+    print("Number of finished trials: {}".format(len(study.trials)))
 
-    model.freeze()
-    model = model.to(device)
+    print("Best trial:")
+    best_trial = study.best_trial
 
-    # ------------
-    # inference
-    # ------------
-    model.predict_geotiff(str(seg_in), str(seg_out))
+    print("  Value: {}".format(best_trial.value))
 
-
-def train(args):
-    pl.seed_everything(0)
-
-    # ------------
-    # data
-    # ------------
-    kelp_data = KelpDataModule(
-        args.data_dir, num_classes=args.num_classes, batch_size=args.batch_size
-    )
-
-    # ------------
-    # model
-    # ------------
-    # if args.initial_weights_ckpt:
-    #     print("Loading initial weights ckpt:", args.initial_weights_ckpt)
-    #     model = DeepLabv3PlusResNet101.load_from_checkpoint(args.initial_weights_ckpt)
-    # elif args.pa_weights:
-    #     print("Loading presence/absence weights:", args.pa_weights)
-    #     model = DeepLabv3PlusResNet101.from_presence_absence_weights(args.pa_weights, args)
-    # else:
-    model = UnetEfficientnet(args)
-
-    if args.initial_weights:
-        print("Loading initial weights:", args.initial_weights)
-        model.load_state_dict(torch.load(args.initial_weights))
-
-    # ------------
-    # callbacks
-    # ------------
-    logger_cb = TensorBoardLogger(args.checkpoint_dir, name=args.name, default_hp_metric=False)
-    checkpoint_cb = pl.callbacks.ModelCheckpoint(
-        verbose=True,
-        monitor="val_miou",
-        mode="max",
-        filename="best-{val_miou:.4f}-{epoch}-{step}",
-        save_top_k=1,
-        save_last=True,
-    )
-    callbacks = [
-        UnetEfficientnetFinetuning(unfreeze_at_epoch=args.unfreeze_backbone_epoch,
-                                   train_bn=args.train_backbone_bn),
-        pl.callbacks.LearningRateMonitor(),
-        checkpoint_cb,
-        cb.SaveBestStateDict(),
-        # cb.SaveBestTorchscript(method='trace'),
-        # cb.SaveBestOnnx(opset_version=11),
-    ]
-
-    # ------------
-    # training
-    # ------------
-    trainer = pl.Trainer.from_argparse_args(args, logger=logger_cb, callbacks=callbacks)
-
-    # Tune params
-    # trainer.tune(model, datamodule=kelp_data)
-
-    # Training
-    trainer.fit(model, datamodule=kelp_data)
-
-    # Validation and Test stats
-    trainer.validate(model, datamodule=kelp_data, ckpt_path="best")
-    trainer.test(model, datamodule=kelp_data, ckpt_path="best")
+    print("  Params: ")
+    for key, value in best_trial.params.items():
+        print("    {}: {}".format(key, value))
 
 
 if __name__ == "__main__":
-    if os.getenv("DEBUG", False):
-        cli_main(
-            [
-                "train",
-                "data/kelp_pa",
-                "checkpoints",
-                "--name=DEEPLABV3PLUS_TEST",
-                "--num_classes=2",
-                "--lr=0.35",
-                "--weight_decay=3e-6",
-                "--gradient_clip_val=0.5",
-                "--max_epochs=100",
-                "--batch_size=2",
-                "--log_every_n_steps=2",
-                '--overfit_batches=2',
-                "--gpus=-1",
-                # "--pa_weights=scripts/species/train_input/data/best-val_miou=0.9393-epoch=97-step=34789.pt",
-            ]
-        )
+    debug = os.getenv("DEBUG", False)
+    if debug:
+        cli_main([
+            "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_pa_aco",
+            "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa",
+            "--name=UNET_DEV",
+            "--num_classes=2",
+            "--batch_size=2",
+            "--gradient_clip_val=0.5",
+            "--accelerator=gpu",
+            "--devices=auto",
+            "--max_epochs=3",
+            '--limit_train_batches=10',
+            "--limit_val_batches=10",
+            "--limit_test_batches=10",
+            "--log_every_n_steps=5",
+        ])
     else:
         cli_main()
