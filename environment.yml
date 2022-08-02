@@ -13,7 +13,7 @@ dependencies:
   - conda-forge::tensorboard
   - conda-forge::torchmetrics
   - conda-forge::tqdm
-  - pytorch::pytorch>=1.11.0
+  - pytorch::pytorch>=1.12.0
   - pytorch::torchaudio
   - pytorch::torchvision
   - pip

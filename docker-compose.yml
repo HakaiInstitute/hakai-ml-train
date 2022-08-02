@@ -229,20 +229,16 @@ services:
           "python",
           "lit_deeplabv3_resnet101.py",
           "/data",
-          "s3a://hakai-deep-learning-datasets/checkpoints",
-          "--name=deeplab_kelp_pa",
+          "/checkpoints",
+          "--name=deeplab_resnet101_kelp_pa",
           "--num_classes=2",
-          "--lr=0.001",
-          "--weight_decay=0.001",
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
-          "--strategy=ddp",
-          "--gpus=-1",
-          "--benchmark",
+          "--devices=auto",
           "--sync_batchnorm",
           "--max_epochs=100",
           "--batch_size=8",
-          "--precision=16",
+          "--precision=16"
       ]
 
   kelp-pa-train-unet:
