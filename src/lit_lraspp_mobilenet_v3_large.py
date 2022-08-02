@@ -164,19 +164,20 @@ class LRASPPMobileNetV3Large(pl.LightningModule):
 
 
 class Finetuning(pl.callbacks.BaseFinetuning):
-    def __init__(self, unfreeze_at_epoch=30):
+    def __init__(self, unfreeze_at_epoch: int = 30, train_bn: bool = True):
         super().__init__()
         self._unfreeze_at_epoch = unfreeze_at_epoch
+        self._train_bn = train_bn
 
     def freeze_before_training(self, pl_module):
-        self.freeze(pl_module.model.backbone, train_bn=True)
+        self.freeze(pl_module.model.backbone, train_bn=False)
 
     def finetune_function(self, pl_module, current_epoch, optimizer, optimizer_idx):
         if current_epoch == self._unfreeze_at_epoch:
             self.unfreeze_and_add_param_group(
                 modules=pl_module.model.backbone,
                 optimizer=optimizer,
-                train_bn=False,
+                train_bn=self._train_bn,
             )
 
 
@@ -258,7 +259,8 @@ class Objective(object):
             callbacks.append(
                 pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
 
-        logger = TensorBoardLogger(save_dir=args.checkpoint_dir, name=f'{args.name}/trial_{trial.number}', default_hp_metric=False)
+        logger = TensorBoardLogger(save_dir=args.checkpoint_dir, name=f'{args.name}/trial_{trial.number}',
+                                   default_hp_metric=False)
         trainer = pl.Trainer.from_argparse_args(
             args,
             logger=logger,
@@ -277,7 +279,6 @@ class Objective(object):
 
 def cli_main(argv=None):
     pl.seed_everything(0)
-    # torch.multiprocessing.set_sharing_strategy('file_system')
 
     # ------------
     # args
@@ -335,7 +336,8 @@ def cli_main(argv=None):
     objective = Objective(args)
     pruner: optuna.pruners.BasePruner = optuna.pruners.SuccessiveHalvingPruner()
 
-    study = optuna.create_study(direction="maximize", pruner=pruner, storage=f'sqlite:///{args.checkpoint_dir}/{args.name}/hyper_opt.db')
+    study = optuna.create_study(direction="maximize", pruner=pruner,
+                                storage=f'sqlite:///{args.checkpoint_dir}/{args.name}/hyper_opt.db')
     study.enqueue_trial({'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay})
     study.optimize(objective, n_trials=args.tune_trials, gc_after_trial=True)
 
