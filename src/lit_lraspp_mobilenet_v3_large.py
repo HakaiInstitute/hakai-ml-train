@@ -250,6 +250,7 @@ class Objective(object):
         callbacks = [
             checkpoint_callback,
             pl.callbacks.LearningRateMonitor(),
+            pl.callbacks.EarlyStopping(monitor="val_miou", mode="max", patience=10),
             PyTorchLightningPruningCallback(trial, monitor='val_miou'),
         ]
 

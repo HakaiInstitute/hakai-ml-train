@@ -18,7 +18,7 @@ from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models import ResNet101_Weights
 from torchvision.models.segmentation import deeplabv3_resnet101
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
-from torchvision.models.segmentation.fcn import FCNHead
+# from torchvision.models.segmentation.fcn import FCNHead
 
 from kelp_data_module import KelpDataModule
 from utils.loss import FocalTverskyLoss
@@ -279,6 +279,7 @@ class Objective(object):
         callbacks = [
             checkpoint_callback,
             pl.callbacks.LearningRateMonitor(),
+            pl.callbacks.EarlyStopping(monitor="val_miou", mode="max", patience=10),
             PyTorchLightningPruningCallback(trial, monitor='val_miou'),
         ]
 
