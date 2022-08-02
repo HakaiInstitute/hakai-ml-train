@@ -220,7 +220,8 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/presence/data:/data:ro"
+      - "/mnt/data/presence/data/July2022:/data:ro"
+      - "/mnt/data/presence/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
