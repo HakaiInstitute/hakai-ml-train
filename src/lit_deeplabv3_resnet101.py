@@ -6,7 +6,6 @@ import argparse
 import os
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Optional
 
 import optuna
 import pytorch_lightning as pl
@@ -14,200 +13,37 @@ import torch
 from optuna.integration import PyTorchLightningPruningCallback
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.optim import Optimizer
-from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 from torchvision.models import ResNet101_Weights
 from torchvision.models.segmentation import deeplabv3_resnet101
-from torchvision.models.segmentation.deeplabv3 import DeepLabHead
-# from torchvision.models.segmentation.fcn import FCNHead
 
+from base_model import BaseFinetuning, BaseModel
 from kelp_data_module import KelpDataModule
-from utils.loss import FocalTverskyLoss
 
 
-class DeepLabv3ResNet101(pl.LightningModule):
-    def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
-                 weight_decay: float = 0, aux_loss_factor: float = 0.3, loss_alpha: float = 0.7, loss_gamma: float = 4.0 / 3.0,
-                 max_epochs: int = 100):
-
-        super().__init__()
-        self.num_classes = num_classes
-        self.ignore_index = ignore_index
-        self.lr = lr
-        self.weight_decay = weight_decay
-        self.aux_loss_factor = aux_loss_factor
-        self.max_epochs = max_epochs
-
-        # Create model from pre-trained DeepLabv3
-        self.model = deeplabv3_resnet101(progress=True, weights_backbone=ResNet101_Weights.IMAGENET1K_V1, aux_loss=False)
-        # self.model.aux_classifier = FCNHead(1024, self.num_classes)
-        self.model.classifier = DeepLabHead(2048, self.num_classes)
-
-        # Setup trainable layers
+class DeepLabv3ResNet101(BaseModel):
+    def init_model(self):
+        self.model = deeplabv3_resnet101(progress=True, weights_backbone=ResNet101_Weights.IMAGENET1K_V1,
+                                         num_classes=self.num_classes, aux_loss=False)
         self.model.requires_grad_(True)
         self.model.backbone.requires_grad_(False)
-
-        # Loss function
-        self.focal_tversky_loss = FocalTverskyLoss(self.num_classes, ignore_index=self.ignore_index,
-                                                   alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
-        self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                        mdmc_average='global')
-        self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                       average="none")
-        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                          average='weighted', mdmc_average='global')
-        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                    average='weighted', mdmc_average='global')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)["out"]
 
-    def training_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self.model(x)
-        logits = y_hat["out"]
-        probs = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(probs, y)
+    def freeze_before_training(self, ft_module: BaseFinetuning) -> None:
+        ft_module.freeze(self.model.backbone.layer3, train_bn=False)
+        ft_module.freeze(self.model.backbone.layer4, train_bn=False)
 
-        # aux_logits = y_hat["aux"]
-        # aux_probs = torch.softmax(aux_logits, dim=1)
-        # aux_loss = self.focal_tversky_loss(aux_probs, y)
-        # loss = loss + self.aux_loss_factor * aux_loss
-
-        preds = logits.argmax(dim=1)
-        ious = self.iou_metric(preds, y)
-        acc = self.accuracy_metric(preds, y)
-
-        self.log("train_loss", loss, sync_dist=True)
-        self.log("train_miou", ious.mean(), sync_dist=True)
-        self.log("train_accuracy", acc, sync_dist=True)
-        for c in range(len(ious)):
-            name = f"train_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
-            self.log(name, ious[c], sync_dist=True)
-
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        return self._val_test_step(batch, batch_idx, phase="val")
-
-    def test_step(self, batch, batch_idx):
-        return self._val_test_step(batch, batch_idx, phase="test")
-
-    def _val_test_step(self, batch, batch_idx, phase="val"):
-        x, y = batch
-        y_hat = self.model(x)
-
-        logits = y_hat["out"]
-        probs = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(probs, y)
-
-        preds = logits.argmax(dim=1)
-        ious = self.iou_metric(preds, y)
-        miou = ious.mean()
-        acc = self.accuracy_metric(preds, y)
-        precision = self.precision_metric(preds, y)
-        recall = self.recall_metric(preds, y)
-
-        if phase == 'val':
-            self.log(f"hp_metric", miou)
-
-        self.log(f"{phase}_loss", loss, sync_dist=True)
-        self.log(f"{phase}_miou", miou, sync_dist=True)
-        self.log(f"{phase}_accuracy", acc, sync_dist=True)
-        self.log(f"{phase}_precision", precision, sync_dist=True)
-        self.log(f"{phase}_recall", recall, sync_dist=True)
-
-        for c in range(len(ious)):
-            name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
-            self.log(name, ious[c], sync_dist=True)
-
-        return loss
-
-    @property
-    def estimated_stepping_batches(self) -> int:
-        """Total training steps inferred from datamodule and devices."""
-        if self.trainer.max_steps != -1:
-            return self.trainer.max_steps
-
-        limit_batches = self.trainer.limit_train_batches
-        batches = len(self.trainer.datamodule.train_dataloader())
-        batches = (
-            min(batches, limit_batches)
-            if isinstance(limit_batches, int)
-            else int(limit_batches * batches)
-        )
-
-        num_devices = max(1, self.trainer.num_gpus, self.trainer.num_processes)
-        if self.trainer.tpu_cores:
-            num_devices = max(num_devices, self.trainer.tpu_cores)
-
-        effective_accum = self.trainer.accumulate_grad_batches * num_devices
-        return (batches // effective_accum) * self.max_epochs
-
-    def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
-                                    lr=self.lr, weight_decay=self.weight_decay, nesterov=True, momentum=0.9)
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr,
-                                                           total_steps=self.estimated_stepping_batches)
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
-
-    @classmethod
-    def from_presence_absence_weights(cls, pt_weights_file, args):
-        self = cls(num_classes=args.num_classes, ignore_index=args.ignore_index,
-                   lr=args.lr, weight_decay=args.weight_decay)
-        weights = torch.load(pt_weights_file)
-
-        # Remove trained weights for previous classifier output layers
-        del weights["model.classifier.4.weight"]
-        del weights["model.classifier.4.bias"]
-        # del weights["model.aux_classifier.4.weight"]
-        # del weights["model.aux_classifier.4.bias"]
-
-        self.load_state_dict(weights, strict=False)
-        return self
-
-    @staticmethod
-    def add_argparse_args(parser):
-        group = parser.add_argument_group("DeeplabV3")
-
-        group.add_argument("--num_classes", type=int, default=2,
-                           help="The number of image classes, including background.")
-        group.add_argument("--ignore_index", type=int, default=None,
-                           help="Label of any class to ignore.")
-        group.add_argument("--backbone_finetuning_epoch", type=int, default=None,
-                           help="Set a value to unlock the epoch that the backbone network should be unfrozen."
-                                "Leave as None to train all layers from the start.")
-        group.add_argument("--aux_loss_factor", type=float, default=0.3,
-                           help="The proportion of loss backpropagated to classifier built only on "
-                                "early layers.")
-        return parser
-
-
-class Finetuning(pl.callbacks.BaseFinetuning):
-    def __init__(self, unfreeze_at_epoch: int = 10, train_bn: bool = True):
-        super().__init__()
-        self._unfreeze_at_epoch = unfreeze_at_epoch
-        self._train_bn = train_bn
-
-    def freeze_before_training(self, pl_module: "pl.LightningModule") -> None:
-        self.freeze(pl_module.model.backbone.layer3, train_bn=False)
-        self.freeze(pl_module.model.backbone.layer4, train_bn=False)
-
-    def finetune_function(
-            self, pl_module: "pl.LightningModule", epoch: int, optimizer: Optimizer,
-            opt_idx: int
-    ) -> None:
-        if epoch == self._unfreeze_at_epoch:
-            self.unfreeze_and_add_param_group(
-                modules=pl_module.model.backbone.layer3,
-                optimizer=optimizer,
-                train_bn=self._train_bn,
-            )
-            self.unfreeze_and_add_param_group(
-                modules=pl_module.model.backbone.layer4,
-                optimizer=optimizer,
-                train_bn=self._train_bn,
-            )
+    def finetune_function(self, ft_module: BaseFinetuning, epoch: int, optimizer: Optimizer, opt_idx: int) -> None:
+        if epoch == ft_module.unfreeze_at_epoch:
+            ft_module.unfreeze_and_add_param_group(
+                self.model.backbone.layer3,
+                optimizer,
+                train_bn=ft_module.train_bn)
+            ft_module.unfreeze_and_add_param_group(
+                self.model.backbone.layer4,
+                optimizer,
+                train_bn=ft_module.train_bn)
 
 
 # Objective function to be maximized by Optuna
@@ -284,7 +120,7 @@ class Objective(object):
         ]
 
         if args.backbone_finetuning_epoch is not None:
-            callbacks.append(Finetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
+            callbacks.append(BaseFinetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
         if args.swa_epoch_start:
             callbacks.append(
                 pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))

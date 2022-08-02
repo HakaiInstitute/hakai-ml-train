@@ -6,182 +6,38 @@ import argparse
 import os
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Any, Optional
 
 import optuna
 import pytorch_lightning as pl
 import torch
 from optuna.integration import PyTorchLightningPruningCallback
 from pytorch_lightning.loggers import TensorBoardLogger
-from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
+from torch.optim import Optimizer
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 
+from base_model import BaseFinetuning, BaseModel
 from kelp_data_module import KelpDataModule
-from utils.loss import FocalTverskyLoss
 
 
-class LRASPPMobileNetV3Large(pl.LightningModule):
-    def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
-                 weight_decay: float = 0, loss_alpha: float = 0.7, loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100):
-        super().__init__()
-        self.num_classes = num_classes
-        self.ignore_index = ignore_index
-        self.lr = lr
-        self.weight_decay = weight_decay
-        self.max_epochs = max_epochs
-
-        # Create model from pre-trained DeepLabv3
+class LRASPPMobileNetV3Large(BaseModel):
+    def init_model(self):
         self.model = lraspp_mobilenet_v3_large(progress=True, num_classes=self.num_classes)
         self.model.requires_grad_(True)
 
-        # Loss function
-        self.focal_tversky_loss = FocalTverskyLoss(self.num_classes, ignore_index=self.ignore_index,
-                                                   alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
-        self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                        mdmc_average='global')
-        self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                       average="none")
-        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                          average='weighted', mdmc_average='global')
-        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                    average='weighted', mdmc_average='global')
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model.forward(x)["out"]
+        return self.model.forward(x)['out']
 
-    def training_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self.model(x)
+    def freeze_before_training(self, ft_module: BaseFinetuning) -> None:
+        ft_module.freeze(self.model.backbone, train_bn=False)
 
-        logits = y_hat["out"]
-        probs = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(probs, y)
-
-        preds = logits.argmax(dim=1)
-        ious = self.iou_metric(preds, y)
-        acc = self.accuracy_metric(preds, y)
-
-        self.log("train_loss", loss, sync_dist=True)
-        self.log("train_miou", ious.mean(), sync_dist=True)
-        self.log("train_accuracy", acc, sync_dist=True)
-        for c in range(len(ious)):
-            name = f"train_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
-            self.log(name, ious[c], sync_dist=True)
-
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        return self._val_test_step(batch, batch_idx, phase="val")
-
-    def test_step(self, batch, batch_idx):
-        return self._val_test_step(batch, batch_idx, phase="test")
-
-    def _val_test_step(self, batch, batch_idx, phase="val"):
-        x, y = batch
-        y_hat = self.model(x)
-
-        logits = y_hat["out"]
-        probs = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(probs, y)
-
-        preds = logits.argmax(dim=1)
-        ious = self.iou_metric(preds, y)
-        miou = ious.mean()
-        acc = self.accuracy_metric(preds, y)
-        precision = self.precision_metric(preds, y)
-        recall = self.recall_metric(preds, y)
-
-        if phase == 'val':
-            self.log(f"hp_metric", miou)
-
-        self.log(f"{phase}_loss", loss, sync_dist=True)
-        self.log(f"{phase}_miou", miou, sync_dist=True)
-        self.log(f"{phase}_accuracy", acc, sync_dist=True)
-        self.log(f"{phase}_precision", precision, sync_dist=True)
-        self.log(f"{phase}_recall", recall, sync_dist=True)
-
-        for c in range(len(ious)):
-            name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
-            self.log(name, ious[c], sync_dist=True)
-
-        return loss
-
-    # @torch.jit.export
-    def predict_step(self, batch: Any) -> Any:
-        """Work in Progress. Use regular forward method for now."""
-        mc_iteration = 5
-
-        # enable Monte Carlo Dropout
-        for m in self.model.modules():
-            if m.__class__.__name__.startswith('Dropout'):
-                m.train()
-
-        # take average of `self.mc_iteration` iterations
-        pred = torch.vstack([self.forward(batch).unsqueeze(0) for _ in range(mc_iteration)]).mean(dim=0)
-        return pred
-
-    @property
-    def estimated_stepping_batches(self) -> int:
-        """Total training steps inferred from datamodule and devices."""
-        if self.trainer.max_steps != -1:
-            return self.trainer.max_steps
-
-        limit_batches = self.trainer.limit_train_batches
-        batches = len(self.trainer.datamodule.train_dataloader())
-        batches = (
-            min(batches, limit_batches)
-            if isinstance(limit_batches, int)
-            else int(limit_batches * batches)
-        )
-
-        num_devices = max(1, self.trainer.num_gpus, self.trainer.num_processes)
-        if self.trainer.tpu_cores:
-            num_devices = max(num_devices, self.trainer.tpu_cores)
-
-        effective_accum = self.trainer.accumulate_grad_batches * num_devices
-        return (batches // effective_accum) * self.max_epochs
-
-    def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
-                                    lr=self.lr, weight_decay=self.weight_decay, nesterov=True, momentum=0.9)
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr,
-                                                           total_steps=self.estimated_stepping_batches)
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
-
-    @staticmethod
-    def add_argparse_args(parser):
-        group = parser.add_argument_group("LR-ASPP-MobileNet-V3-Large")
-
-        group.add_argument("--num_classes", type=int, default=2,
-                           help="The number of image classes, including background.")
-        group.add_argument("--ignore_index", type=int, default=None,
-                           help="Label of any class to ignore.")
-        group.add_argument("--backbone_finetuning_epoch", type=int, default=None,
-                           help="Set a value to unlock the epoch that the backbone network should be unfrozen."
-                                "Leave as None to train all layers from the start.")
-        return parser
+    def finetune_function(self, ft_module: BaseFinetuning, epoch: int, optimizer: Optimizer, opt_idx: int) -> None:
+        if epoch == ft_module.unfreeze_at_epoch:
+            ft_module.unfreeze_and_add_param_group(
+                self.model.backbone,
+                optimizer,
+                train_bn=ft_module.train_bn)
 
 
-class Finetuning(pl.callbacks.BaseFinetuning):
-    def __init__(self, unfreeze_at_epoch: int = 30, train_bn: bool = True):
-        super().__init__()
-        self._unfreeze_at_epoch = unfreeze_at_epoch
-        self._train_bn = train_bn
-
-    def freeze_before_training(self, pl_module):
-        self.freeze(pl_module.model.backbone, train_bn=False)
-
-    def finetune_function(self, pl_module, current_epoch, optimizer, optimizer_idx):
-        if current_epoch == self._unfreeze_at_epoch:
-            self.unfreeze_and_add_param_group(
-                modules=pl_module.model.backbone,
-                optimizer=optimizer,
-                train_bn=self._train_bn,
-            )
-
-
-# Objective function to be maximized by Optuna
 class Objective(object):
     def __init__(self, args: argparse.Namespace):
         self.args = args
@@ -255,7 +111,7 @@ class Objective(object):
         ]
 
         if args.backbone_finetuning_epoch is not None:
-            callbacks.append(Finetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
+            callbacks.append(BaseFinetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
         if args.swa_epoch_start:
             callbacks.append(
                 pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
