@@ -14,6 +14,7 @@ class TransformDataset(Dataset):
         self.transform = transform
         self.target_transform = target_transform
 
+    # noinspection DuplicatedCode
     def __getitem__(self, idx):
         img, label = self.ds[idx]
 

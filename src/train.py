@@ -11,11 +11,11 @@ import torch
 from optuna.integration import PyTorchLightningPruningCallback
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from base_model import Finetuning
+from models.base_model import Finetuning
 from kelp_data_module import KelpDataModule
-from lit_deeplabv3_resnet101 import DeepLabV3ResNet101
-from lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
-from lit_unet import UnetEfficientnet
+from models.lit_deeplabv3_resnet101 import DeepLabV3ResNet101
+from models.lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
+from models.lit_unet import UnetEfficientnet
 
 
 # Objective function to be maximized by Optuna

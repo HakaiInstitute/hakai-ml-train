@@ -25,6 +25,7 @@ class SegmentationDataset(Dataset):
     def __len__(self):
         return len(self._images)
 
+    # noinspection DuplicatedCode
     def __getitem__(self, idx):
         img = Image.open(self._images[idx]).convert("RGB")
         target = Image.open(self._labels[idx])

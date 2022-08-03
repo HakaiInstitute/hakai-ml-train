@@ -19,11 +19,13 @@ class BaseModel(pl.LightningModule):
     def init_model(self):
         raise NotImplementedError
 
+    @abstractmethod
     def freeze_before_training(self, ft_module: 'Finetuning') -> None:
-        pass
+        raise NotImplementedError
 
+    @abstractmethod
     def finetune_function(self, ft_module: 'Finetuning', epoch: int, optimizer: Optimizer, opt_idx: int) -> None:
-        pass
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
