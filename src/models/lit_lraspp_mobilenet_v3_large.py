@@ -5,7 +5,7 @@ import torch
 from torch.optim import Optimizer
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 
-from base_model import BaseModel, Finetuning, WeightsT
+from .base_model import BaseModel, Finetuning, WeightsT
 
 
 # noinspection PyAbstractClass

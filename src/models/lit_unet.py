@@ -4,7 +4,7 @@
 from segmentation_models_pytorch import Unet
 from torch.optim import Optimizer
 
-from base_model import BaseModel, Finetuning, WeightsT
+from .base_model import BaseModel, Finetuning, WeightsT
 
 
 # noinspection PyAbstractClass

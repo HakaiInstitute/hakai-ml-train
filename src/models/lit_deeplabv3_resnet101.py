@@ -6,7 +6,7 @@ from torch.optim import Optimizer
 from torchvision.models import ResNet101_Weights
 from torchvision.models.segmentation import deeplabv3_resnet101
 
-from base_model import BaseModel, Finetuning, WeightsT
+from .base_model import BaseModel, Finetuning, WeightsT
 
 
 # noinspection PyAbstractClass
