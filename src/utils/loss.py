@@ -1,11 +1,14 @@
+from typing import Tuple
+
 import numpy as np
 import torch
-import torch.nn.functional as F
 import torch.utils.data
+from torch.nn.functional import one_hot
 from torchmetrics import Metric
 
 
-def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
+# noinspection DuplicatedCode
+def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8) -> torch.Tensor:
     """Compute the Dice similarity index for each class for predictions p and ground truth labels g.
 
     Parameters
@@ -41,14 +44,14 @@ def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     """
     c = p.shape[1]
     p = p.permute(0, 2, 3, 1).reshape((-1, c))
-    g = F.one_hot(g.flatten().long(), c)
+    g = one_hot(g.flatten().long(), c)
 
     tp = torch.sum(torch.mul(p, g), dim=0)
-    denom = torch.sum(p + g, dim=0)
-    return ((2 * tp) + smooth) / (denom + smooth)
+    denominator = torch.sum(p + g, dim=0)
+    return ((2 * tp) + smooth) / (denominator + smooth)
 
 
-def dice_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
+def dice_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8) -> torch.Tensor:
     """Loss function from the paper S. R. Hashemi, et al, 2018. "Asymmetric loss functions and deep densely-connected
     networks for highly-imbalanced medical image segmentation: application to multiple sclerosis lesion detection"
     https://ieeexplore.ieee.org/abstract/document/8573779.
@@ -89,13 +92,14 @@ def dice_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8):
     return torch.sum(1 - dsc, dim=0)
 
 
+# noinspection DuplicatedCode
 def tversky_index_c(
-    p: torch.Tensor,
-    g: torch.Tensor,
-    alpha: float = 0.5,
-    beta: float = 0.5,
-    smooth: float = 1e-8,
-):
+        p: torch.Tensor,
+        g: torch.Tensor,
+        alpha: float = 0.5,
+        beta: float = 0.5,
+        smooth: float = 1e-8,
+) -> torch.Tensor:
     """Compute the Tversky similarity index for each class for predictions p and ground truth labels g.
 
     Parameters
@@ -140,7 +144,7 @@ def tversky_index_c(
     """
     c = p.shape[1]
     p = p.permute(0, 2, 3, 1).reshape((-1, c))
-    g = F.one_hot(g.flatten().long(), c)
+    g = one_hot(g.flatten().long(), c)
 
     tp = torch.sum(torch.mul(p, g), dim=0)
     fn = torch.sum(torch.mul(1.0 - p, g), dim=0)
@@ -149,12 +153,12 @@ def tversky_index_c(
 
 
 def tversky_loss(
-    p: torch.Tensor,
-    g: torch.Tensor,
-    alpha: float = 0.5,
-    beta: float = 0.5,
-    smooth: float = 1e-8,
-):
+        p: torch.Tensor,
+        g: torch.Tensor,
+        alpha: float = 0.5,
+        beta: float = 0.5,
+        smooth: float = 1e-8,
+) -> torch.Tensor:
     """Compute the Tversky Loss for predictions p and ground truth labels g.
 
     Parameters
@@ -197,13 +201,13 @@ def tversky_loss(
 
 
 def focal_tversky_loss(
-    p: torch.Tensor,
-    g: torch.Tensor,
-    alpha: float = 0.5,
-    beta: float = 0.5,
-    gamma: float = 1.0,
-    smooth: float = 1e-8,
-):
+        p: torch.Tensor,
+        g: torch.Tensor,
+        alpha: float = 0.5,
+        beta: float = 0.5,
+        gamma: float = 1.0,
+        smooth: float = 1e-8,
+) -> torch.Tensor:
     """Compute the focal Tversky Loss for predictions p and ground truth labels g.
 
     Parameters
@@ -254,14 +258,14 @@ class FocalTverskyLoss(Metric):
     higher_is_better = False
 
     def __init__(
-        self,
-        num_classes,
-        alpha: float = 0.5,
-        beta: float = 0.5,
-        gamma: float = 1.0,
-        smooth: float = 1e-8,
-        dist_sync_on_step=False,
-        ignore_index=None,
+            self,
+            num_classes,
+            alpha: float = 0.5,
+            beta: float = 0.5,
+            gamma: float = 1.0,
+            smooth: float = 1e-8,
+            dist_sync_on_step=False,
+            ignore_index=None,
     ):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.alpha = alpha
@@ -275,10 +279,10 @@ class FocalTverskyLoss(Metric):
         self.add_state("fp", default=torch.zeros(num_classes), dist_reduce_fx="sum")
 
     @staticmethod
-    def _input_format(preds: torch.Tensor, target: torch.Tensor):
+    def _input_format(preds: torch.Tensor, target: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         c = preds.shape[1]
         preds = preds.permute(0, 2, 3, 1).reshape((-1, c))
-        target = F.one_hot(target.flatten().long(), c)
+        target = one_hot(target.flatten().long(), c)
         return preds, target
 
     # noinspection PyMethodOverriding
@@ -294,9 +298,9 @@ class FocalTverskyLoss(Metric):
         self.fn += torch.sum(torch.mul(1.0 - preds, target), dim=0)
         self.fp += torch.sum(torch.mul(preds, 1.0 - target), dim=0)
 
-    def compute(self):
+    def compute(self) -> torch.Tensor:
         ti = (self.tp + self.smooth) / (
-            self.tp + self.alpha * self.fn + self.beta * self.fp + self.smooth
+                self.tp + self.alpha * self.fn + self.beta * self.fp + self.smooth
         )
         res = (1 - ti).pow(1 / self.gamma)
         return torch.sum(res, dim=0)

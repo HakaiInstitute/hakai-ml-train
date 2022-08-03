@@ -10,6 +10,7 @@ from utils.datasets.SegmentationDataset import SegmentationDataset
 from utils.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
 
 
+# noinspection PyAbstractClass
 class KelpDataModule(pl.LightningDataModule):
     def __init__(
             self,
@@ -58,6 +59,8 @@ class KelpDataModule(pl.LightningDataModule):
             [PadOut(512, 512), target_to_tensor, Clamp(0, self.num_classes - 1)]
         )
 
+        self.ds_train, self.ds_val, self.ds_test = None, None, None
+
     def prepare_data(self, *args, **kwargs):
         pass
 
@@ -78,10 +81,10 @@ class KelpDataModule(pl.LightningDataModule):
             target_transform=self.test_target_trans,
         )
 
-        # self.dims = tuple(self.ds_train[0][0].shape)
-
     def teardown(self, stage: Optional[str] = None) -> None:
-        pass
+        del self.ds_train
+        del self.ds_val
+        del self.ds_test
 
     def train_dataloader(self, *args, **kwargs) -> DataLoader:
         return DataLoader(

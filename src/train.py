@@ -1,172 +1,21 @@
 # Created by: Taylor Denouden
 # Organization: Hakai Institute
-# Date: 2020-06-23
-# Description:
 import argparse
 import os
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Optional
 
 import optuna
 import pytorch_lightning as pl
 import torch
 from optuna.integration import PyTorchLightningPruningCallback
 from pytorch_lightning.loggers import TensorBoardLogger
-from segmentation_models_pytorch import Unet
-from torch.optim import Optimizer
-from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 
+from models.base_model import Finetuning
 from kelp_data_module import KelpDataModule
-from utils.loss import FocalTverskyLoss
-
-
-class UnetEfficientnet(pl.LightningModule):
-    def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
-                 weight_decay: float = 0, loss_alpha: float = 0.7, loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100):
-        super().__init__()
-        self.num_classes = num_classes
-        self.ignore_index = ignore_index
-        self.lr = lr
-        self.weight_decay = weight_decay
-        self.max_epochs = max_epochs
-
-        # Create model from pre-trained UNet
-        self.model = Unet(
-            encoder_name="efficientnet-b4",
-            encoder_weights="imagenet",
-            in_channels=3,
-            classes=self.num_classes,
-        )
-        self.model.requires_grad_(True)
-        self.model.encoder.requires_grad_(False)
-
-        # Loss function
-        self.focal_tversky_loss = FocalTverskyLoss(self.num_classes, ignore_index=self.ignore_index,
-                                                   alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
-        self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                        mdmc_average='global')
-        self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                       average="none")
-        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                          average='weighted', mdmc_average='global')
-        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                    average='weighted', mdmc_average='global')
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model.forward(x)["out"]
-
-    def training_step(self, batch, batch_idx):
-        x, y = batch
-        logits = self.model(x)
-        probs = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(probs, y)
-
-        preds = logits.argmax(dim=1)
-        ious = self.iou_metric(preds, y)
-        acc = self.accuracy_metric(preds, y)
-
-        self.log("train_loss", loss, sync_dist=True)
-        self.log("train_miou", ious.mean(), sync_dist=True)
-        self.log("train_accuracy", acc, sync_dist=True)
-        for c in range(len(ious)):
-            name = f"train_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
-            self.log(name, ious[c], sync_dist=True)
-
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        return self._val_test_step(batch, batch_idx, phase="val")
-
-    def test_step(self, batch, batch_idx):
-        return self._val_test_step(batch, batch_idx, phase="test")
-
-    def _val_test_step(self, batch, batch_idx, phase="val"):
-        x, y = batch
-        logits = self.model(x)
-        probs = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(probs, y)
-
-        preds = logits.argmax(dim=1)
-        ious = self.iou_metric(preds, y)
-        miou = ious.mean()
-        acc = self.accuracy_metric(preds, y)
-        precision = self.precision_metric(preds, y)
-        recall = self.recall_metric(preds, y)
-
-        if phase == 'val':
-            self.log(f"hp_metric", miou)
-
-        self.log(f"{phase}_loss", loss, sync_dist=True)
-        self.log(f"{phase}_miou", miou, sync_dist=True)
-        self.log(f"{phase}_accuracy", acc, sync_dist=True)
-        self.log(f"{phase}_precision", precision, sync_dist=True)
-        self.log(f"{phase}_recall", recall, sync_dist=True)
-
-        for c in range(len(ious)):
-            name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
-            self.log(name, ious[c], sync_dist=True)
-
-        return loss
-
-    @property
-    def estimated_stepping_batches(self) -> int:
-        """Total training steps inferred from datamodule and devices."""
-        if self.trainer.max_steps != -1:
-            return self.trainer.max_steps
-
-        limit_batches = self.trainer.limit_train_batches
-        batches = len(self.trainer.datamodule.train_dataloader())
-        batches = (
-            min(batches, limit_batches)
-            if isinstance(limit_batches, int)
-            else int(limit_batches * batches)
-        )
-
-        num_devices = max(1, self.trainer.num_gpus, self.trainer.num_processes)
-        if self.trainer.tpu_cores:
-            num_devices = max(num_devices, self.trainer.tpu_cores)
-
-        effective_accum = self.trainer.accumulate_grad_batches * num_devices
-        return (batches // effective_accum) * self.max_epochs
-
-    def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
-                                    lr=self.lr, weight_decay=self.weight_decay, nesterov=True, momentum=0.9)
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr,
-                                                           total_steps=self.estimated_stepping_batches)
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
-
-    @staticmethod
-    def add_argparse_args(parser):
-        group = parser.add_argument_group("LR-ASPP-MobileNet-V3-Large")
-
-        group.add_argument("--num_classes", type=int, default=2,
-                           help="The number of image classes, including background.")
-        group.add_argument("--ignore_index", type=int, default=None,
-                           help="Label of any class to ignore.")
-        group.add_argument("--backbone_finetuning_epoch", type=int, default=None,
-                           help="Set a value to unlock the epoch that the backbone network should be unfrozen."
-                                "Leave as None to train all layers from the start.")
-        return parser
-
-
-class Finetuning(pl.callbacks.BaseFinetuning):
-    def __init__(self, unfreeze_at_epoch=10, train_bn=False):
-        super().__init__()
-        self._unfreeze_at_epoch = unfreeze_at_epoch
-        self._train_bn = train_bn
-
-    def freeze_before_training(self, pl_module: "pl.LightningModule") -> None:
-        self.freeze(pl_module.model.encoder, train_bn=False)
-
-    def finetune_function(self, pl_module: "pl.LightningModule", epoch: int, optimizer: Optimizer, opt_idx: int) -> None:
-        if epoch == self._unfreeze_at_epoch:
-            self.unfreeze_and_add_param_group(
-                pl_module.model.encoder,
-                optimizer,
-                train_bn=self._train_bn)
+from models.lit_deeplabv3_resnet101 import DeepLabV3ResNet101
+from models.lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
+from models.lit_unet import UnetEfficientnet
 
 
 # Objective function to be maximized by Optuna
@@ -198,14 +47,35 @@ class Objective(object):
         # ------------
         # model
         # ------------
-        model = UnetEfficientnet(
-            num_classes=args.num_classes,
-            ignore_index=args.ignore_index,
-            lr=lr,
-            loss_alpha=alpha,
-            weight_decay=weight_decay,
-            max_epochs=args.max_epochs,
-        )
+        if args.model == "unet":
+            model = UnetEfficientnet(
+                num_classes=args.num_classes,
+                ignore_index=args.ignore_index,
+                lr=lr,
+                loss_alpha=alpha,
+                weight_decay=weight_decay,
+                max_epochs=args.max_epochs,
+            )
+        elif args.model == "deeplab":
+            model = DeepLabV3ResNet101(
+                num_classes=args.num_classes,
+                ignore_index=args.ignore_index,
+                lr=lr,
+                loss_alpha=alpha,
+                weight_decay=weight_decay,
+                max_epochs=args.max_epochs,
+            )
+        elif args.model == "lraspp":
+            model = LRASPPMobileNetV3Large(
+                num_classes=args.num_classes,
+                ignore_index=args.ignore_index,
+                lr=lr,
+                loss_alpha=alpha,
+                weight_decay=weight_decay,
+                max_epochs=args.max_epochs,
+            )
+        else:
+            raise ValueError(f"No model for {args.model}")
 
         if args.weights and Path(args.weights).suffix == ".pt":
             print("Loading state_dict:", args.weights)
@@ -213,16 +83,12 @@ class Objective(object):
 
             # Remove trained weights for previous classifier output layers
             if args.drop_output_layer_weights:
-                del weights["model.classifier.low_classifier.weight"]
-                del weights["model.classifier.low_classifier.bias"]
-                del weights["model.classifier.high_classifier.weight"]
-                del weights["model.classifier.high_classifier.bias"]
-
+                weights = model.drop_output_layer_weights(weights)
             model.load_state_dict(weights, strict=False)
 
         elif args.weights and Path(args.weights).suffix == ".ckpt":
             print("Loading checkpoint:", args.weights)
-            model = UnetEfficientnet.load_from_checkpoint(args.weights)
+            model = model.load_from_checkpoint(args.weights)
 
         # ------------
         # callbacks
@@ -273,7 +139,8 @@ def cli_main(argv=None):
     # args
     # ------------
     parser = ArgumentParser()
-
+    parser.add_argument("model", type=str, choices=["unet", "lraspp", "deeplab"],
+                        help="The name of the model to train")
     parser.add_argument("data_dir", type=str,
                         help="The path to a data directory with subdirectories 'train', 'val', and "
                              "'test', each with 'x' and 'y' subdirectories containing image crops "
@@ -286,6 +153,14 @@ def cli_main(argv=None):
     parser.add_argument("--drop_output_layer_weights", action="store_true", default=False,
                         help="Drop the output layer weights before restoring them. "
                              "Use for finetuning to different class outputs.")
+
+    parser.add_argument("--num_classes", type=int, default=2,
+                        help="The number of image classes, including background.")
+    parser.add_argument("--ignore_index", type=int, default=None,
+                        help="Label of any class to ignore.")
+    parser.add_argument("--backbone_finetuning_epoch", type=int, default=None,
+                        help="Set a value to unlock the epoch that the backbone network should be unfrozen."
+                             "Leave as None to train all layers from the start.")
 
     parser.add_argument("--swa_epoch_start", type=float,
                         help="The epoch at which to start the stochastic weight averaging procedure.")
@@ -315,7 +190,6 @@ def cli_main(argv=None):
     parser.add_argument("--test-only", action="store_true", help="Only run the test dataset")
 
     parser = KelpDataModule.add_argparse_args(parser)
-    parser = UnetEfficientnet.add_argparse_args(parser)
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args(argv)
 
@@ -346,6 +220,7 @@ if __name__ == "__main__":
     debug = os.getenv("DEBUG", False)
     if debug:
         cli_main([
+            "lraspp",
             "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_pa_aco",
             "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa",
             "--name=UNET_DEV",
@@ -354,11 +229,12 @@ if __name__ == "__main__":
             "--gradient_clip_val=0.5",
             "--accelerator=gpu",
             "--devices=auto",
-            "--max_epochs=3",
+            "--max_epochs=10",
             '--limit_train_batches=10',
             "--limit_val_batches=10",
             "--limit_test_batches=10",
             "--log_every_n_steps=5",
+            # "--backbone_finetuning_epoch=10",
         ])
     else:
         cli_main()
