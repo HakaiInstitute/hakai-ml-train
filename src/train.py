@@ -11,9 +11,9 @@ import torch
 from optuna.integration import PyTorchLightningPruningCallback
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from base_model import BaseFinetuning
+from base_model import Finetuning
 from kelp_data_module import KelpDataModule
-from lit_deeplabv3_resnet101 import DeepLabv3ResNet101
+from lit_deeplabv3_resnet101 import DeepLabV3ResNet101
 from lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
 from lit_unet import UnetEfficientnet
 
@@ -57,7 +57,7 @@ class Objective(object):
                 max_epochs=args.max_epochs,
             )
         elif args.model == "deeplab":
-            model = DeepLabv3ResNet101(
+            model = DeepLabV3ResNet101(
                 num_classes=args.num_classes,
                 ignore_index=args.ignore_index,
                 lr=lr,
@@ -109,7 +109,7 @@ class Objective(object):
         ]
 
         if args.backbone_finetuning_epoch is not None:
-            callbacks.append(BaseFinetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
+            callbacks.append(Finetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
         if args.swa_epoch_start:
             callbacks.append(
                 pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
@@ -155,12 +155,12 @@ def cli_main(argv=None):
                              "Use for finetuning to different class outputs.")
 
     parser.add_argument("--num_classes", type=int, default=2,
-                       help="The number of image classes, including background.")
+                        help="The number of image classes, including background.")
     parser.add_argument("--ignore_index", type=int, default=None,
-                       help="Label of any class to ignore.")
+                        help="Label of any class to ignore.")
     parser.add_argument("--backbone_finetuning_epoch", type=int, default=None,
-                       help="Set a value to unlock the epoch that the backbone network should be unfrozen."
-                            "Leave as None to train all layers from the start.")
+                        help="Set a value to unlock the epoch that the backbone network should be unfrozen."
+                             "Leave as None to train all layers from the start.")
 
     parser.add_argument("--swa_epoch_start", type=float,
                         help="The epoch at which to start the stochastic weight averaging procedure.")

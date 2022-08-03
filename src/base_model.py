@@ -5,27 +5,29 @@ from typing import Optional, TypeVar
 
 import pytorch_lightning as pl
 import torch
+from pytorch_lightning.callbacks import BaseFinetuning
 from torch.optim import Optimizer
 from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 
 from utils.loss import FocalTverskyLoss
 
-T = TypeVar('T')
+WeightsT = TypeVar('WeightsT')
+
 
 class BaseModel(pl.LightningModule):
     @abstractmethod
     def init_model(self):
         raise NotImplementedError
 
-    def freeze_before_training(self, ft_module: "pl.callbacks.BaseFinetuning") -> None:
+    def freeze_before_training(self, ft_module: 'Finetuning') -> None:
         pass
 
-    def finetune_function(self, ft_module: "pl.callbacks.BaseFinetuning", epoch: int, optimizer: Optimizer, opt_idx: int) -> None:
+    def finetune_function(self, ft_module: 'Finetuning', epoch: int, optimizer: Optimizer, opt_idx: int) -> None:
         pass
 
     @staticmethod
     @abstractmethod
-    def drop_output_layer_weights(weights: T) -> T:
+    def drop_output_layer_weights(weights: WeightsT) -> WeightsT:
         raise NotImplementedError
 
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
@@ -56,6 +58,7 @@ class BaseModel(pl.LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
 
+    # noinspection DuplicatedCode
     def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self.forward(x)
@@ -81,6 +84,7 @@ class BaseModel(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         return self._val_test_step(batch, batch_idx, phase="test")
 
+    # noinspection PyUnusedLocal,DuplicatedCode
     def _val_test_step(self, batch, batch_idx, phase="val"):
         x, y = batch
         logits = self.forward(x)
@@ -139,7 +143,7 @@ class BaseModel(pl.LightningModule):
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
 
-class BaseFinetuning(pl.callbacks.BaseFinetuning):
+class Finetuning(BaseFinetuning):
     def __init__(self, unfreeze_at_epoch=10, train_bn=True):
         super().__init__()
         self.unfreeze_at_epoch = unfreeze_at_epoch
