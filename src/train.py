@@ -229,11 +229,12 @@ if __name__ == "__main__":
             "--gradient_clip_val=0.5",
             "--accelerator=gpu",
             "--devices=auto",
-            "--max_epochs=3",
+            "--max_epochs=10",
             '--limit_train_batches=10',
             "--limit_val_batches=10",
             "--limit_test_batches=10",
             "--log_every_n_steps=5",
+            # "--backbone_finetuning_epoch=10",
         ])
     else:
         cli_main()
