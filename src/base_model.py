@@ -1,7 +1,7 @@
 # Created by: Taylor Denouden
 # Organization: Hakai Institute
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, TypeVar
 
 import pytorch_lightning as pl
 import torch
@@ -10,6 +10,7 @@ from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 
 from utils.loss import FocalTverskyLoss
 
+T = TypeVar('T')
 
 class BaseModel(pl.LightningModule):
     @abstractmethod
@@ -19,9 +20,13 @@ class BaseModel(pl.LightningModule):
     def freeze_before_training(self, ft_module: "pl.callbacks.BaseFinetuning") -> None:
         pass
 
-    def finetune_function(self, ft_module: "pl.callbacks.BaseFinetuning", epoch: int, optimizer: Optimizer,
-                          opt_idx: int) -> None:
+    def finetune_function(self, ft_module: "pl.callbacks.BaseFinetuning", epoch: int, optimizer: Optimizer, opt_idx: int) -> None:
         pass
+
+    @staticmethod
+    @abstractmethod
+    def drop_output_layer_weights(weights: T) -> T:
+        raise NotImplementedError
 
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
                  weight_decay: float = 0, loss_alpha: float = 0.7, loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100):
@@ -132,19 +137,6 @@ class BaseModel(pl.LightningModule):
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr,
                                                            total_steps=self.estimated_stepping_batches)
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
-
-    @classmethod
-    def add_argparse_args(cls, parser):
-        group = parser.add_argument_group(cls.__name__)
-
-        group.add_argument("--num_classes", type=int, default=2,
-                           help="The number of image classes, including background.")
-        group.add_argument("--ignore_index", type=int, default=None,
-                           help="Label of any class to ignore.")
-        group.add_argument("--backbone_finetuning_epoch", type=int, default=None,
-                           help="Set a value to unlock the epoch that the backbone network should be unfrozen."
-                                "Leave as None to train all layers from the start.")
-        return parser
 
 
 class BaseFinetuning(pl.callbacks.BaseFinetuning):
