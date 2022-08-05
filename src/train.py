@@ -11,8 +11,8 @@ import torch
 from optuna.integration import PyTorchLightningPruningCallback
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from models.base_model import Finetuning
 from kelp_data_module import KelpDataModule
+from models.base_model import Finetuning
 from models.lit_deeplabv3_resnet101 import DeepLabV3ResNet101
 from models.lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
 from models.lit_unet import UnetEfficientnet
@@ -93,16 +93,23 @@ class Objective(object):
         # ------------
         # callbacks
         # ------------
-        checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            # verbose=True,
-            monitor="val_miou", mode="max",
-            filename="best-{val_miou:.4f}-{epoch}",
-            save_top_k=1, save_last=True,
-            save_on_train_epoch_end=False,
-            every_n_epochs=1,
-        )
+        checkpoint_options = {
+            # "verbose": True,
+            "monitor": "val_miou",
+            "mode": "max",
+            "filename": "{val_miou:.4f}_{epoch}",
+            "save_top_k": 1,
+            "save_last": True,
+            "save_on_train_epoch_end": False,
+            "every_n_epochs": 1,
+        }
+        checkpoint_callback = pl.callbacks.ModelCheckpoint(**checkpoint_options, verbose=False, )
+        checkpoint_weights_callback = pl.callbacks.ModelCheckpoint(**checkpoint_options, save_weights_only=True)
+        checkpoint_weights_callback.FILE_EXTENSION = ".pt"
+
         callbacks = [
             checkpoint_callback,
+            checkpoint_weights_callback,
             pl.callbacks.LearningRateMonitor(),
             pl.callbacks.EarlyStopping(monitor="val_miou", mode="max", patience=10),
             PyTorchLightningPruningCallback(trial, monitor='val_miou'),
@@ -220,8 +227,8 @@ if __name__ == "__main__":
     debug = os.getenv("DEBUG", False)
     if debug:
         cli_main([
-            "lraspp",
-            "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_pa_aco",
+            "unet",
+            "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_pa/July2022",
             "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa",
             "--name=UNET_DEV",
             "--num_classes=2",
