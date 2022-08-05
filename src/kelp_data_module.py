@@ -67,16 +67,19 @@ class KelpDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         self.ds_train = SegmentationDataset(
             self.train_data_dir,
+            ext='tif',
             transform=self.train_trans,
             target_transform=self.train_target_trans,
         )
         self.ds_val = SegmentationDataset(
             self.val_data_dir,
+            ext='tif',
             transform=self.test_trans,
             target_transform=self.test_target_trans,
         )
         self.ds_test = SegmentationDataset(
             self.test_data_dir,
+            ext='tif',
             transform=self.test_trans,
             target_transform=self.test_target_trans,
         )
