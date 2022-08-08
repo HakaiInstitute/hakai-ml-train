@@ -138,8 +138,8 @@ class BaseModel(pl.LightningModule):
 
     def configure_optimizers(self):
         """Init optimizer and scheduler"""
-        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
-                                    lr=self.lr, weight_decay=self.weight_decay, nesterov=True, momentum=0.9)
+        optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, self.parameters()),
+                                      lr=self.lr, weight_decay=self.weight_decay, amsgrad=True)
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr,
                                                            total_steps=self.estimated_stepping_batches)
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
