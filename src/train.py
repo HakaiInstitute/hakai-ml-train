@@ -207,8 +207,7 @@ def cli_main(argv=None):
     objective = Objective(args)
     pruner: optuna.pruners.BasePruner = optuna.pruners.SuccessiveHalvingPruner()
 
-    study = optuna.create_study(direction="maximize", pruner=pruner,
-                                storage=f'sqlite:///{args.checkpoint_dir}/{args.name}/hyper_opt.db')
+    study = optuna.create_study(direction="maximize", pruner=pruner)
     study.enqueue_trial({'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay})
     study.optimize(objective, n_trials=args.tune_trials)
 
