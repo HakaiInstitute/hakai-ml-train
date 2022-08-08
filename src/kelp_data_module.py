@@ -1,10 +1,11 @@
 import os
-import pytorch_lightning as pl
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import List, Optional, Union
+
+import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from torchvision import transforms as t
-from typing import List, Optional, Union
 
 from utils.datasets.SegmentationDataset import SegmentationDataset
 from utils.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
@@ -19,12 +20,14 @@ class KelpDataModule(pl.LightningDataModule):
             batch_size: int,
             num_workers: int = os.cpu_count(),
             pin_memory=True,
+            persistent_workers=False,
     ):
         super().__init__()
         self.num_classes = num_classes
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.pin_memory = pin_memory
+        self.persistent_workers = persistent_workers
 
         self.train_data_dir = Path(data_dir).joinpath("train")
         self.val_data_dir = Path(data_dir).joinpath("val")
@@ -97,6 +100,7 @@ class KelpDataModule(pl.LightningDataModule):
             pin_memory=self.pin_memory,
             drop_last=True,
             num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers,
         )
 
     def val_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
@@ -106,6 +110,7 @@ class KelpDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers,
         )
 
     def test_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
@@ -115,6 +120,7 @@ class KelpDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers,
         )
 
     @classmethod

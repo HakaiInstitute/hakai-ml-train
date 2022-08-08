@@ -32,7 +32,8 @@ class Objective(object):
         kelp_data = KelpDataModule(
             args.data_dir,
             # num_workers=0,
-            # pin_memory=False,
+            pin_memory=True,
+            persistent_workers=True,
             num_classes=args.num_classes,
             batch_size=args.batch_size
         )
@@ -227,10 +228,10 @@ if __name__ == "__main__":
     debug = os.getenv("DEBUG", False)
     if debug:
         cli_main([
-            "unet",
+            "lraspp",
             "/home/taylor/PycharmProjects/hakai-ml-train/data/kelp_pa/July2022",
             "/home/taylor/PycharmProjects/hakai-ml-train/checkpoints/kelp_pa",
-            "--name=UNET_DEV",
+            "--name=LRASPP_DEV",
             "--num_classes=2",
             "--batch_size=2",
             "--gradient_clip_val=0.5",
