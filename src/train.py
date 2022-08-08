@@ -175,7 +175,7 @@ def cli_main(argv=None):
                         help="The lr to start the annealing procedure for stochastic weight averaging.")
 
     parser.add_argument("--tune_trials", type=int, default=30,
-                        help="Number of Ray Tune trials to run.")
+                        help="Number of Tune trials to run.")
     parser.add_argument("--init_lr", type=float, default=0.03,
                         help="The initial LR to test with Ray Tune.")
     parser.add_argument("--min_lr", type=float, default=1e-6,
@@ -209,7 +209,7 @@ def cli_main(argv=None):
     study = optuna.create_study(direction="maximize", pruner=pruner,
                                 storage=f'sqlite:///{args.checkpoint_dir}/{args.name}/hyper_opt.db')
     study.enqueue_trial({'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay})
-    study.optimize(objective, n_trials=args.tune_trials, gc_after_trial=True)
+    study.optimize(objective, n_trials=args.tune_trials)
 
     print("Number of finished trials: {}".format(len(study.trials)))
 
