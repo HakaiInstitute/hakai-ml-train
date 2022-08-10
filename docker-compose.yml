@@ -211,6 +211,9 @@ services:
           "--max_epochs=100",
           "--precision=16",
           "--batch_size=16",
+          "--init_lr=0.03",
+          "--init_alpha=0.4",
+          "--init_weight_decay=0",
       ]
 
   kelp-pa-train-deeplab:
