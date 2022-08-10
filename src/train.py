@@ -16,7 +16,6 @@ from models.base_model import Finetuning
 from models.lit_deeplabv3_resnet101 import DeepLabV3ResNet101
 from models.lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
 from models.lit_unet import UnetEfficientnet
-from utils.git_hash import get_git_revision_hash
 
 
 # Objective function to be maximized by Optuna
@@ -135,7 +134,7 @@ class Objective(object):
             'alpha': alpha,
             'weight_decay': weight_decay,
             'batch_size': args.batch_size,
-            'sha': get_git_revision_hash(),
+            # 'sha': get_git_revision_hash(),
         })
         trainer.fit(model, datamodule=kelp_data)
 
