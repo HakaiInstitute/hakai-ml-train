@@ -35,6 +35,7 @@ class BaseModel(pl.LightningModule):
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
                  weight_decay: float = 0, loss_alpha: float = 0.7, loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100):
         super().__init__()
+        self.save_hyperparameters(ignore=['num_classes', 'ignore_index', 'max_epochs'])
         self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.lr = lr
@@ -62,32 +63,16 @@ class BaseModel(pl.LightningModule):
 
     # noinspection DuplicatedCode
     def training_step(self, batch, batch_idx):
-        x, y = batch
-        logits = self.forward(x)
-        probs = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(probs, y)
-
-        preds = logits.argmax(dim=1)
-        ious = self.iou_metric(preds, y)
-        acc = self.accuracy_metric(preds, y)
-
-        self.log("train_loss", loss, sync_dist=True)
-        self.log("train_miou", ious.mean(), sync_dist=True)
-        self.log("train_accuracy", acc, sync_dist=True)
-        for c in range(len(ious)):
-            name = f"train_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
-            self.log(name, ious[c], sync_dist=True)
-
-        return loss
+        return self._phase_step(batch, batch_idx, phase="train")
 
     def validation_step(self, batch, batch_idx):
-        return self._val_test_step(batch, batch_idx, phase="val")
+        return self._phase_step(batch, batch_idx, phase="val")
 
     def test_step(self, batch, batch_idx):
-        return self._val_test_step(batch, batch_idx, phase="test")
+        return self._phase_step(batch, batch_idx, phase="test")
 
     # noinspection PyUnusedLocal,DuplicatedCode
-    def _val_test_step(self, batch, batch_idx, phase="val"):
+    def _phase_step(self, batch, batch_idx, phase):
         x, y = batch
         logits = self.forward(x)
         probs = torch.softmax(logits, dim=1)
@@ -103,15 +88,19 @@ class BaseModel(pl.LightningModule):
         if phase == 'val':
             self.log(f"hp_metric", miou)
 
-        self.log(f"{phase}_loss", loss, sync_dist=True)
-        self.log(f"{phase}_miou", miou, sync_dist=True)
-        self.log(f"{phase}_accuracy", acc, sync_dist=True)
-        self.log(f"{phase}_precision", precision, sync_dist=True)
-        self.log(f"{phase}_recall", recall, sync_dist=True)
+        metrics = {
+            f"{phase}_loss": loss,
+            f"{phase}_miou": ious.mean(),
+            f"{phase}_accuracy": acc,
+            f"{phase}_precision": precision,
+            f"{phase}_recall": recall,
+        }
 
         for c in range(len(ious)):
             name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
-            self.log(name, ious[c], sync_dist=True)
+            metrics.update({f'{name}': ious[c]})
+
+        self.log(phase, metrics, sync_dist=True)
 
         return loss
 
