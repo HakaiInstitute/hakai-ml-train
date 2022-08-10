@@ -53,6 +53,7 @@ services:
       - "/mnt/data/mussels/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
+    shm_size: '2gb'
     deploy: *default-deploy
     command:
       [
@@ -85,6 +86,7 @@ services:
       - "/mnt/data/mussels/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
+    shm_size: '2gb'
     deploy: *default-deploy
     command:
       [
@@ -117,6 +119,7 @@ services:
       - "/mnt/data/mussels/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
+    shm_size: '2gb'
     deploy: *default-deploy
     command:
       [
@@ -149,6 +152,7 @@ services:
       - "/mnt/data/presence/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
+    shm_size: '2gb'
     deploy: *default-deploy
     command:
       [
@@ -181,6 +185,7 @@ services:
       - "/mnt/data/presence/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
+    shm_size: '2gb'
     deploy: *default-deploy
     command:
       [
@@ -216,6 +221,7 @@ services:
       - "/mnt/data/presence/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
+    shm_size: '2gb'
     deploy: *default-deploy
     command:
       [
@@ -249,6 +255,7 @@ services:
       - "/mnt/data/species/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
+    shm_size: '2gb'
     deploy: *default-deploy
     command:
       [
@@ -285,6 +292,7 @@ services:
       - "/mnt/data/species/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
+    shm_size: '2gb'
     deploy: *default-deploy
     command:
       [
@@ -321,6 +329,7 @@ services:
       - "/mnt/data/presence/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
+    shm_size: '2gb'
     deploy: *default-deploy
     command:
       [
