@@ -19,6 +19,9 @@ from models.lit_unet import UnetEfficientnet
 
 
 # Objective function to be maximized by Optuna
+from utils.git_hash import get_git_revision_hash
+
+
 class Objective(object):
     def __init__(self, args: argparse.Namespace):
         self.args = args
@@ -134,7 +137,7 @@ class Objective(object):
             'alpha': alpha,
             'weight_decay': weight_decay,
             'batch_size': args.batch_size,
-            # 'sha': get_git_revision_hash(),
+            'sha': get_git_revision_hash(),
         })
         trainer.fit(model, datamodule=kelp_data)
 

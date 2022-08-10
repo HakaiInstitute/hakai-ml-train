@@ -12,7 +12,8 @@ RUN apt-get update && \
     pip install -r requirements.txt
 
 # Copy the code to the image
-COPY src .
+COPY . .
+WORKDIR /opt/code/src
 
 # Run python by default
 CMD "python"
