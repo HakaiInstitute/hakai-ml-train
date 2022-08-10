@@ -49,31 +49,27 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/mussels/Feb2022/data:/data:ro"
+      - "/mnt/data/mussels/data/Aug2022:/data:ro"
+      - "/mnt/data/mussels/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
     command:
       [
-        "python",
-        "train.py",
-        "",
-        "train",
-        "/data",
-        "s3a://hakai-deep-learning-datasets/checkpoints",
-        "--name=unet_mussels",
-        "--num_classes=2",
-        "--lr=0.35",
-        "--weight_decay=3e-6",
-        "--gradient_clip_val=0.5",
-        "--accelerator=gpu",
-        "--strategy=ddp",
-        "--gpus=-1",
-        "--benchmark",
-        "--sync_batchnorm",
-        "--max_epochs=100",
-        "--batch_size=8",
-        "--precision=16",
+          "python",
+          "train.py",
+          "unet",
+          "/data",
+          "/checkpoints",
+          "--name=mussels_pa_unet",
+          "--num_classes=2",
+          "--gradient_clip_val=0.5",
+          "--accelerator=gpu",
+          "--devices=auto",
+          "--sync_batchnorm",
+          "--max_epochs=100",
+          "--precision=16",
+          "--batch_size=16",
       ]
 
   mussels-train-lraspp:
@@ -85,7 +81,8 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/mussels/Feb2022/data:/data:ro"
+      - "/mnt/data/mussels/data/Aug2022:/data:ro"
+      - "/mnt/data/mussels/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
@@ -95,21 +92,16 @@ services:
           "train.py",
           "lraspp",
           "/data",
-          "s3a://hakai-deep-learning-datasets/checkpoints",
-          "--name=lr_aspp_mussels",
+          "/checkpoints",
+          "--name=mussels_pa_lraspp",
           "--num_classes=2",
-          "--lr=0.35",
-          "--weight_decay=3e-6",
           "--gradient_clip_val=0.5",
           "--accelerator=gpu",
-          "--strategy=ddp",
-          "--gpus=-1",
-          "--benchmark",
+          "--devices=auto",
           "--sync_batchnorm",
           "--max_epochs=100",
-#          "--swa_epoch_start=75",
-          "--batch_size=16",
           "--precision=16",
+          "--batch_size=16",
       ]
 
   mussels-train-deeplab:
@@ -121,32 +113,27 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/mussels/Feb2022/data:/data:ro"
+      - "/mnt/data/mussels/data/Aug2022:/data:ro"
+      - "/mnt/data/mussels/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
     deploy: *default-deploy
     command:
       [
-          "python",
-          "train.py",
-          "",
-          "/data",
-          "s3a://hakai-deep-learning-datasets/checkpoints",
-          "--name=deeplab_mussels",
-          "--num_classes=2",
-          "--lr=0.35",
-          "--weight_decay=3e-6",
-          "--gradient_clip_val=0.5",
-          "--accelerator=gpu",
-          "--strategy=ddp",
-          "--gpus=-1",
-          "--benchmark",
-          "--sync_batchnorm",
-          "--unfreeze_backbone_epoch=0",
-          "--train_backbone_bn",
-          "--max_epochs=100",
-          "--batch_size=8",
-          "--precision=16",
+        "python",
+        "train.py",
+        "deeplab",
+        "/data",
+        "/checkpoints",
+        "--name=mussels_pa_deeplab",
+        "--num_classes=2",
+        "--gradient_clip_val=0.5",
+        "--accelerator=gpu",
+        "--devices=auto",
+        "--sync_batchnorm",
+        "--max_epochs=100",
+        "--precision=16",
+        "--batch_size=8",
       ]
 
   kelp-pa-train-unet:
