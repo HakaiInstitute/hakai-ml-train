@@ -86,21 +86,17 @@ class BaseModel(pl.LightningModule):
         recall = self.recall_metric(preds, y)
 
         if phase == 'val':
-            self.log(f"hp_metric", miou)
+            self.log(f"hp_metric", miou, sync_dist=True)
 
-        metrics = {
-            f"{phase}_loss": loss,
-            f"{phase}_miou": ious.mean(),
-            f"{phase}_accuracy": acc,
-            f"{phase}_precision": precision,
-            f"{phase}_recall": recall,
-        }
+        self.log(f"{phase}_loss", loss, sync_dist=True)
+        self.log(f"{phase}_miou", ious.mean(), sync_dist=True),
+        self.log(f"{phase}_accuracy", acc, sync_dist=True)
+        self.log(f"{phase}_precision", precision, sync_dist=True)
+        self.log(f"{phase}_recall", recall, sync_dist=True)
 
         for c in range(len(ious)):
             name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
-            metrics.update({f'{name}': ious[c]})
-
-        self.log(phase, metrics, sync_dist=True)
+            self.log(name, ious[c], sync_dist=True)
 
         return loss
 
