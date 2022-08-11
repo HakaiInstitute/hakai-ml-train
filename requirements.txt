@@ -1,9 +1,8 @@
 lightning-bolts
-pytorch-lightning>=1.5.0,<1.6.0
+pytorch-lightning
 s3fs
 segmentation-models-pytorch
 tensorboard
 torchmetrics
 tqdm
-optuna
 protobuf<4.21.0

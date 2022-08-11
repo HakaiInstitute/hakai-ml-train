@@ -7,8 +7,7 @@ dependencies:
   - conda-forge::cudatoolkit=11.3
   - conda-forge::jupyter
   - conda-forge::loguru
-  - conda-forge::optuna
-  - conda-forge::pytorch-lightning>=1.5.0,<1.6.0
+  - conda-forge::pytorch-lightning
   - conda-forge::s3fs
   - conda-forge::tensorboard
   - conda-forge::torchmetrics
