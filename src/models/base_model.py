@@ -100,33 +100,12 @@ class BaseModel(pl.LightningModule):
 
         return loss
 
-    @property
-    def estimated_stepping_batches(self) -> int:
-        """Total training steps inferred from datamodule and devices."""
-        if self.trainer.max_steps != -1:
-            return self.trainer.max_steps
-
-        limit_batches = self.trainer.limit_train_batches
-        batches = len(self.trainer.datamodule.train_dataloader())
-        batches = (
-            min(batches, limit_batches)
-            if isinstance(limit_batches, int)
-            else int(limit_batches * batches)
-        )
-
-        num_devices = max(1, self.trainer.num_gpus, self.trainer.num_processes)
-        if self.trainer.tpu_cores:
-            num_devices = max(num_devices, self.trainer.tpu_cores)
-
-        effective_accum = self.trainer.accumulate_grad_batches * num_devices
-        return (batches // effective_accum) * self.max_epochs
-
     def configure_optimizers(self):
         """Init optimizer and scheduler"""
         optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, self.parameters()),
                                       lr=self.lr, weight_decay=self.weight_decay, amsgrad=True)
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr,
-                                                           total_steps=self.estimated_stepping_batches)
+                                                           total_steps=self.trainer.estimated_stepping_batches)
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
 

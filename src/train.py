@@ -5,10 +5,8 @@ import os
 from argparse import ArgumentParser
 from pathlib import Path
 
-import optuna
 import pytorch_lightning as pl
 import torch
-from optuna.integration import PyTorchLightningPruningCallback
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from kelp_data_module import KelpDataModule
@@ -16,17 +14,17 @@ from models.base_model import Finetuning
 from models.lit_deeplabv3_resnet101 import DeepLabV3ResNet101
 from models.lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
 from models.lit_unet import UnetEfficientnet
-
-
-# Objective function to be maximized by Optuna
 from utils.git_hash import get_git_revision_hash
 
 
 class Objective(object):
+    """The objective function to be maximized by Optuna."""
+
     def __init__(self, args: argparse.Namespace):
         self.args = args
 
-    def __call__(self, trial: optuna.trial.Trial):
+    # def __call__(self, trial: optuna.trial.Trial):
+    def __call__(self):
         args = self.args
 
         # ------------
@@ -44,9 +42,12 @@ class Objective(object):
         # ------------
         # hyperparameter search space
         # ------------
-        lr = trial.suggest_float('lr', args.min_lr, args.max_lr, log=True)
-        alpha = trial.suggest_float('alpha', args.min_alpha, args.max_alpha)
-        weight_decay = trial.suggest_float('weight_decay', args.min_weight_decay, args.max_weight_decay)
+        # lr = trial.suggest_float('lr', args.min_lr, args.max_lr, log=True)
+        # alpha = trial.suggest_float('alpha', args.min_alpha, args.max_alpha)
+        # weight_decay = trial.suggest_float('weight_decay', args.min_weight_decay, args.max_weight_decay)
+        lr = args.init_lr
+        alpha = args.init_alpha
+        weight_decay = args.init_weight_decay
 
         # ------------
         # model
@@ -116,7 +117,7 @@ class Objective(object):
             checkpoint_weights_callback,
             pl.callbacks.LearningRateMonitor(),
             pl.callbacks.EarlyStopping(monitor="val_miou", mode="max", patience=5),
-            PyTorchLightningPruningCallback(trial, monitor='val_miou'),
+            # PyTorchLightningPruningCallback(trial, monitor='val_miou'),
         ]
 
         if args.backbone_finetuning_epoch is not None:
@@ -125,8 +126,7 @@ class Objective(object):
             callbacks.append(
                 pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
 
-        logger = TensorBoardLogger(save_dir=args.checkpoint_dir, name=f'{args.name}/trial_{trial.number}',
-                                   default_hp_metric=False)
+        logger = TensorBoardLogger(save_dir=args.checkpoint_dir, name=f'{args.name}', default_hp_metric=False)
         trainer = pl.Trainer.from_argparse_args(
             args,
             logger=logger,
@@ -183,22 +183,22 @@ def cli_main(argv=None):
                         help="Number of Tune trials to run.")
     parser.add_argument("--init_lr", type=float, default=0.03,
                         help="The initial LR to test with Ray Tune.")
-    parser.add_argument("--min_lr", type=float, default=1e-6,
-                        help="The lower limit of the range of LRs to optimize with Ray Tune.")
-    parser.add_argument("--max_lr", type=float, default=0.1,
-                        help="The upper limit of the range of LRs to optimize with Ray Tune.")
+    # parser.add_argument("--min_lr", type=float, default=1e-6,
+    #                     help="The lower limit of the range of LRs to optimize with Ray Tune.")
+    # parser.add_argument("--max_lr", type=float, default=0.1,
+    #                     help="The upper limit of the range of LRs to optimize with Ray Tune.")
     parser.add_argument("--init_alpha", type=float, default=0.4,
                         help="The initial alpha (a FTLoss hyperparameter) to test with Ray Tune.")
-    parser.add_argument("--min_alpha", type=float, default=0.1,
-                        help="The lower limit of the range of alpha hyperparameters to optimize with Ray Tune.")
-    parser.add_argument("--max_alpha", type=float, default=0.9,
-                        help="The upper limit of the range of alpha hyperparameters to optimize with Ray Tune.")
+    # parser.add_argument("--min_alpha", type=float, default=0.1,
+    #                     help="The lower limit of the range of alpha hyperparameters to optimize with Ray Tune.")
+    # parser.add_argument("--max_alpha", type=float, default=0.9,
+    #                     help="The upper limit of the range of alpha hyperparameters to optimize with Ray Tune.")
     parser.add_argument("--init_weight_decay", type=float, default=0,
                         help="The initial weight decay to test with Ray Tune.")
-    parser.add_argument("--min_weight_decay", type=float, default=0,
-                        help="The lower limit of the range of weight decay values to optimize with Ray Tune.")
-    parser.add_argument("--max_weight_decay", type=float, default=1e-3,
-                        help="The upper limit of the range of weight decay values to optimize with Ray Tune.")
+    # parser.add_argument("--min_weight_decay", type=float, default=0,
+    #                     help="The lower limit of the range of weight decay values to optimize with Ray Tune.")
+    # parser.add_argument("--max_weight_decay", type=float, default=1e-3,
+    #                     help="The upper limit of the range of weight decay values to optimize with Ray Tune.")
     parser.add_argument("--test-only", action="store_true", help="Only run the test dataset")
 
     parser = KelpDataModule.add_argparse_args(parser)
@@ -209,22 +209,24 @@ def cli_main(argv=None):
     Path(args.checkpoint_dir, args.name).mkdir(exist_ok=True, parents=True)
 
     objective = Objective(args)
-    pruner: optuna.pruners.BasePruner = optuna.pruners.SuccessiveHalvingPruner()
+    # pruner: optuna.pruners.BasePruner = optuna.pruners.SuccessiveHalvingPruner()
 
-    study = optuna.create_study(direction="maximize", pruner=pruner)
-    study.enqueue_trial({'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay})
-    study.optimize(objective, n_trials=args.tune_trials)
+    # study = optuna.create_study(direction="maximize", pruner=pruner)
+    # study.enqueue_trial({'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay})
+    # study.optimize(objective, n_trials=args.tune_trials)
 
-    print("Number of finished trials: {}".format(len(study.trials)))
+    # print("Number of finished trials: {}".format(len(study.trials)))
 
-    print("Best trial:")
-    best_trial = study.best_trial
-
-    print("  Value: {}".format(best_trial.value))
-
-    print("  Params: ")
-    for key, value in best_trial.params.items():
-        print("    {}: {}".format(key, value))
+    # print("Best trial:")
+    # best_trial = study.best_trial
+    #
+    # print("  Value: {}".format(best_trial.value))
+    #
+    # print("  Params: ")
+    # for key, value in best_trial.params.items():
+    #     print("    {}: {}".format(key, value))
+    miou = objective()
+    print("Best mIoU:", miou)
 
 
 if __name__ == "__main__":
