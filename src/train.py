@@ -108,7 +108,7 @@ class Objective(object):
             "save_on_train_epoch_end": False,
             "every_n_epochs": 1,
         }
-        checkpoint_callback = pl.callbacks.ModelCheckpoint(**checkpoint_options, verbose=False, )
+        checkpoint_callback = pl.callbacks.ModelCheckpoint(**checkpoint_options, verbose=False)
         checkpoint_weights_callback = pl.callbacks.ModelCheckpoint(**checkpoint_options, save_weights_only=True)
         checkpoint_weights_callback.FILE_EXTENSION = ".pt"
 
@@ -116,7 +116,7 @@ class Objective(object):
             checkpoint_callback,
             checkpoint_weights_callback,
             pl.callbacks.LearningRateMonitor(),
-            pl.callbacks.EarlyStopping(monitor="val_miou", mode="max", patience=5),
+            pl.callbacks.EarlyStopping(monitor="val_miou", mode="max", patience=10),
             # PyTorchLightningPruningCallback(trial, monitor='val_miou'),
         ]
 
