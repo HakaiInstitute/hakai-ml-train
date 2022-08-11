@@ -49,14 +49,10 @@ class BaseModel(pl.LightningModule):
         # Loss function
         self.focal_tversky_loss = FocalTverskyLoss(self.num_classes, ignore_index=self.ignore_index,
                                                    alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
-        self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                        mdmc_average='global')
-        self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                       average="none")
-        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                          average='weighted', mdmc_average='global')
-        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                    average='weighted', mdmc_average='global')
+        self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index, mdmc_average='global')
+        self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index, average="none")
+        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index, average='none')
+        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index, average='none')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
@@ -82,8 +78,8 @@ class BaseModel(pl.LightningModule):
         ious = self.iou_metric(preds, y)
         miou = ious.mean()
         acc = self.accuracy_metric(preds, y)
-        precision = self.precision_metric(preds, y)
-        recall = self.recall_metric(preds, y)
+        precisions = self.precision_metric(preds, y)
+        recalls = self.recall_metric(preds, y)
 
         if phase == 'val':
             self.log(f"hp_metric", miou, sync_dist=True)
@@ -91,12 +87,18 @@ class BaseModel(pl.LightningModule):
         self.log(f"{phase}_loss", loss, sync_dist=True)
         self.log(f"{phase}_miou", ious.mean(), sync_dist=True),
         self.log(f"{phase}_accuracy", acc, sync_dist=True)
-        self.log(f"{phase}_precision", precision, sync_dist=True)
-        self.log(f"{phase}_recall", recall, sync_dist=True)
+        self.log(f"{phase}_average_precision", precisions.mean(), sync_dist=True)
+        self.log(f"{phase}_average_recall", recalls.mean(), sync_dist=True)
 
         for c in range(len(ious)):
             name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
             self.log(name, ious[c], sync_dist=True)
+
+            name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_precision"
+            self.log(name, precisions[c], sync_dist=True)
+
+            name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_recall"
+            self.log(name, recalls[c], sync_dist=True)
 
         return loss
 
