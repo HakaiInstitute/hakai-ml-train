@@ -238,7 +238,11 @@ services:
         "--sync_batchnorm",
         "--max_epochs=100",
         "--precision=16",
-        "--batch_size=8",
+        "--batch_size=16",
+        "--init_lr=0.003",
+        "--init_alpha=0.7",
+        "--init_weight_decay=0",
+        "--backbone_finetuning_epoch=0",
       ]
 
   kelp-species-train-lraspp:
