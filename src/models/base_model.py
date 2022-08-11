@@ -52,9 +52,9 @@ class BaseModel(pl.LightningModule):
         self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index, mdmc_average='global')
         self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index, average="none")
         self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                          average="none", mdmc_average='global', multiclass=True)
+                                          average="none", mdmc_average='global')
         self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                    average="none", mdmc_average='global', multiclass=True)
+                                    average="none", mdmc_average='global')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
@@ -76,12 +76,11 @@ class BaseModel(pl.LightningModule):
         probs = torch.softmax(logits, dim=1)
         loss = self.focal_tversky_loss(probs, y)
 
-        preds = logits.argmax(dim=1)
-        ious = self.iou_metric(preds, y)
+        ious = self.iou_metric(probs, y)
         miou = ious.mean()
-        acc = self.accuracy_metric(preds, y)
-        precisions = self.precision_metric(preds, y)
-        recalls = self.recall_metric(preds, y)
+        acc = self.accuracy_metric(probs, y)
+        precisions = self.precision_metric(probs, y)
+        recalls = self.recall_metric(probs, y)
 
         if phase == 'val':
             self.log(f"hp_metric", miou, sync_dist=True)
