@@ -51,8 +51,8 @@ class BaseModel(pl.LightningModule):
                                                    alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
         self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index, mdmc_average='global')
         self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index, average="none")
-        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index, mdmc_average='global')
-        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index, mdmc_average='global')
+        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index, average="none", mdmc_average='global')
+        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index, average="none", mdmc_average='global')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
