@@ -35,7 +35,7 @@ class BaseModel(pl.LightningModule):
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
                  weight_decay: float = 0, loss_alpha: float = 0.7, loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100):
         super().__init__()
-        self.save_hyperparameters(ignore=['num_classes', 'ignore_index', 'max_epochs'])
+        self.save_hyperparameters("lr", "weight_decay", "loss_alpha", "loss_gamma", "max_epochs")
         self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.lr = lr
