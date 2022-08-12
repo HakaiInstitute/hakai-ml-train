@@ -77,10 +77,14 @@ class BaseModel(pl.LightningModule):
         loss = self.focal_tversky_loss(probs, y)
 
         ious = self.iou_metric(probs, y)
-        miou = ious.mean()
         acc = self.accuracy_metric(probs, y)
         precisions = self.precision_metric(probs, y)
         recalls = self.recall_metric(probs, y)
+
+        # Filter nan values before averaging
+        miou = ious[~ious.isnan()].mean()
+        avg_precision = precisions[~precisions.isnan()].mean()
+        avg_recall = recalls[~recalls.isnan()].mean()
 
         if phase == 'val':
             self.log(f"hp_metric", miou, sync_dist=True)
@@ -88,18 +92,18 @@ class BaseModel(pl.LightningModule):
         self.log(f"{phase}_loss", loss, sync_dist=True)
         self.log(f"{phase}_miou", miou, sync_dist=True),
         self.log(f"{phase}_accuracy", acc, sync_dist=True)
-        self.log(f"{phase}_average_precision", precisions.mean(), sync_dist=True)
-        self.log(f"{phase}_average_recall", recalls.mean(), sync_dist=True)
+        self.log(f"{phase}_average_precision", avg_precision, sync_dist=True)
+        self.log(f"{phase}_average_recall", avg_recall, sync_dist=True)
 
-        for c in range(len(ious)):
-            name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_iou"
-            self.log(name, ious[c], sync_dist=True)
-
-            name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_precision"
-            self.log(name, precisions[c], sync_dist=True)
-
-            name = f"{phase}_cls{(c + 1) if (self.ignore_index and c >= self.ignore_index) else c}_recall"
-            self.log(name, recalls[c], sync_dist=True)
+        for c in range(self.num_classes):
+            if c == self.ignore_index:
+                continue
+            if not ious[c].isnan():
+                self.log(f"{phase}_cls{c}_iou", ious[c], sync_dist=True)
+            if not precisions[c].isnan():
+                self.log(f"{phase}_cls{c}_precision", precisions[c], sync_dist=True)
+            if not recalls[c].isnan():
+                self.log(f"{phase}_cls{c}_recall", recalls[c], sync_dist=True)
 
         return loss
 
