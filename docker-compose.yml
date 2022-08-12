@@ -4,8 +4,8 @@ version: "3.9"
 x-deploy: &default-deploy
   replicas: 1
   resources:
-#    limits:
-#      memory: 8G
+    #    limits:
+    #      memory: 8G
     reservations:
       memory: 2G
       devices:
@@ -24,10 +24,10 @@ services:
     ports:
       - "0.0.0.0:80:6006"
     command: [
-        "tensorboard",
-        "--logdir=/checkpoints/",
-        "--host=0.0.0.0",
-        "--port=6006"
+      "tensorboard",
+      "--logdir=/checkpoints/",
+      "--host=0.0.0.0",
+      "--port=6006"
     ]
 
   nvitop:
@@ -57,20 +57,20 @@ services:
     deploy: *default-deploy
     command:
       [
-          "python",
-          "train.py",
-          "unet",
-          "/data",
-          "/checkpoints",
-          "--name=mussels_pa_unet",
-          "--num_classes=2",
-          "--gradient_clip_val=0.5",
-          "--accelerator=gpu",
-          "--devices=auto",
-          "--sync_batchnorm",
-          "--max_epochs=100",
-          "--precision=16",
-          "--batch_size=16",
+        "python",
+        "train.py",
+        "unet",
+        "/data",
+        "/checkpoints",
+        "--name=mussels_pa_unet",
+        "--num_classes=2",
+        "--gradient_clip_val=0.5",
+        "--accelerator=gpu",
+        "--devices=auto",
+        "--sync_batchnorm",
+        "--max_epochs=100",
+        "--precision=16",
+        "--batch_size=16",
       ]
 
   mussels-train-lraspp:
@@ -90,20 +90,20 @@ services:
     deploy: *default-deploy
     command:
       [
-          "python",
-          "train.py",
-          "lraspp",
-          "/data",
-          "/checkpoints",
-          "--name=mussels_pa_lraspp",
-          "--num_classes=2",
-          "--gradient_clip_val=0.5",
-          "--accelerator=gpu",
-          "--devices=auto",
-          "--sync_batchnorm",
-          "--max_epochs=100",
-          "--precision=16",
-          "--batch_size=16",
+        "python",
+        "train.py",
+        "lraspp",
+        "/data",
+        "/checkpoints",
+        "--name=mussels_pa_lraspp",
+        "--num_classes=2",
+        "--gradient_clip_val=0.5",
+        "--accelerator=gpu",
+        "--devices=auto",
+        "--sync_batchnorm",
+        "--max_epochs=100",
+        "--precision=16",
+        "--batch_size=16",
       ]
 
   mussels-train-deeplab:
@@ -156,20 +156,22 @@ services:
     deploy: *default-deploy
     command:
       [
-          "python",
-          "train.py",
-          "unet",
-          "/data",
-          "/checkpoints",
-          "--name=kelp_pa_unet",
-          "--num_classes=2",
-          "--gradient_clip_val=0.5",
-          "--accelerator=gpu",
-          "--devices=auto",
-          "--sync_batchnorm",
-          "--max_epochs=100",
-          "--precision=16",
-          "--batch_size=16",
+        "python",
+        "train.py",
+        "unet",
+        "/data",
+        "/checkpoints",
+        "--name=kelp_pa_unet",
+        "--num_classes=2",
+        "--gradient_clip_val=0.5",
+        "--accelerator=gpu",
+        "--devices=auto",
+        "--sync_batchnorm",
+        "--max_epochs=100",
+        "--precision=16",
+        "--batch_size=64",
+        "--strategy=ddp_find_unused_parameters_false",
+        "--benchmark",
       ]
 
   kelp-pa-train-lraspp:
@@ -189,23 +191,24 @@ services:
     deploy: *default-deploy
     command:
       [
-          "python",
-          "train.py",
-          "lraspp",
-          "/data",
-          "/checkpoints",
-          "--name=kelp_pa_lraspp",
-          "--num_classes=2",
-          "--gradient_clip_val=0.5",
-          "--accelerator=gpu",
-          "--devices=auto",
-          "--sync_batchnorm",
-          "--max_epochs=100",
-          "--precision=16",
-          "--batch_size=32",
-          "--init_lr=0.003",
-          "--init_alpha=0.7",
-          "--init_weight_decay=0",
+        "python",
+        "train.py",
+        "lraspp",
+        "/data",
+        "/checkpoints",
+        "--name=kelp_pa_lraspp",
+        "--num_classes=2",
+        "--gradient_clip_val=0.5",
+        "--accelerator=gpu",
+        "--devices=auto",
+        "--sync_batchnorm",
+        "--max_epochs=100",
+        "--precision=16",
+        "--batch_size=32",
+        "--init_lr=0.003",
+        "--init_alpha=0.7",
+        "--init_weight_decay=0",
+        "--benchmark",
       ]
 
   kelp-pa-train-deeplab:
@@ -243,7 +246,7 @@ services:
         "--init_alpha=0.7",
         "--init_weight_decay=0",
         "--strategy=ddp_find_unused_parameters_false",
-        "--benchmark"
+        "--benchmark",
       ]
 
   kelp-species-train-lraspp:
@@ -301,23 +304,23 @@ services:
     deploy: *default-deploy
     command:
       [
-          "python",
-          "train.py",
-          "deeplab",
-          "/data",
-          "/checkpoints",
-          "--name=kelp_species_species",
-          "--num_classes=4",
-          "--ignore_index=1",
-          "--weights=/data/best-val_miou=0.9393-epoch=97-step=34789.pt",
-          "--drop_output_layer_weights",
-          "--gradient_clip_val=0.5",
-          "--accelerator=gpu",
-          "--devices=auto",
-          "--sync_batchnorm",
-          "--max_epochs=30",
-          "--precision=16",
-          "--batch_size=8",
+        "python",
+        "train.py",
+        "deeplab",
+        "/data",
+        "/checkpoints",
+        "--name=kelp_species_species",
+        "--num_classes=4",
+        "--ignore_index=1",
+        "--weights=/data/best-val_miou=0.9393-epoch=97-step=34789.pt",
+        "--drop_output_layer_weights",
+        "--gradient_clip_val=0.5",
+        "--accelerator=gpu",
+        "--devices=auto",
+        "--sync_batchnorm",
+        "--max_epochs=30",
+        "--precision=16",
+        "--batch_size=8",
       ]
 
   kelp-pa-aco-train-lraspp:
