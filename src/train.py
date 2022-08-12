@@ -240,13 +240,13 @@ if __name__ == "__main__":
             "--num_classes=2",
             "--batch_size=2",
             "--gradient_clip_val=0.5",
-            "--accelerator=gpu",
+            "--accelerator=cpu",
             "--devices=auto",
             "--max_epochs=10",
-            '--limit_train_batches=10',
-            "--limit_val_batches=10",
-            "--limit_test_batches=10",
-            "--log_every_n_steps=5",
+            '--limit_train_batches=2',
+            "--limit_val_batches=2",
+            "--limit_test_batches=2",
+            "--log_every_n_steps=1",
             # "--backbone_finetuning_epoch=10",
         ])
     else:
