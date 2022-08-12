@@ -242,6 +242,8 @@ services:
         "--init_lr=0.003",
         "--init_alpha=0.7",
         "--init_weight_decay=0",
+        "--strategy=ddp_find_unused_parameters_false",
+        "--benchmark"
       ]
 
   kelp-species-train-lraspp:
