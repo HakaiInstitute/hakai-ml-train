@@ -242,7 +242,6 @@ services:
         "--init_lr=0.003",
         "--init_alpha=0.7",
         "--init_weight_decay=0",
-        "--backbone_finetuning_epoch=0",
       ]
 
   kelp-species-train-lraspp:

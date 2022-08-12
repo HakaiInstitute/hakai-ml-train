@@ -16,6 +16,8 @@ class DeepLabV3ResNet101(BaseModel):
                                          num_classes=self.num_classes, aux_loss=False)
         self.model.requires_grad_(True)
         self.model.backbone.requires_grad_(False)
+        self.model.backbone.layer3.requires_grad_(True)
+        self.model.backbone.layer4.requires_grad_(True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)["out"]
