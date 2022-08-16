@@ -105,14 +105,13 @@ services:
         "--accelerator=gpu",
         "--devices=auto",
         "--sync_batchnorm",
-        "--max_epochs=20",
+        "--max_epochs=100",
         "--precision=16",
         "--batch_size=32",
         "--init_lr=0.01",
         "--init_alpha=0.7",
-        "--init_weight_decay=0",
+        "--init_weight_decay=0.01",
         "--benchmark",
-        "--backbone_finetuning_epoch=16",
       ]
 
   mussels-train-deeplab:
