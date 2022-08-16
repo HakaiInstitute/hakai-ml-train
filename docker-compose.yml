@@ -108,9 +108,9 @@ services:
         "--max_epochs=100",
         "--precision=16",
         "--batch_size=32",
-        "--init_lr=0.01",
+        "--init_lr=0.003",
         "--init_alpha=0.7",
-        "--init_weight_decay=0.01",
+        "--init_weight_decay=0.001",
         "--benchmark",
       ]
 
