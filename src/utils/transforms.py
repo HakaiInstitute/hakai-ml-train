@@ -1,13 +1,14 @@
+from types import SimpleNamespace
+
 import numpy as np
 import torch
-import torchvision.transforms.functional as F
+from torchvision.transforms.functional import to_tensor, pad
 from PIL import Image
 from torchvision import transforms as t
-from types import SimpleNamespace
 
 
 def _target_to_tensor_func(mask: np.ndarray) -> torch.Tensor:
-    return (F.to_tensor(mask) * 255).long().squeeze(dim=0)
+    return (to_tensor(mask) * 255).long().squeeze(dim=0)
 
 
 # noinspection PyTypeChecker
@@ -29,7 +30,7 @@ class PadOut(object):
 
     def __call__(self, x: Image) -> Image:
         """
-        Pad out a pillow image so it is the correct size as specified by self.height and self.width
+        Pad out a pillow image, so it is the correct size as specified by `self.height` and `self.width`
 
         :param x: PIL Image
         :return: PIL Image
@@ -39,10 +40,10 @@ class PadOut(object):
         if h == self.height and w == self.width:
             return x
 
-        wpad = self.width - w
-        hpad = self.height - h
+        w_pad = self.width - w
+        h_pad = self.height - h
 
-        return F.pad(x, [0, 0, wpad, hpad])
+        return pad(x, [0, 0, w_pad, h_pad])
 
 
 class Clamp(object):
@@ -52,7 +53,7 @@ class Clamp(object):
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Clamp the pixel values so they fall within [self.min, self.max]
+        Clamp the pixel values, so they fall within [self.min, self.max]
 
         :param x: PIL Image
         :return: PIL Image
@@ -184,10 +185,10 @@ reusable_transforms = SimpleNamespace(
         ]
     ),
     test_transforms=t.Compose(
-        [ImageClip(), PadOut(512, 512), t.ToTensor(), normalize,]
+        [ImageClip(), PadOut(512, 512), t.ToTensor(), normalize, ]
     ),
-    test_target_transforms=t.Compose([PadOut(512, 512), target_to_tensor,]),
+    test_target_transforms=t.Compose([PadOut(512, 512), target_to_tensor, ]),
     geotiff_transforms=t.Compose(
-        [ImageClip(), DropExtraBands(), t.ToTensor(), normalize,]
+        [ImageClip(), DropExtraBands(), t.ToTensor(), normalize, ]
     ),
 )
