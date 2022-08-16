@@ -17,131 +17,111 @@ from models.lit_unet import UnetEfficientnet
 from utils.git_hash import get_git_revision_hash
 
 
-class Objective(object):
-    """The objective function to be maximized by Optuna."""
+def objective(args: argparse.Namespace):
+    # ------------
+    # data
+    # ------------
+    kelp_data = KelpDataModule(
+        args.data_dir,
+        # num_workers=0,
+        pin_memory=True,
+        persistent_workers=True,
+        num_classes=args.num_classes,
+        batch_size=args.batch_size
+    )
 
-    def __init__(self, args: argparse.Namespace):
-        self.args = args
-
-    # def __call__(self, trial: optuna.trial.Trial):
-    def __call__(self):
-        args = self.args
-
-        # ------------
-        # data
-        # ------------
-        kelp_data = KelpDataModule(
-            args.data_dir,
-            # num_workers=0,
-            pin_memory=True,
-            persistent_workers=True,
+    # ------------
+    # model
+    # ------------
+    if args.model == "unet":
+        model = UnetEfficientnet(
             num_classes=args.num_classes,
-            batch_size=args.batch_size
+            ignore_index=args.ignore_index,
+            lr=args.lr,
+            loss_alpha=args.alpha,
+            weight_decay=args.weight_decay,
+            max_epochs=args.max_epochs,
         )
-
-        # ------------
-        # hyperparameter search space
-        # ------------
-        # lr = trial.suggest_float('lr', args.min_lr, args.max_lr, log=True)
-        # alpha = trial.suggest_float('alpha', args.min_alpha, args.max_alpha)
-        # weight_decay = trial.suggest_float('weight_decay', args.min_weight_decay, args.max_weight_decay)
-        lr = args.init_lr
-        alpha = args.init_alpha
-        weight_decay = args.init_weight_decay
-
-        # ------------
-        # model
-        # ------------
-        if args.model == "unet":
-            model = UnetEfficientnet(
-                num_classes=args.num_classes,
-                ignore_index=args.ignore_index,
-                lr=lr,
-                loss_alpha=alpha,
-                weight_decay=weight_decay,
-                max_epochs=args.max_epochs,
-            )
-        elif args.model == "deeplab":
-            model = DeepLabV3ResNet101(
-                num_classes=args.num_classes,
-                ignore_index=args.ignore_index,
-                lr=lr,
-                loss_alpha=alpha,
-                weight_decay=weight_decay,
-                max_epochs=args.max_epochs,
-            )
-        elif args.model == "lraspp":
-            model = LRASPPMobileNetV3Large(
-                num_classes=args.num_classes,
-                ignore_index=args.ignore_index,
-                lr=lr,
-                loss_alpha=alpha,
-                weight_decay=weight_decay,
-                max_epochs=args.max_epochs,
-            )
-        else:
-            raise ValueError(f"No model for {args.model}")
-
-        if args.weights and Path(args.weights).suffix == ".pt":
-            print("Loading state_dict:", args.weights)
-            weights = torch.load(args.weights)
-
-            # Remove trained weights for previous classifier output layers
-            if args.drop_output_layer_weights:
-                weights = model.drop_output_layer_weights(weights)
-            model.load_state_dict(weights, strict=False)
-
-        elif args.weights and Path(args.weights).suffix == ".ckpt":
-            print("Loading checkpoint:", args.weights)
-            model = model.load_from_checkpoint(args.weights)
-
-        # ------------
-        # callbacks
-        # ------------
-        checkpoint_options = {
-            # "verbose": True,
-            "monitor": "val_miou",
-            "mode": "max",
-            "filename": "{val_miou:.4f}_{epoch}",
-            "save_top_k": 1,
-            "save_last": True,
-            "save_on_train_epoch_end": False,
-            "every_n_epochs": 1,
-        }
-        checkpoint_callback = pl.callbacks.ModelCheckpoint(**checkpoint_options, verbose=False)
-        checkpoint_weights_callback = pl.callbacks.ModelCheckpoint(**checkpoint_options, save_weights_only=True)
-        checkpoint_weights_callback.FILE_EXTENSION = ".pt"
-
-        callbacks = [
-            checkpoint_callback,
-            checkpoint_weights_callback,
-            pl.callbacks.LearningRateMonitor(),
-            # pl.callbacks.EarlyStopping(monitor="val_miou", mode="max", patience=10),
-            # PyTorchLightningPruningCallback(trial, monitor='val_miou'),
-        ]
-
-        if args.backbone_finetuning_epoch is not None:
-            callbacks.append(Finetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
-        if args.swa_epoch_start:
-            callbacks.append(
-                pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
-
-        logger = TensorBoardLogger(save_dir=args.checkpoint_dir, name=f'{args.name}', default_hp_metric=False)
-        trainer = pl.Trainer.from_argparse_args(
-            args,
-            logger=logger,
-            callbacks=callbacks,
+    elif args.model == "deeplab":
+        model = DeepLabV3ResNet101(
+            num_classes=args.num_classes,
+            ignore_index=args.ignore_index,
+            lr=args.lr,
+            loss_alpha=args.alpha,
+            weight_decay=args.weight_decay,
+            max_epochs=args.max_epochs,
         )
-        trainer.logger.log_hyperparams({
-            'lr': lr,
-            'alpha': alpha,
-            'weight_decay': weight_decay,
-            'batch_size': args.batch_size,
-            'sha': get_git_revision_hash(),
-        })
-        trainer.fit(model, datamodule=kelp_data)
+    elif args.model == "lraspp":
+        model = LRASPPMobileNetV3Large(
+            num_classes=args.num_classes,
+            ignore_index=args.ignore_index,
+            lr=args.lr,
+            loss_alpha=args.alpha,
+            weight_decay=args.weight_decay,
+            max_epochs=args.max_epochs,
+        )
+    else:
+        raise ValueError(f"No model for {args.model}")
 
-        return checkpoint_callback.best_model_score.detach().cpu()
+    if args.weights and Path(args.weights).suffix == ".pt":
+        print("Loading state_dict:", args.weights)
+        weights = torch.load(args.weights)
+
+        # Remove trained weights for previous classifier output layers
+        if args.drop_output_layer_weights:
+            weights = model.drop_output_layer_weights(weights)
+        model.load_state_dict(weights, strict=False)
+
+    elif args.weights and Path(args.weights).suffix == ".ckpt":
+        print("Loading checkpoint:", args.weights)
+        model = model.load_from_checkpoint(args.weights)
+
+    # ------------
+    # callbacks
+    # ------------
+    checkpoint_options = {
+        # "verbose": True,
+        "monitor": "val_miou",
+        "mode": "max",
+        "filename": "{val_miou:.4f}_{epoch}",
+        "save_top_k": 1,
+        "save_last": True,
+        "save_on_train_epoch_end": False,
+        "every_n_epochs": 1,
+    }
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(**checkpoint_options, verbose=False)
+    checkpoint_weights_callback = pl.callbacks.ModelCheckpoint(**checkpoint_options, save_weights_only=True)
+    checkpoint_weights_callback.FILE_EXTENSION = ".pt"
+
+    callbacks = [
+        checkpoint_callback,
+        checkpoint_weights_callback,
+        pl.callbacks.LearningRateMonitor(),
+        # pl.callbacks.EarlyStopping(monitor="val_miou", mode="max", patience=10),
+    ]
+
+    if args.backbone_finetuning_epoch is not None:
+        callbacks.append(Finetuning(unfreeze_at_epoch=args.backbone_finetuning_epoch))
+    if args.swa_epoch_start:
+        callbacks.append(
+            pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
+
+    logger = TensorBoardLogger(save_dir=args.checkpoint_dir, name=f'{args.name}', default_hp_metric=False)
+    trainer = pl.Trainer.from_argparse_args(
+        args,
+        logger=logger,
+        callbacks=callbacks,
+    )
+    trainer.logger.log_hyperparams({
+        'lr': args.lr,
+        'alpha': args.alpha,
+        'weight_decay': args.weight_decay,
+        'batch_size': args.batch_size,
+        'sha': get_git_revision_hash(),
+    })
+    trainer.fit(model, datamodule=kelp_data)
+
+    return checkpoint_callback.best_model_score.detach().cpu(), checkpoint_callback.best_model_path
 
 
 def cli_main(argv=None):
@@ -179,26 +159,12 @@ def cli_main(argv=None):
     parser.add_argument("--swa_lrs", type=float, default=0.05,
                         help="The lr to start the annealing procedure for stochastic weight averaging.")
 
-    parser.add_argument("--tune_trials", type=int, default=30,
-                        help="Number of Tune trials to run.")
-    parser.add_argument("--init_lr", type=float, default=0.03,
+    parser.add_argument("--lr", type=float, default=0.03,
                         help="The initial LR to test with Ray Tune.")
-    # parser.add_argument("--min_lr", type=float, default=1e-6,
-    #                     help="The lower limit of the range of LRs to optimize with Ray Tune.")
-    # parser.add_argument("--max_lr", type=float, default=0.1,
-    #                     help="The upper limit of the range of LRs to optimize with Ray Tune.")
-    parser.add_argument("--init_alpha", type=float, default=0.4,
+    parser.add_argument("--alpha", type=float, default=0.4,
                         help="The initial alpha (a FTLoss hyperparameter) to test with Ray Tune.")
-    # parser.add_argument("--min_alpha", type=float, default=0.1,
-    #                     help="The lower limit of the range of alpha hyperparameters to optimize with Ray Tune.")
-    # parser.add_argument("--max_alpha", type=float, default=0.9,
-    #                     help="The upper limit of the range of alpha hyperparameters to optimize with Ray Tune.")
-    parser.add_argument("--init_weight_decay", type=float, default=0,
+    parser.add_argument("--weight_decay", type=float, default=0,
                         help="The initial weight decay to test with Ray Tune.")
-    # parser.add_argument("--min_weight_decay", type=float, default=0,
-    #                     help="The lower limit of the range of weight decay values to optimize with Ray Tune.")
-    # parser.add_argument("--max_weight_decay", type=float, default=1e-3,
-    #                     help="The upper limit of the range of weight decay values to optimize with Ray Tune.")
     parser.add_argument("--test-only", action="store_true", help="Only run the test dataset")
 
     parser = KelpDataModule.add_argparse_args(parser)
@@ -208,24 +174,7 @@ def cli_main(argv=None):
     # Make checkpoint directory
     Path(args.checkpoint_dir, args.name).mkdir(exist_ok=True, parents=True)
 
-    objective = Objective(args)
-    # pruner: optuna.pruners.BasePruner = optuna.pruners.SuccessiveHalvingPruner()
-
-    # study = optuna.create_study(direction="maximize", pruner=pruner)
-    # study.enqueue_trial({'lr': args.init_lr, 'alpha': args.init_alpha, 'weight_decay': args.init_weight_decay})
-    # study.optimize(objective, n_trials=args.tune_trials)
-
-    # print("Number of finished trials: {}".format(len(study.trials)))
-
-    # print("Best trial:")
-    # best_trial = study.best_trial
-    #
-    # print("  Value: {}".format(best_trial.value))
-    #
-    # print("  Params: ")
-    # for key, value in best_trial.params.items():
-    #     print("    {}: {}".format(key, value))
-    miou = objective()
+    miou, model_path = objective(args)
     print("Best mIoU:", miou)
 
 
