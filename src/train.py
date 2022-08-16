@@ -17,7 +17,56 @@ from models.lit_unet import UnetEfficientnet
 from utils.git_hash import get_git_revision_hash
 
 
-def objective(args: argparse.Namespace):
+def cli_main(argv=None):
+    pl.seed_everything(0)
+
+    # ------------
+    # args
+    # ------------
+    parser = ArgumentParser()
+    parser.add_argument("model", type=str, choices=["unet", "lraspp", "deeplab"],
+                        help="The name of the model to train")
+    parser.add_argument("data_dir", type=str,
+                        help="The path to a data directory with subdirectories 'train', 'val', and "
+                             "'test', each with 'x' and 'y' subdirectories containing image crops "
+                             "and labels, respectively.")
+    parser.add_argument("checkpoint_dir", type=str, help="The path to save training outputs")
+    parser.add_argument("--name", type=str, default="",
+                        help="Identifier used when creating files and directories for this training run.")
+    parser.add_argument("--weights", type=str,
+                        help="Path to pytorch weights to load as initial model weights")
+    parser.add_argument("--drop_output_layer_weights", action="store_true", default=False,
+                        help="Drop the output layer weights before restoring them. "
+                             "Use for finetuning to different class outputs.")
+
+    parser.add_argument("--num_classes", type=int, default=2,
+                        help="The number of image classes, including background.")
+    parser.add_argument("--ignore_index", type=int, default=None,
+                        help="Label of any class to ignore.")
+    parser.add_argument("--backbone_finetuning_epoch", type=int, default=None,
+                        help="Set a value to unlock the epoch that the backbone network should be unfrozen."
+                             "Leave as None to train all layers from the start.")
+
+    parser.add_argument("--swa_epoch_start", type=float,
+                        help="The epoch at which to start the stochastic weight averaging procedure.")
+    parser.add_argument("--swa_lrs", type=float, default=0.05,
+                        help="The lr to start the annealing procedure for stochastic weight averaging.")
+
+    parser.add_argument("--lr", type=float, default=0.03,
+                        help="The initial LR to test with Ray Tune.")
+    parser.add_argument("--alpha", type=float, default=0.4,
+                        help="The initial alpha (a FTLoss hyperparameter) to test with Ray Tune.")
+    parser.add_argument("--weight_decay", type=float, default=0,
+                        help="The initial weight decay to test with Ray Tune.")
+    parser.add_argument("--test_only", action="store_true", help="Only run the test dataset")
+
+    parser = KelpDataModule.add_argparse_args(parser)
+    parser = pl.Trainer.add_argparse_args(parser)
+    args = parser.parse_args(argv)
+
+    # Make checkpoint directory
+    Path(args.checkpoint_dir, args.name).mkdir(exist_ok=True, parents=True)
+
     # ------------
     # data
     # ------------
@@ -112,70 +161,19 @@ def objective(args: argparse.Namespace):
         logger=logger,
         callbacks=callbacks,
     )
-    trainer.logger.log_hyperparams({
-        'lr': args.lr,
-        'alpha': args.alpha,
-        'weight_decay': args.weight_decay,
-        'batch_size': args.batch_size,
-        'sha': get_git_revision_hash(),
-    })
-    trainer.fit(model, datamodule=kelp_data)
 
-    return checkpoint_callback.best_model_score.detach().cpu(), checkpoint_callback.best_model_path
+    if not args.test_only:
+        trainer.logger.log_hyperparams({
+            'lr': args.lr,
+            'alpha': args.alpha,
+            'weight_decay': args.weight_decay,
+            'batch_size': args.batch_size,
+            'sha': get_git_revision_hash(),
+        })
+        trainer.fit(model, datamodule=kelp_data)
+        print("Best mIoU:", checkpoint_callback.best_model_score.detach().cpu())
 
-
-def cli_main(argv=None):
-    pl.seed_everything(0)
-
-    # ------------
-    # args
-    # ------------
-    parser = ArgumentParser()
-    parser.add_argument("model", type=str, choices=["unet", "lraspp", "deeplab"],
-                        help="The name of the model to train")
-    parser.add_argument("data_dir", type=str,
-                        help="The path to a data directory with subdirectories 'train', 'val', and "
-                             "'test', each with 'x' and 'y' subdirectories containing image crops "
-                             "and labels, respectively.")
-    parser.add_argument("checkpoint_dir", type=str, help="The path to save training outputs")
-    parser.add_argument("--name", type=str, default="",
-                        help="Identifier used when creating files and directories for this training run.")
-    parser.add_argument("--weights", type=str,
-                        help="Path to pytorch weights to load as initial model weights")
-    parser.add_argument("--drop_output_layer_weights", action="store_true", default=False,
-                        help="Drop the output layer weights before restoring them. "
-                             "Use for finetuning to different class outputs.")
-
-    parser.add_argument("--num_classes", type=int, default=2,
-                        help="The number of image classes, including background.")
-    parser.add_argument("--ignore_index", type=int, default=None,
-                        help="Label of any class to ignore.")
-    parser.add_argument("--backbone_finetuning_epoch", type=int, default=None,
-                        help="Set a value to unlock the epoch that the backbone network should be unfrozen."
-                             "Leave as None to train all layers from the start.")
-
-    parser.add_argument("--swa_epoch_start", type=float,
-                        help="The epoch at which to start the stochastic weight averaging procedure.")
-    parser.add_argument("--swa_lrs", type=float, default=0.05,
-                        help="The lr to start the annealing procedure for stochastic weight averaging.")
-
-    parser.add_argument("--lr", type=float, default=0.03,
-                        help="The initial LR to test with Ray Tune.")
-    parser.add_argument("--alpha", type=float, default=0.4,
-                        help="The initial alpha (a FTLoss hyperparameter) to test with Ray Tune.")
-    parser.add_argument("--weight_decay", type=float, default=0,
-                        help="The initial weight decay to test with Ray Tune.")
-    parser.add_argument("--test-only", action="store_true", help="Only run the test dataset")
-
-    parser = KelpDataModule.add_argparse_args(parser)
-    parser = pl.Trainer.add_argparse_args(parser)
-    args = parser.parse_args(argv)
-
-    # Make checkpoint directory
-    Path(args.checkpoint_dir, args.name).mkdir(exist_ok=True, parents=True)
-
-    miou, model_path = objective(args)
-    print("Best mIoU:", miou)
+    trainer.test(model, datamodule=kelp_data)
 
 
 if __name__ == "__main__":
