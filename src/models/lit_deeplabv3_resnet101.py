@@ -13,7 +13,7 @@ from .base_model import BaseModel, Finetuning, WeightsT
 class DeepLabV3ResNet101(BaseModel):
     def init_model(self):
         self.model = deeplabv3_resnet101(progress=True, weights_backbone=ResNet101_Weights.IMAGENET1K_V1,
-                                         num_classes=self.num_classes, aux_loss=False)
+                                         num_classes=self.num_classes, aux_loss=True)
         self.model.requires_grad_(True)
         self.model.backbone.requires_grad_(False)
         self.model.backbone.layer3.requires_grad_(True)
@@ -21,6 +21,15 @@ class DeepLabV3ResNet101(BaseModel):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)["out"]
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        logits = self.model.forward(x)["aux"]
+        probs = torch.softmax(logits, dim=1)
+        aux_loss = self.focal_tversky_loss(probs, y)
+
+        out_loss = self._phase_step(batch, batch_idx, phase="train")
+        return out_loss + (0.3 * aux_loss)
 
     def freeze_before_training(self, ft_module: Finetuning) -> None:
         ft_module.freeze(self.model.backbone.layer3, train_bn=False)
