@@ -254,7 +254,7 @@ services:
         "--accelerator=gpu",
         "--devices=auto",
         "--sync_batchnorm",
-        "--max_epochs=100",
+        "--max_epochs=20",
         "--precision=16",
         "--batch_size=8",
         "--lr=0.001",
