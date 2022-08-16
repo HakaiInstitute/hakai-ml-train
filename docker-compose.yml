@@ -143,13 +143,14 @@ services:
         "--accelerator=gpu",
         "--devices=auto",
         "--sync_batchnorm",
-        "--max_epochs=100",
+        "--max_epochs=20",
         "--precision=16",
         "--batch_size=8",
         "--init_lr=0.01",
         "--init_alpha=0.7",
         "--init_weight_decay=0",
         "--benchmark",
+        "--backbone_finetuning_epoch=16",
       ]
 
   kelp-pa-train-unet:
