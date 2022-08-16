@@ -255,9 +255,9 @@ services:
         "--max_epochs=100",
         "--precision=16",
         "--batch_size=8",
-        "--init_lr=0.003",
+        "--init_lr=0.001",
         "--init_alpha=0.7",
-        "--init_weight_decay=0",
+        "--init_weight_decay=0.001",
         "--strategy=ddp_find_unused_parameters_false",
         "--benchmark",
       ]
