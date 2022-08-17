@@ -1,20 +1,42 @@
 # Created by: Taylor Denouden
 # Organization: Hakai Institute
-import argparse
 import os
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import Union
 
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from kelp_data_module import KelpDataModule
-from models.base_model import Finetuning
+from models.base_model import BaseModel, Finetuning
 from models.lit_deeplabv3_resnet101 import DeepLabV3ResNet101
 from models.lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
 from models.lit_unet import UnetEfficientnet
 from utils.git_hash import get_git_revision_hash
+
+
+def load_weights(model: BaseModel, weights_path: Union[Path, str], drop_output_layer_weights: bool = False) -> BaseModel:
+    weights_path = Path(weights_path)
+
+    if weights_path.suffix == ".pt":
+        print("Loading state_dict:", weights_path)
+        weights = torch.load(weights_path)
+
+        # Remove trained weights for previous classifier output layers
+        if drop_output_layer_weights:
+            weights = model.drop_output_layer_weights(weights)
+        model.load_state_dict(weights, strict=False)
+
+    elif weights_path.suffix == ".ckpt":
+        print("Loading checkpoint:", weights_path)
+        model = model.load_from_checkpoint(weights_path)
+
+    else:
+        raise ValueError(f"Unrecognized weights format {weights_path.suffix}")
+
+    return model
 
 
 def cli_main(argv=None):
@@ -112,18 +134,8 @@ def cli_main(argv=None):
     else:
         raise ValueError(f"No model for {args.model}")
 
-    if args.weights and Path(args.weights).suffix == ".pt":
-        print("Loading state_dict:", args.weights)
-        weights = torch.load(args.weights)
-
-        # Remove trained weights for previous classifier output layers
-        if args.drop_output_layer_weights:
-            weights = model.drop_output_layer_weights(weights)
-        model.load_state_dict(weights, strict=False)
-
-    elif args.weights and Path(args.weights).suffix == ".ckpt":
-        print("Loading checkpoint:", args.weights)
-        model = model.load_from_checkpoint(args.weights)
+    if args.weights:
+        model = load_weights(model, args.weights, args.drop_output_layer_weights)
 
     # ------------
     # callbacks
@@ -173,7 +185,15 @@ def cli_main(argv=None):
         trainer.fit(model, datamodule=kelp_data)
         print("Best mIoU:", checkpoint_callback.best_model_score.detach().cpu())
 
-    trainer.test(model, datamodule=kelp_data)
+        model = load_weights(model, checkpoint_weights_callback.best_model_path)
+        trainer.test(model, datamodule=kelp_data)
+
+    elif args.weights:
+        model = load_weights(model, args.weights)
+        trainer.test(model, datamodule=kelp_data)
+
+    else:
+        raise UserWarning("Need to define weights to run test data.")
 
 
 if __name__ == "__main__":
