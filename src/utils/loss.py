@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -259,15 +259,15 @@ class FocalTverskyLoss(Metric):
 
     def __init__(
             self,
-            num_classes,
+            num_classes: int,
             alpha: float = 0.5,
             beta: float = 0.5,
             gamma: float = 1.0,
             smooth: float = 1e-8,
-            dist_sync_on_step=False,
-            ignore_index=None,
+            ignore_index: Optional[int] = None,
+            **kwargs,
     ):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        super().__init__(**kwargs)
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
@@ -285,7 +285,6 @@ class FocalTverskyLoss(Metric):
         target = one_hot(target.flatten().long(), c)
         return preds, target
 
-    # noinspection PyMethodOverriding
     def update(self, preds: torch.Tensor, target: torch.Tensor):
         preds, target = self._input_format(preds, target)
         assert preds.shape == target.shape
