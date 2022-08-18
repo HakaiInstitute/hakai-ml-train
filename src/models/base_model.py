@@ -79,7 +79,6 @@ class BaseModel(pl.LightningModule):
         acc = self.accuracy_metric(probs, y)
         precisions = self.precision_metric(probs, y)
         recalls = self.recall_metric(probs, y)
-        stats = self.stat_scores(probs, y)
 
         # Filter nan values before averaging
         miou = ious[~ious.isnan()].mean()
