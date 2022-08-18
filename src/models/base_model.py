@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import BaseFinetuning
 from torch.optim import Optimizer
-from torchmetrics import Accuracy, JaccardIndex, Precision, Recall, StatScores
+from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
 
 from utils.loss import FocalTverskyLoss
 
@@ -54,8 +54,6 @@ class BaseModel(pl.LightningModule):
                                           average="none", mdmc_average='global')
         self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
                                     average="none", mdmc_average='global')
-        self.stat_scores = StatScores(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                      reduce='macro', mdmc_reduce='global')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
@@ -104,16 +102,10 @@ class BaseModel(pl.LightningModule):
         for c in range(len(precisions)):
             if c == self.ignore_index:
                 continue
-            # if not precisions[c].isnan():
-            self.log(f"{phase}_cls{c}_precision", precisions[c], sync_dist=True)
-            # if not recalls[c].isnan():
-            self.log(f"{phase}_cls{c}_recall", recalls[c], sync_dist=True)
-
-            self.log(f"{phase}_cls{c}_tp", stats[c][0].to(torch.float32), sync_dist=True)
-            self.log(f"{phase}_cls{c}_fp", stats[c][1].to(torch.float32), sync_dist=True)
-            self.log(f"{phase}_cls{c}_tn", stats[c][2].to(torch.float32), sync_dist=True)
-            self.log(f"{phase}_cls{c}_fn", stats[c][3].to(torch.float32), sync_dist=True)
-            self.log(f"{phase}_cls{c}_sup", stats[c][4].to(torch.float32), sync_dist=True)
+            if not precisions[c].isnan():
+                self.log(f"{phase}_cls{c}_precision", precisions[c], sync_dist=True)
+            if not recalls[c].isnan():
+                self.log(f"{phase}_cls{c}_recall", recalls[c], sync_dist=True)
 
         return loss
 
