@@ -215,7 +215,7 @@ if __name__ == "__main__":
             "--max_epochs=10",
             '--limit_train_batches=2',
             "--limit_val_batches=2",
-            "--limit_test_batches=2",
+            "--limit_test_batches=100",
             "--log_every_n_steps=1",
             # "--backbone_finetuning_epoch=10",
         ])

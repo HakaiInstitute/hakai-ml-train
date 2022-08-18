@@ -29,6 +29,8 @@ class LRASPPMobileNetV3Large(BaseModel):
 
     @staticmethod
     def drop_output_layer_weights(weights: WeightsT) -> WeightsT:
-        del weights["model.classifier.weight"]
-        del weights["model.classifier.bias"]
+        del weights["model.classifier.low_classifier.weight"]
+        del weights["model.classifier.low_classifier.bias"]
+        del weights["model.classifier.high_classifier.weight"]
+        del weights["model.classifier.high_classifier.bias"]
         return weights

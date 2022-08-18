@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import BaseFinetuning
 from torch.optim import Optimizer
-from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
+from torchmetrics import Accuracy, JaccardIndex, Precision, Recall, StatScores
 
 from utils.loss import FocalTverskyLoss
 
@@ -54,6 +54,8 @@ class BaseModel(pl.LightningModule):
                                           average="none", mdmc_average='global')
         self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
                                     average="none", mdmc_average='global')
+        self.stat_scores = StatScores(num_classes=self.num_classes, ignore_index=self.ignore_index,
+                                      reduce='macro', mdmc_reduce='global')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
@@ -79,6 +81,7 @@ class BaseModel(pl.LightningModule):
         acc = self.accuracy_metric(probs, y)
         precisions = self.precision_metric(probs, y)
         recalls = self.recall_metric(probs, y)
+        stats = self.stat_scores(probs, y)
 
         # Filter nan values before averaging
         miou = ious[~ious.isnan()].mean()
@@ -94,15 +97,23 @@ class BaseModel(pl.LightningModule):
         self.log(f"{phase}_average_precision", avg_precision, sync_dist=True)
         self.log(f"{phase}_average_recall", avg_recall, sync_dist=True)
 
-        for c in range(self.num_classes):
+        for c in range(len(ious)):
+            i = c + 1 if c >= self.ignore_index else c
+            self.log(f"{phase}_cls{i}_iou", ious[c], sync_dist=True)
+
+        for c in range(len(precisions)):
             if c == self.ignore_index:
                 continue
-            if not ious[c].isnan():
-                self.log(f"{phase}_cls{c}_iou", ious[c], sync_dist=True)
-            if not precisions[c].isnan():
-                self.log(f"{phase}_cls{c}_precision", precisions[c], sync_dist=True)
-            if not recalls[c].isnan():
-                self.log(f"{phase}_cls{c}_recall", recalls[c], sync_dist=True)
+            # if not precisions[c].isnan():
+            self.log(f"{phase}_cls{c}_precision", precisions[c], sync_dist=True)
+            # if not recalls[c].isnan():
+            self.log(f"{phase}_cls{c}_recall", recalls[c], sync_dist=True)
+
+            self.log(f"{phase}_cls{c}_tp", stats[c][0].to(torch.float32), sync_dist=True)
+            self.log(f"{phase}_cls{c}_fp", stats[c][1].to(torch.float32), sync_dist=True)
+            self.log(f"{phase}_cls{c}_tn", stats[c][2].to(torch.float32), sync_dist=True)
+            self.log(f"{phase}_cls{c}_fn", stats[c][3].to(torch.float32), sync_dist=True)
+            self.log(f"{phase}_cls{c}_sup", stats[c][4].to(torch.float32), sync_dist=True)
 
         return loss
 
