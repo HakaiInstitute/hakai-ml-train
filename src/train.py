@@ -134,9 +134,6 @@ def cli_main(argv=None):
     else:
         raise ValueError(f"No model for {args.model}")
 
-    if args.weights:
-        model = load_weights(model, args.weights, args.drop_output_layer_weights)
-
     # ------------
     # callbacks
     # ------------
@@ -167,33 +164,29 @@ def cli_main(argv=None):
         callbacks.append(
             pl.callbacks.StochasticWeightAveraging(swa_lrs=args.swa_lrs, swa_epoch_start=args.swa_epoch_start))
 
-    logger = TensorBoardLogger(save_dir=args.checkpoint_dir, name=f'{args.name}', default_hp_metric=False)
-    trainer = pl.Trainer.from_argparse_args(
-        args,
-        logger=logger,
-        callbacks=callbacks,
-    )
+    logger = TensorBoardLogger(save_dir=args.checkpoint_dir, name=f'{args.name}', log_graph=True, default_hp_metric=False)
+    trainer = pl.Trainer.from_argparse_args(args, logger=logger, callbacks=callbacks)
 
-    if not args.test_only:
+    if args.weights:
+        model = load_weights(model, args.weights, args.drop_output_layer_weights)
+
+    if args.test_only and not args.weights:
+        raise UserWarning("Need to define weights to run test data.")
+    elif args.test_only:
+        trainer.test(model, datamodule=kelp_data)
+    else:
         trainer.logger.log_hyperparams({
             'lr': args.lr,
             'alpha': args.alpha,
             'weight_decay': args.weight_decay,
             'batch_size': args.batch_size,
             'sha': get_git_revision_hash(),
-        })
+        }, {'val_miou': -1, 'val_loss': -1})
         trainer.fit(model, datamodule=kelp_data)
         print("Best mIoU:", checkpoint_callback.best_model_score.detach().cpu())
 
         model = load_weights(model, checkpoint_weights_callback.best_model_path)
         trainer.test(model, datamodule=kelp_data)
-
-    elif args.weights:
-        model = load_weights(model, args.weights)
-        trainer.test(model, datamodule=kelp_data)
-
-    else:
-        raise UserWarning("Need to define weights to run test data.")
 
 
 if __name__ == "__main__":
@@ -213,9 +206,9 @@ if __name__ == "__main__":
             "--accelerator=gpu",
             "--devices=auto",
             "--max_epochs=10",
-            '--limit_train_batches=2',
-            "--limit_val_batches=2",
-            "--limit_test_batches=100",
+            '--limit_train_batches=10',
+            "--limit_val_batches=10",
+            "--limit_test_batches=10",
             "--log_every_n_steps=1",
             # "--backbone_finetuning_epoch=10",
         ])

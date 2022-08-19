@@ -1,7 +1,7 @@
 # Created by: Taylor Denouden
 # Organization: Hakai Institute
 from abc import abstractmethod
-from typing import Optional, TypeVar
+from typing import Any, Optional, TypeVar
 
 import pytorch_lightning as pl
 import torch
@@ -55,6 +55,10 @@ class BaseModel(pl.LightningModule):
         self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
                                     average="none", mdmc_average='global')
 
+    @property
+    def example_input_array(self) -> Any:
+        return torch.ones((2, 3, 512, 512))
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
 
@@ -85,9 +89,6 @@ class BaseModel(pl.LightningModule):
         avg_precision = precisions[~precisions.isnan()].mean()
         avg_recall = recalls[~recalls.isnan()].mean()
 
-        if phase == 'val':
-            self.log(f"hp_metric", miou, sync_dist=True)
-
         self.log(f"{phase}_loss", loss, sync_dist=True)
         self.log(f"{phase}_miou", miou, sync_dist=True),
         self.log(f"{phase}_accuracy", acc, sync_dist=True)
@@ -95,11 +96,13 @@ class BaseModel(pl.LightningModule):
         self.log(f"{phase}_average_recall", avg_recall, sync_dist=True)
 
         for c in range(len(ious)):
-            i = c + 1 if c >= self.ignore_index else c
+            i = c
+            if self.ignore_index and c >= self.ignore_index:
+                i += 1
             self.log(f"{phase}_cls{i}_iou", ious[c], sync_dist=True)
 
         for c in range(len(precisions)):
-            if c == self.ignore_index:
+            if self.ignore_index and c == self.ignore_index:
                 continue
             if not precisions[c].isnan():
                 self.log(f"{phase}_cls{c}_precision", precisions[c], sync_dist=True)
