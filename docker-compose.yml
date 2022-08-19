@@ -20,7 +20,7 @@ services:
     tty: true
     stdin_open: true
     volumes:
-      - "/mnt/data/presence/checkpoints:/checkpoints"
+      - "/mnt/data/species/checkpoints:/checkpoints"
     ports:
       - "0.0.0.0:80:6006"
     command: [
@@ -273,7 +273,7 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/species/data/Apr2022:/data:ro"
+      - "/mnt/data/species/data/Aug2022:/data:ro"
       - "/mnt/data/presence/weights:/weights:ro"
       - "/mnt/data/species/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
@@ -296,9 +296,13 @@ services:
         "--accelerator=gpu",
         "--devices=auto",
         "--sync_batchnorm",
-        "--max_epochs=30",
+        "--max_epochs=20",
         "--precision=16",
-        "--batch_size=16",
+        "--batch_size=32",
+        "--lr=0.003",
+        "--alpha=0.7",
+        "--weight_decay=0.001",
+        "--benchmark",
       ]
 
   kelp-species-train-deeplab:
