@@ -41,6 +41,10 @@ class BaseModel(pl.LightningModule):
         self.weight_decay = weight_decay
         self.max_epochs = max_epochs
 
+        self.loss_alpha = loss_alpha
+        self.loss_beta = 1 - loss_alpha
+        self.loss_gamma = loss_gamma
+
         # Create model from pre-trained UNet
         self.model = None
         self.init_model()
