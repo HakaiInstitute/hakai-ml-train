@@ -314,8 +314,8 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/species/data/Apr2022:/data:ro"
-      - "/mnt/data/species/weights:/weights:ro"
+      - "/mnt/data/species/data/Aug2022:/data:ro"
+      - "/mnt/data/presence/weights:/weights:ro"
       - "/mnt/data/species/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
@@ -337,9 +337,13 @@ services:
         "--accelerator=gpu",
         "--devices=auto",
         "--sync_batchnorm",
-        "--max_epochs=30",
+        "--max_epochs=20",
         "--precision=16",
         "--batch_size=8",
+        "--lr=0.003",
+        "--alpha=0.7",
+        "--weight_decay=0.001",
+        "--benchmark",
       ]
 
   kelp-pa-aco-train-lraspp:
