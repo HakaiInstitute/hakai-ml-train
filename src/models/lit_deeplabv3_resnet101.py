@@ -12,7 +12,7 @@ from .base_model import BaseModel, Finetuning, WeightsT
 # noinspection PyAbstractClass
 class DeepLabV3ResNet101(BaseModel):
     def init_model(self):
-        self.model = deeplabv3_resnet101(progress=True, weights_backbone=ResNet101_Weights.IMAGENET1K_V1,
+        self.model = deeplabv3_resnet101(progress=True, weights_backbone=ResNet101_Weights.DEFAULT,
                                          num_classes=self.num_classes, aux_loss=True)
         self.model.requires_grad_(True)
         self.model.backbone.requires_grad_(False)
