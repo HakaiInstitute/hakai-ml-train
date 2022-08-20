@@ -331,7 +331,6 @@ services:
         "--name=kelp_species_species",
         "--num_classes=4",
         "--ignore_index=1",
-        "--weights=/data/best-val_miou=0.9393-epoch=97-step=34789.pt",
         "--drop_output_layer_weights",
         "--gradient_clip_val=0.5",
         "--accelerator=gpu",
