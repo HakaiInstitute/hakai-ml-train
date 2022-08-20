@@ -253,6 +253,34 @@ def focal_tversky_loss(
 
 
 class FocalTverskyLoss(Metric):
+    """Computes the Focal-Tversky Loss as a torchmetrics.Metric
+
+    Examples
+    --------
+    >>> loss = FocalTverskyLoss(num_classes=2, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]]], [[[0.5]], [[0.5]]], [[[0.2]], [[0.8]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
+    >>> np.around(loss(X, y).numpy(), 6)
+    0.555556
+
+    >>> loss = FocalTverskyLoss(num_classes=2, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
+    >>> np.around(loss(X, y).numpy(), 1)
+    0.0
+
+    >>> loss = FocalTverskyLoss(num_classes=2, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[1]], [[1]], [[0]]])
+    >>> np.around(loss(X, y).numpy(), 1)
+    2.0
+
+    >>> loss = FocalTverskyLoss(num_classes=3, ignore_index=1, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[1.]], [[0.]], [[0.]]], [[[1.]], [[0.]], [[0.]]], [[[0.]], [[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[2]]])
+    >>> np.around(loss(X, y).numpy(), 1)
+    0.0
+    """
     full_state_update = False
     is_differentiable = True
     higher_is_better = False
