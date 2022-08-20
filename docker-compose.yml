@@ -328,7 +328,7 @@ services:
         "deeplab",
         "/data",
         "/checkpoints",
-        "--name=kelp_species_species",
+        "--name=kelp_species_deeplab",
         "--num_classes=4",
         "--ignore_index=1",
         "--drop_output_layer_weights",
