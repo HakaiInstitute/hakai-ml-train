@@ -334,16 +334,12 @@ class FocalTverskyLoss(Metric):
             preds = _del_column(preds, self.ignore_index)
             target = _del_column(target, self.ignore_index)
 
-        p_g = torch.mul(preds, target)
-        np_g = torch.mul(1.0 - preds, target)
-        p_ng = torch.mul(preds, 1.0 - target)
+        # Remove pixels where label is ignore class with mask
+        mask = torch.sum(target, dim=1).unsqueeze(dim=1)
 
-        # Remove pixels where label is ignore class
-        mask = torch.sum(target, dim=1)
-
-        self.p_g += torch.sum(p_g * mask.unsqueeze(dim=1), dim=0)
-        self.np_g += torch.sum(np_g * mask.unsqueeze(dim=1), dim=0)
-        self.p_ng += torch.sum(p_ng * mask.unsqueeze(dim=1), dim=0)
+        self.p_g += torch.sum(torch.mul(preds, target) * mask, dim=0)
+        self.np_g += torch.sum(torch.mul(1.0 - preds, target) * mask, dim=0)
+        self.p_ng += torch.sum(torch.mul(preds, 1.0 - target) * mask, dim=0)
 
     def compute(self) -> torch.Tensor:
         ti = (self.p_g + self.smooth) / (
