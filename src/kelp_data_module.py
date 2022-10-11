@@ -19,8 +19,8 @@ class KelpDataModule(pl.LightningDataModule):
             num_classes: int,
             batch_size: int,
             num_workers: int = os.cpu_count(),
-            pin_memory=True,
-            persistent_workers=False,
+            pin_memory: bool = True,
+            persistent_workers: bool = False,
     ):
         super().__init__()
         self.num_classes = num_classes
