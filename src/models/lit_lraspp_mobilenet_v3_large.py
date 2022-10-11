@@ -3,6 +3,7 @@
 
 import torch
 from torch.optim import Optimizer
+from torchvision.models import MobileNet_V3_Large_Weights
 from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 
 from .base_model import BaseModel, Finetuning, WeightsT
@@ -11,7 +12,8 @@ from .base_model import BaseModel, Finetuning, WeightsT
 # noinspection PyAbstractClass
 class LRASPPMobileNetV3Large(BaseModel):
     def init_model(self):
-        self.model = lraspp_mobilenet_v3_large(progress=True, num_classes=self.num_classes)
+        self.model = lraspp_mobilenet_v3_large(progress=True, num_classes=self.num_classes,
+                                               weights_backbone=MobileNet_V3_Large_Weights.IMAGENET1K_V2)
         self.model.requires_grad_(True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
