@@ -273,8 +273,7 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/species/data/Aug2022:/data:ro"
-      - "/mnt/data/presence/weights:/weights:ro"
+      - "/mnt/data/species/data/Oct2022:/data:ro"
       - "/mnt/data/species/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
@@ -288,10 +287,8 @@ services:
         "/data",
         "/checkpoints",
         "--name=kelp_species_lraspp",
-        "--num_classes=4",
-        "--ignore_index=1",
-        "--weights=/weights/best-val_miou=0.8023-epoch=18-step=17593.pt",
-        "--drop_output_layer_weights",
+        "--num_classes=3",
+        "--ignore_index=2",
         "--gradient_clip_val=0.5",
         "--accelerator=gpu",
         "--devices=auto",
