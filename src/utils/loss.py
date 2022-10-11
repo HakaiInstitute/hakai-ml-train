@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -252,55 +252,98 @@ def focal_tversky_loss(
     return torch.sum(res, dim=0)
 
 
+def _del_column(data: torch.Tensor, idx: int) -> torch.Tensor:
+    """Delete the column at index."""
+    return torch.cat([data[:, :idx], data[:, (idx + 1):]], 1)
+
+
 class FocalTverskyLoss(Metric):
+    """Computes the Focal-Tversky Loss as a torchmetrics.Metric
+
+    Examples
+    --------
+    >>> loss = FocalTverskyLoss(num_classes=2, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]]], [[[0.5]], [[0.5]]], [[[0.2]], [[0.8]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
+    >>> np.around(loss(X, y).numpy(), 6)
+    0.555556
+
+    >>> loss = FocalTverskyLoss(num_classes=2, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
+    >>> np.around(loss(X, y).numpy(), 1)
+    0.0
+
+    >>> loss = FocalTverskyLoss(num_classes=2, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[1.]], [[0.]]], [[[1.]], [[0.]]], [[[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[1]], [[1]], [[0]]])
+    >>> np.around(loss(X, y).numpy(), 1)
+    2.0
+
+    >>> loss = FocalTverskyLoss(num_classes=3, ignore_index=1, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[1.]], [[0.]], [[0.]]], [[[1.]], [[0.]], [[0.]]], [[[0.]], [[0.]], [[1.]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[2]]])
+    >>> np.around(loss(X, y).numpy(), 1)
+    0.0
+
+    >>> loss = FocalTverskyLoss(num_classes=3, ignore_index=2, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]], [[0.0]]], [[[0.5]], [[0.5]], [[0.0]]], [[[0.2]], [[0.8]], [[0.0]]], [[[0.8]], [[0.2]], [[0.0]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]], [[2]]])
+    >>> np.around(loss(X, y).numpy(), 6)
+    0.555556
+    """
     full_state_update = False
     is_differentiable = True
     higher_is_better = False
 
     def __init__(
             self,
-            num_classes,
+            num_classes: int,
             alpha: float = 0.5,
             beta: float = 0.5,
             gamma: float = 1.0,
             smooth: float = 1e-8,
-            dist_sync_on_step=False,
-            ignore_index=None,
+            ignore_index: Optional[int] = None,
+            **kwargs,
     ):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        super().__init__(**kwargs)
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
         self.smooth = smooth
         self.ignore_index = ignore_index
+        self.num_classes = num_classes
 
-        self.add_state("tp", default=torch.zeros(num_classes), dist_reduce_fx="sum")
-        self.add_state("fn", default=torch.zeros(num_classes), dist_reduce_fx="sum")
-        self.add_state("fp", default=torch.zeros(num_classes), dist_reduce_fx="sum")
+        c = self.num_classes if self.ignore_index is None else self.num_classes - 1
+        self.add_state("p_g", default=torch.zeros(c), dist_reduce_fx="sum")
+        self.add_state("np_g", default=torch.zeros(c), dist_reduce_fx="sum")
+        self.add_state("p_ng", default=torch.zeros(c), dist_reduce_fx="sum")
 
     @staticmethod
     def _input_format(preds: torch.Tensor, target: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         c = preds.shape[1]
         preds = preds.permute(0, 2, 3, 1).reshape((-1, c))
-        target = one_hot(target.flatten().long(), c)
+        target = one_hot(target.flatten().long(), c).float()
         return preds, target
 
-    # noinspection PyMethodOverriding
     def update(self, preds: torch.Tensor, target: torch.Tensor):
         preds, target = self._input_format(preds, target)
         assert preds.shape == target.shape
 
         if self.ignore_index is not None:
-            preds[:, self.ignore_index] = 0
-            target[:, self.ignore_index] = 0
+            preds = _del_column(preds, self.ignore_index)
+            target = _del_column(target, self.ignore_index)
 
-        self.tp += torch.sum(torch.mul(preds, target), dim=0)
-        self.fn += torch.sum(torch.mul(1.0 - preds, target), dim=0)
-        self.fp += torch.sum(torch.mul(preds, 1.0 - target), dim=0)
+        # Remove pixels where label is ignore class with mask
+        mask = torch.sum(target, dim=1).unsqueeze(dim=1)
+
+        self.p_g += torch.sum(torch.mul(preds, target) * mask, dim=0)
+        self.np_g += torch.sum(torch.mul(1.0 - preds, target) * mask, dim=0)
+        self.p_ng += torch.sum(torch.mul(preds, 1.0 - target) * mask, dim=0)
 
     def compute(self) -> torch.Tensor:
-        ti = (self.tp + self.smooth) / (
-                self.tp + self.alpha * self.fn + self.beta * self.fp + self.smooth
+        ti = (self.p_g + self.smooth) / (
+                self.p_g + self.alpha * self.np_g + self.beta * self.p_ng + self.smooth
         )
         res = (1 - ti).pow(1 / self.gamma)
         return torch.sum(res, dim=0)

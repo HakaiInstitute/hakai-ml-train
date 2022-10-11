@@ -1,7 +1,7 @@
 # Created by: Taylor Denouden
 # Organization: Hakai Institute
 from abc import abstractmethod
-from typing import Optional, TypeVar
+from typing import Any, Optional, TypeVar
 
 import pytorch_lightning as pl
 import torch
@@ -35,12 +35,15 @@ class BaseModel(pl.LightningModule):
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
                  weight_decay: float = 0, loss_alpha: float = 0.7, loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100):
         super().__init__()
-        self.save_hyperparameters("lr", "weight_decay", "loss_alpha", "loss_gamma", "max_epochs")
         self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.lr = lr
         self.weight_decay = weight_decay
         self.max_epochs = max_epochs
+
+        self.loss_alpha = loss_alpha
+        self.loss_beta = 1 - loss_alpha
+        self.loss_gamma = loss_gamma
 
         # Create model from pre-trained UNet
         self.model = None
@@ -55,6 +58,10 @@ class BaseModel(pl.LightningModule):
                                           average="none", mdmc_average='global')
         self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
                                     average="none", mdmc_average='global')
+
+    @property
+    def example_input_array(self) -> Any:
+        return torch.ones((2, 3, 512, 512))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
@@ -86,20 +93,21 @@ class BaseModel(pl.LightningModule):
         avg_precision = precisions[~precisions.isnan()].mean()
         avg_recall = recalls[~recalls.isnan()].mean()
 
-        if phase == 'val':
-            self.log(f"hp_metric", miou, sync_dist=True)
-
         self.log(f"{phase}_loss", loss, sync_dist=True)
         self.log(f"{phase}_miou", miou, sync_dist=True),
         self.log(f"{phase}_accuracy", acc, sync_dist=True)
         self.log(f"{phase}_average_precision", avg_precision, sync_dist=True)
         self.log(f"{phase}_average_recall", avg_recall, sync_dist=True)
 
-        for c in range(self.num_classes):
-            if c == self.ignore_index:
+        for c in range(len(ious)):
+            i = c
+            if self.ignore_index and c >= self.ignore_index:
+                i += 1
+            self.log(f"{phase}_cls{i}_iou", ious[c], sync_dist=True)
+
+        for c in range(len(precisions)):
+            if self.ignore_index and c == self.ignore_index:
                 continue
-            if not ious[c].isnan():
-                self.log(f"{phase}_cls{c}_iou", ious[c], sync_dist=True)
             if not precisions[c].isnan():
                 self.log(f"{phase}_cls{c}_precision", precisions[c], sync_dist=True)
             if not recalls[c].isnan():

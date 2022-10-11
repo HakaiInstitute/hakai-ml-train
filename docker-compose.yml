@@ -20,7 +20,7 @@ services:
     tty: true
     stdin_open: true
     volumes:
-      - "/mnt/data/presence/checkpoints:/checkpoints"
+      - "/mnt/data/species/checkpoints:/checkpoints"
     ports:
       - "0.0.0.0:80:6006"
     command: [
@@ -71,9 +71,9 @@ services:
         "--max_epochs=100",
         "--precision=16",
         "--batch_size=32",
-        "--init_lr=0.01",
-        "--init_alpha=0.7",
-        "--init_weight_decay=0.0003",
+        "--lr=0.01",
+        "--alpha=0.7",
+        "--weight_decay=0.0003",
         "--benchmark",
       ]
 
@@ -108,9 +108,9 @@ services:
         "--max_epochs=100",
         "--precision=16",
         "--batch_size=32",
-        "--init_lr=0.003",
-        "--init_alpha=0.7",
-        "--init_weight_decay=0.001",
+        "--lr=0.003",
+        "--alpha=0.7",
+        "--weight_decay=0.001",
         "--benchmark",
       ]
 
@@ -145,9 +145,9 @@ services:
         "--max_epochs=20",
         "--precision=16",
         "--batch_size=8",
-        "--init_lr=0.01",
-        "--init_alpha=0.7",
-        "--init_weight_decay=0",
+        "--lr=0.01",
+        "--alpha=0.7",
+        "--weight_decay=0",
         "--benchmark",
         "--backbone_finetuning_epoch=16",
       ]
@@ -183,9 +183,9 @@ services:
         "--max_epochs=100",
         "--precision=16",
         "--batch_size=32",
-        "--init_lr=0.01",
-        "--init_alpha=0.7",
-        "--init_weight_decay=0.0003",
+        "--lr=0.01",
+        "--alpha=0.7",
+        "--weight_decay=0.0003",
         "--benchmark",
       ]
 
@@ -220,9 +220,9 @@ services:
         "--max_epochs=100",
         "--precision=16",
         "--batch_size=32",
-        "--init_lr=0.003",
-        "--init_alpha=0.7",
-        "--init_weight_decay=0.001",
+        "--lr=0.003",
+        "--alpha=0.7",
+        "--weight_decay=0.001",
         "--benchmark",
       ]
 
@@ -254,12 +254,12 @@ services:
         "--accelerator=gpu",
         "--devices=auto",
         "--sync_batchnorm",
-        "--max_epochs=100",
+        "--max_epochs=20",
         "--precision=16",
         "--batch_size=8",
-        "--init_lr=0.001",
-        "--init_alpha=0.7",
-        "--init_weight_decay=0.001",
+        "--lr=0.001",
+        "--alpha=0.7",
+        "--weight_decay=0.001",
         "--strategy=ddp_find_unused_parameters_false",
         "--benchmark",
       ]
@@ -273,8 +273,7 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/species/data/Apr2022:/data:ro"
-      - "/mnt/data/presence/weights:/weights:ro"
+      - "/mnt/data/species/data/Oct2022:/data:ro"
       - "/mnt/data/species/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
@@ -288,17 +287,19 @@ services:
         "/data",
         "/checkpoints",
         "--name=kelp_species_lraspp",
-        "--num_classes=4",
-        "--ignore_index=1",
-        "--weights=/weights/best-val_miou=0.8023-epoch=18-step=17593.pt",
-        "--drop_output_layer_weights",
+        "--num_classes=3",
+        "--ignore_index=2",
         "--gradient_clip_val=0.5",
         "--accelerator=gpu",
         "--devices=auto",
         "--sync_batchnorm",
-        "--max_epochs=30",
+        "--max_epochs=20",
         "--precision=16",
-        "--batch_size=16",
+        "--batch_size=32",
+        "--lr=0.003",
+        "--alpha=0.7",
+        "--weight_decay=0.001",
+        "--benchmark",
       ]
 
   kelp-species-train-deeplab:
@@ -310,8 +311,8 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/species/data/Apr2022:/data:ro"
-      - "/mnt/data/species/weights:/weights:ro"
+      - "/mnt/data/species/data/Aug2022:/data:ro"
+      - "/mnt/data/presence/weights:/weights:ro"
       - "/mnt/data/species/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
@@ -324,18 +325,21 @@ services:
         "deeplab",
         "/data",
         "/checkpoints",
-        "--name=kelp_species_species",
+        "--name=kelp_species_deeplab",
         "--num_classes=4",
         "--ignore_index=1",
-        "--weights=/data/best-val_miou=0.9393-epoch=97-step=34789.pt",
         "--drop_output_layer_weights",
         "--gradient_clip_val=0.5",
         "--accelerator=gpu",
         "--devices=auto",
         "--sync_batchnorm",
-        "--max_epochs=30",
+        "--max_epochs=20",
         "--precision=16",
         "--batch_size=8",
+        "--lr=0.003",
+        "--alpha=0.7",
+        "--weight_decay=0.001",
+        "--benchmark",
       ]
 
   kelp-pa-aco-train-lraspp:
