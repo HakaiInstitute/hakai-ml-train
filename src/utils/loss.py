@@ -285,6 +285,12 @@ class FocalTverskyLoss(Metric):
     >>> y = torch.Tensor([[[0]], [[0]], [[2]]])
     >>> np.around(loss(X, y).numpy(), 1)
     0.0
+
+    >>> loss = FocalTverskyLoss(num_classes=3, ignore_index=2, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]], [[0.0]]], [[[0.5]], [[0.5]], [[0.0]]], [[[0.2]], [[0.8]], [[0.0]]], [[[0.8]], [[0.2]], [[0.0]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]], [[2]]])
+    >>> np.around(loss(X, y).numpy(), 6)
+    0.555556
     """
     full_state_update = False
     is_differentiable = True
@@ -328,9 +334,16 @@ class FocalTverskyLoss(Metric):
             preds = _del_column(preds, self.ignore_index)
             target = _del_column(target, self.ignore_index)
 
-        self.p_g += torch.sum(torch.mul(preds, target), dim=0)
-        self.np_g += torch.sum(torch.mul(1.0 - preds, target), dim=0)
-        self.p_ng += torch.sum(torch.mul(preds, 1.0 - target), dim=0)
+        p_g = torch.mul(preds, target)
+        np_g = torch.mul(1.0 - preds, target)
+        p_ng = torch.mul(preds, 1.0 - target)
+
+        # Remove pixels where label is ignore class
+        mask = torch.sum(target, dim=1)
+
+        self.p_g += torch.sum(p_g * mask.unsqueeze(dim=1), dim=0)
+        self.np_g += torch.sum(np_g * mask.unsqueeze(dim=1), dim=0)
+        self.p_ng += torch.sum(p_ng * mask.unsqueeze(dim=1), dim=0)
 
     def compute(self) -> torch.Tensor:
         ti = (self.p_g + self.smooth) / (
