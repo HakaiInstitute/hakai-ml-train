@@ -311,8 +311,7 @@ services:
     stdin_open: true
     env_file: ".env"
     volumes:
-      - "/mnt/data/species/data/Aug2022:/data:ro"
-      - "/mnt/data/presence/weights:/weights:ro"
+      - "/mnt/data/species/data/Oct2022:/data:ro"
       - "/mnt/data/species/checkpoints:/checkpoints"
       - "torch_cache:/root/.cache/torch"
     ipc: host
@@ -326,9 +325,8 @@ services:
         "/data",
         "/checkpoints",
         "--name=kelp_species_deeplab",
-        "--num_classes=4",
-        "--ignore_index=1",
-        "--drop_output_layer_weights",
+        "--num_classes=3",
+        "--ignore_index=2",
         "--gradient_clip_val=0.5",
         "--accelerator=gpu",
         "--devices=auto",
@@ -336,7 +334,7 @@ services:
         "--max_epochs=20",
         "--precision=16",
         "--batch_size=8",
-        "--lr=0.003",
+        "--lr=0.001",
         "--alpha=0.7",
         "--weight_decay=0.001",
         "--benchmark",
