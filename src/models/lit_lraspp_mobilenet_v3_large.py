@@ -14,7 +14,8 @@ class LRASPPMobileNetV3Large(BaseModel):
     def init_model(self):
         self.model = lraspp_mobilenet_v3_large(progress=True, num_classes=self.num_classes,
                                                weights_backbone=MobileNet_V3_Large_Weights.IMAGENET1K_V2)
-        self.model.requires_grad_(True)
+        self.model.backbone.requires_grad_(False)
+        self.model.classifier.requires_grad_(True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)['out']
