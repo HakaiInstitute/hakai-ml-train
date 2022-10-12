@@ -10,7 +10,7 @@ dependencies:
   - conda-forge::pytorch-lightning
   - conda-forge::s3fs
   - conda-forge::tensorboard
-  - conda-forge::torchmetrics
+  - conda-forge::torchmetrics<=0.9.3
   - conda-forge::tqdm
   - pytorch::pytorch>=1.12.1
   - pytorch::torchaudio
