@@ -55,9 +55,9 @@ class BaseModel(pl.LightningModule):
         self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index, mdmc_average='global')
         self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index, average="none")
         self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                          average="none", mdmc_average='global')
+                                          average="micro", mdmc_average='global')
         self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                    average="none", mdmc_average='global')
+                                    average="micro", mdmc_average='global')
 
     @property
     def example_input_array(self) -> Any:
@@ -85,13 +85,11 @@ class BaseModel(pl.LightningModule):
 
         ious = self.iou_metric(probs, y)
         acc = self.accuracy_metric(probs, y)
-        precisions = self.precision_metric(probs, y)
-        recalls = self.recall_metric(probs, y)
+        avg_precision = self.precision_metric(probs, y)
+        avg_recall = self.recall_metric(probs, y)
 
         # Filter nan values before averaging
         miou = ious[~ious.isnan()].mean()
-        avg_precision = precisions[~precisions.isnan()].mean()
-        avg_recall = recalls[~recalls.isnan()].mean()
 
         self.log(f"{phase}_loss", loss, sync_dist=True)
         self.log(f"{phase}_miou", miou, sync_dist=True),
@@ -105,14 +103,7 @@ class BaseModel(pl.LightningModule):
                 i += 1
             self.log(f"{phase}_cls{i}_iou", ious[c], sync_dist=True)
 
-        for c in range(len(precisions)):
-            if self.ignore_index and c == self.ignore_index:
-                continue
-            if not precisions[c].isnan():
-                self.log(f"{phase}_cls{c}_precision", precisions[c], sync_dist=True)
-            if not recalls[c].isnan():
-                self.log(f"{phase}_cls{c}_recall", recalls[c], sync_dist=True)
-
+        # loss_old = focal_tversky_loss(probs, y, alpha=0.7, beta=0.3, gamma=4./3)
         return loss
 
     def configure_optimizers(self):
