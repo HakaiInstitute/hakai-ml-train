@@ -16,6 +16,9 @@ from models.lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
 from models.lit_unet import UnetEfficientnet
 from utils.git_hash import get_git_revision_hash
 
+pl.seed_everything(0, workers=True)
+torch.use_deterministic_algorithms(True, warn_only=True)
+
 
 def load_weights(model: BaseModel, weights_path: Union[Path, str], drop_output_layer_weights: bool = False) -> BaseModel:
     weights_path = Path(weights_path)
@@ -40,8 +43,6 @@ def load_weights(model: BaseModel, weights_path: Union[Path, str], drop_output_l
 
 
 def cli_main(argv=None):
-    pl.seed_everything(0)
-
     # ------------
     # args
     # ------------
