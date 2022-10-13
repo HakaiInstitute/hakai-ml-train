@@ -140,7 +140,7 @@ def cli_main(argv=None):
     # ------------
     checkpoint_options = {
         # "verbose": True,
-        "monitor": "val_miou",
+        "monitor": "val/miou",
         "mode": "max",
         "filename": "{val_miou:.4f}_{epoch}",
         "save_top_k": 1,
@@ -182,7 +182,7 @@ def cli_main(argv=None):
             'weight_decay': args.weight_decay,
             'batch_size': args.batch_size,
             'sha': get_git_revision_hash(),
-        }, {'val_miou': -1, 'val_loss': -1})
+        }, {'hparams': -1})
         trainer.fit(model, datamodule=kelp_data)
         print("Best mIoU:", checkpoint_callback.best_model_score.detach().cpu())
 

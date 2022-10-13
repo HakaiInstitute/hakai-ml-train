@@ -89,18 +89,17 @@ class BaseModel(pl.LightningModule):
         avg_precision = self.precision_metric(probs, y)
         avg_recall = self.recall_metric(probs, y)
 
-
-        self.log(f"{phase}_loss", loss, sync_dist=True)
-        self.log(f"{phase}_miou", miou, sync_dist=True),
-        self.log(f"{phase}_accuracy", acc, sync_dist=True)
-        self.log(f"{phase}_average_precision", avg_precision, sync_dist=True)
-        self.log(f"{phase}_average_recall", avg_recall, sync_dist=True)
+        self.log(f"{phase}/loss", loss, sync_dist=True)
+        self.log(f"{phase}/miou", miou, sync_dist=True),
+        self.log(f"{phase}/accuracy", acc, sync_dist=True)
+        self.log(f"{phase}/average_precision", avg_precision, sync_dist=True)
+        self.log(f"{phase}/average_recall", avg_recall, sync_dist=True)
 
         for c in range(len(ious)):
             i = c
             if self.ignore_index and c >= self.ignore_index:
                 i += 1
-            self.log(f"{phase}_cls{i}_iou", ious[c], sync_dist=True)
+            self.log(f"{phase}/cls{i}_iou", ious[c], sync_dist=True)
 
         # loss_old = focal_tversky_loss(probs, y, alpha=0.7, beta=0.3, gamma=4./3)
         return loss
