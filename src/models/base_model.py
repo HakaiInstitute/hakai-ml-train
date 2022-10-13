@@ -84,12 +84,11 @@ class BaseModel(pl.LightningModule):
         loss = self.focal_tversky_loss(probs, y)
 
         ious = self.iou_metric(probs, y)
+        miou = ious.mean()
         acc = self.accuracy_metric(probs, y)
         avg_precision = self.precision_metric(probs, y)
         avg_recall = self.recall_metric(probs, y)
 
-        # Filter nan values before averaging
-        miou = ious[~ious.isnan()].mean()
 
         self.log(f"{phase}_loss", loss, sync_dist=True)
         self.log(f"{phase}_miou", miou, sync_dist=True),
