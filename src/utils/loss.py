@@ -291,6 +291,14 @@ class FocalTverskyLoss(Metric):
     >>> y = torch.Tensor([[[0]], [[0]], [[1]], [[2]]])
     >>> np.around(loss(X, y).numpy(), 6)
     0.555556
+
+    >>> loss = FocalTverskyLoss(num_classes=3, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> X = torch.Tensor([[[[0.9]], [[0.1]]], [[[0.5]], [[0.5]]], [[[0.2]], [[0.8]]]])
+    >>> y = torch.Tensor([[[0]], [[0]], [[1]]])
+    >>> loss_1 = loss(X, y).numpy()
+    >>> loss_2 = focal_tversky_loss(X, y, alpha=0.5, beta=0.5, gamma=1.0, smooth=0)
+    >>> np.allclose(loss_1, loss_2)
+    True
     """
     full_state_update = False
     is_differentiable = True
