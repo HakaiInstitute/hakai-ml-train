@@ -24,9 +24,10 @@ inv_normalize = t.Compose(
 
 
 class PadOut(object):
-    def __init__(self, height: int = 128, width: int = 128):
+    def __init__(self, height: int = 128, width: int = 128, fill_value: int = 0):
         self.height = height
         self.width = width
+        self.fill_value = fill_value
 
     def __call__(self, x: Image) -> Image:
         """
@@ -43,7 +44,7 @@ class PadOut(object):
         w_pad = self.width - w
         h_pad = self.height - h
 
-        return pad(x, [0, 0, w_pad, h_pad])
+        return pad(x, [0, 0, w_pad, h_pad], fill=self.fill_value)
 
 
 class Clamp(object):

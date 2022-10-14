@@ -21,6 +21,7 @@ class KelpDataModule(pl.LightningDataModule):
             num_workers: int = os.cpu_count(),
             pin_memory: bool = True,
             persistent_workers: bool = False,
+            fill_value: int = 0,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -28,6 +29,7 @@ class KelpDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.persistent_workers = persistent_workers
+        self.fill_value = fill_value
 
         self.train_data_dir = Path(data_dir).joinpath("train")
         self.val_data_dir = Path(data_dir).joinpath("val")
@@ -35,11 +37,10 @@ class KelpDataModule(pl.LightningDataModule):
 
         self.train_trans = t.Compose(
             [
-                PadOut(512, 512),
+                PadOut(512, 512, fill_value=0),
                 t.RandomHorizontalFlip(),
                 t.RandomVerticalFlip(),
-                t.RandomRotation(degrees=45),
-                ImageClip(min_=0, max_=255),
+                # t.RandomRotation(degrees=45, fill=self.fill_value),
                 t.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
                 t.ToTensor(),
                 normalize,
@@ -47,19 +48,18 @@ class KelpDataModule(pl.LightningDataModule):
         )
         self.train_target_trans = t.Compose(
             [
-                PadOut(512, 512),
+                PadOut(512, 512, fill_value=self.fill_value),
                 t.RandomHorizontalFlip(),
                 t.RandomVerticalFlip(),
-                t.RandomRotation(degrees=45, fill=(0,)),
+                # t.RandomRotation(degrees=45, fill=self.fill_value),
                 target_to_tensor,
-                Clamp(0, self.num_classes - 1),
             ]
         )
         self.test_trans = t.Compose(
-            [PadOut(512, 512), ImageClip(min_=0, max_=255), t.ToTensor(), normalize]
+            [PadOut(512, 512, fill_value=0), t.ToTensor(), normalize]
         )
         self.test_target_trans = t.Compose(
-            [PadOut(512, 512), target_to_tensor, Clamp(0, self.num_classes - 1)]
+            [PadOut(512, 512, fill_value=self.fill_value), target_to_tensor]
         )
 
         self.ds_train, self.ds_val, self.ds_test = None, None, None
@@ -146,6 +146,12 @@ class KelpDataModule(pl.LightningDataModule):
             type=bool,
             default=True,
             help="Flag to pin GPU memory for batch loading.",
+        )
+        parser.add_argument(
+            "--fill_value",
+            type=int,
+            default=0,
+            help="Value to use to fill in blank areas when image is rotated, scaled, etc.",
         )
 
         return parent_parser

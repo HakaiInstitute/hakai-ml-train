@@ -99,7 +99,8 @@ def cli_main(argv=None):
         pin_memory=True,
         persistent_workers=True,
         num_classes=args.num_classes,
-        batch_size=args.batch_size
+        batch_size=args.batch_size,
+        fill_value=args.fill_value,
     )
 
     # ------------
@@ -212,6 +213,7 @@ if __name__ == "__main__":
             "--limit_test_batches=10",
             "--log_every_n_steps=1",
             # "--backbone_finetuning_epoch=10",
+            "--fill_value=2",
         ])
     else:
         cli_main()
