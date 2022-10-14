@@ -19,3 +19,4 @@ dependencies:
   - pip:
     - lightning-bolts
     - segmentation-models-pytorch
+    - einops

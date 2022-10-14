@@ -6,3 +6,4 @@ tensorboard
 torchmetrics==0.9.3
 tqdm
 protobuf<4.21.0
+einops

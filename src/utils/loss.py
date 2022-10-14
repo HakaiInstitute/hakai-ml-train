@@ -143,7 +143,7 @@ def tversky_index_c(
     [0.0, 0.0]
     """
     c = p.shape[1]
-    p = p.permute(0, 2, 3, 1).reshape((-1, c))
+    # p = p.permute(0, 2, 3, 1).reshape((-1, c))
     g = one_hot(g.flatten().long(), c)
 
     tp = torch.sum(torch.mul(p, g), dim=0)
@@ -252,7 +252,7 @@ def focal_tversky_loss(
     return torch.sum(res, dim=0)
 
 
-def _del_column(data: torch.Tensor, idx: int) -> torch.Tensor:
+def del_column(data: torch.Tensor, idx: int) -> torch.Tensor:
     """Delete the column at index."""
     return torch.cat([data[:, :idx], data[:, (idx + 1):]], 1)
 
@@ -339,8 +339,8 @@ class FocalTverskyLoss(Metric):
         assert preds.shape == target.shape
 
         if self.ignore_index is not None:
-            preds = _del_column(preds, self.ignore_index)
-            target = _del_column(target, self.ignore_index)
+            preds = del_column(preds, self.ignore_index)
+            target = del_column(target, self.ignore_index)
 
         # Remove pixels where label is ignore class with mask
         mask = torch.sum(target, dim=1).unsqueeze(dim=1)

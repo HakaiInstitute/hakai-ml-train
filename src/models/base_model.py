@@ -7,9 +7,10 @@ import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import BaseFinetuning
 from torch.optim import Optimizer
-from torchmetrics import Accuracy, JaccardIndex, Precision, Recall
+import torchmetrics.functional as fm
+from einops import rearrange
 
-from utils.loss import FocalTverskyLoss
+from utils.loss import del_column, focal_tversky_loss
 
 WeightsT = TypeVar('WeightsT')
 
@@ -49,16 +50,6 @@ class BaseModel(pl.LightningModule):
         self.model = None
         self.init_model()
 
-        # Loss function
-        self.focal_tversky_loss = FocalTverskyLoss(self.num_classes, ignore_index=self.ignore_index,
-                                                   alpha=loss_alpha, beta=(1 - loss_alpha), gamma=loss_gamma)
-        self.accuracy_metric = Accuracy(num_classes=self.num_classes, ignore_index=self.ignore_index, mdmc_average='global')
-        self.iou_metric = JaccardIndex(num_classes=self.num_classes, ignore_index=self.ignore_index, average="none")
-        self.precision_metric = Precision(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                          average="micro", mdmc_average='global')
-        self.recall_metric = Recall(num_classes=self.num_classes, ignore_index=self.ignore_index,
-                                    average="micro", mdmc_average='global')
-
     @property
     def example_input_array(self) -> Any:
         return torch.ones((2, 3, 512, 512))
@@ -66,7 +57,15 @@ class BaseModel(pl.LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model.forward(x)
 
-    # noinspection DuplicatedCode
+    def remove_ignore_pixels(self, probs, y):
+        y_one_hot = torch.nn.functional.one_hot(y, num_classes=self.num_classes)
+        probs = del_column(probs, self.ignore_index)
+        y_one_hot = del_column(y_one_hot, self.ignore_index)
+        # Remove pixels where label is ignore class with mask
+        mask = torch.sum(y_one_hot, dim=1).to(bool)
+
+        return probs[mask], y[mask]
+
     def training_step(self, batch, batch_idx):
         return self._phase_step(batch, batch_idx, phase="train")
 
@@ -81,27 +80,36 @@ class BaseModel(pl.LightningModule):
         x, y = batch
         logits = self.forward(x)
         probs = torch.softmax(logits, dim=1)
-        loss = self.focal_tversky_loss(probs, y)
 
-        ious = self.iou_metric(probs, y)
-        miou = ious.mean()
-        acc = self.accuracy_metric(probs, y)
-        avg_precision = self.precision_metric(probs, y)
-        avg_recall = self.recall_metric(probs, y)
+        # Flatten and eliminate ignore class instances
+        y = rearrange(y, 'b h w -> (b h w)').long()
+        probs = rearrange(probs, 'b c h w -> (b h w) c')
 
-        self.log(f"{phase}/loss", loss, sync_dist=True)
-        self.log(f"{phase}/miou", miou, sync_dist=True),
-        self.log(f"{phase}/accuracy", acc, sync_dist=True)
-        self.log(f"{phase}/average_precision", avg_precision, sync_dist=True)
-        self.log(f"{phase}/average_recall", avg_recall, sync_dist=True)
+        n = self.num_classes
+        if self.ignore_index is not None:
+            n -= 1
+            probs, y = self.remove_ignore_pixels(probs, y)
 
-        for c in range(len(ious)):
-            i = c
+        # Update metrics
+        loss = focal_tversky_loss(probs, y, alpha=self.loss_alpha, beta=(1 - self.loss_alpha), gamma=self.loss_gamma)
+        ious = fm.jaccard_index(probs, y, num_classes=n, average='none')
+        miou = fm.jaccard_index(probs, y, num_classes=n, average='macro')
+        acc = fm.accuracy(probs, y, num_classes=n)
+        avg_precision = fm.precision(probs, y, num_classes=n, average='micro')
+        avg_recall = fm.recall(probs, y, num_classes=n, average='micro')
+
+        # self.log(f"train/loss", loss)
+        self.log(f"{phase}/miou", miou),
+        self.log(f"{phase}/accuracy", acc)
+        self.log(f"{phase}/average_precision", avg_precision)
+        self.log(f"{phase}/average_recall", avg_recall)
+
+        for c in range(n):
             if self.ignore_index and c >= self.ignore_index:
-                i += 1
-            self.log(f"{phase}/cls{i}_iou", ious[c], sync_dist=True)
+                self.log(f"{phase}/cls{c+1}_iou", ious[c])
+            else:
+                self.log(f"{phase}/cls{c}_iou", ious[c])
 
-        # loss_old = focal_tversky_loss(probs, y, alpha=0.7, beta=0.3, gamma=4./3)
         return loss
 
     def configure_optimizers(self):
