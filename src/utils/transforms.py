@@ -1,14 +1,15 @@
 from types import SimpleNamespace
+from typing import Union
 
 import numpy as np
 import torch
-from torchvision.transforms.functional import to_tensor, pad
+from torchvision.transforms.functional import pad, pil_to_tensor
 from PIL import Image
 from torchvision import transforms as t
 
 
-def _target_to_tensor_func(mask: np.ndarray) -> torch.Tensor:
-    return (to_tensor(mask) * 255).long().squeeze(dim=0)
+def _target_to_tensor_func(mask: Union['Image', np.ndarray]) -> torch.Tensor:
+    return pil_to_tensor(mask).squeeze(dim=0)
 
 
 # noinspection PyTypeChecker
