@@ -95,9 +95,9 @@ def cli_main(argv=None):
     # ------------
     kelp_data = KelpDataModule(
         args.data_dir,
-        # num_workers=0,
-        pin_memory=True,
-        persistent_workers=True,
+        num_workers=args.num_workers,
+        pin_memory=args.pin_memory,
+        persistent_workers=args.num_workers>0,
         num_classes=args.num_classes,
         batch_size=args.batch_size,
         fill_value=args.fill_value,
