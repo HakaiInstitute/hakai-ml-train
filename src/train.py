@@ -178,12 +178,17 @@ def cli_main(argv=None):
         trainer.test(model, datamodule=kelp_data)
     else:
         trainer.logger.log_hyperparams({
-            'lr': args.lr,
-            'alpha': args.alpha,
-            'weight_decay': args.weight_decay,
-            'batch_size': args.batch_size,
+            **vars(args),
             'sha': get_git_revision_hash(),
-        }, {'hparams': -1})
+        }, {
+            'test/accuracy': float('nan'),
+            'test/average_precision': float('nan'),
+            'test/average_recall': float('nan'),
+            'test/cls0_iou': float('nan'),
+            'test/cls1_iou': float('nan'),
+            'test/loss': float('nan'),
+            'test/miou': float('nan'),
+        })
         trainer.fit(model, datamodule=kelp_data)
         print("Best mIoU:", checkpoint_callback.best_model_score.detach().cpu())
 
