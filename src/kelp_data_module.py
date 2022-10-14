@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms as t
 
 from utils.datasets.SegmentationDataset import SegmentationDataset
-from utils.transforms import Clamp, ImageClip, PadOut, normalize, target_to_tensor
+from utils.transforms import PadOut, normalize, target_to_tensor
 
 
 # noinspection PyAbstractClass
@@ -40,7 +40,7 @@ class KelpDataModule(pl.LightningDataModule):
                 PadOut(512, 512, fill_value=0),
                 t.RandomHorizontalFlip(),
                 t.RandomVerticalFlip(),
-                # t.RandomRotation(degrees=45, fill=self.fill_value),
+                t.RandomRotation(degrees=15, fill=self.fill_value),
                 t.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
                 t.ToTensor(),
                 normalize,
@@ -51,7 +51,7 @@ class KelpDataModule(pl.LightningDataModule):
                 PadOut(512, 512, fill_value=self.fill_value),
                 t.RandomHorizontalFlip(),
                 t.RandomVerticalFlip(),
-                # t.RandomRotation(degrees=45, fill=self.fill_value),
+                t.RandomRotation(degrees=15, fill=self.fill_value),
                 target_to_tensor,
             ]
         )
