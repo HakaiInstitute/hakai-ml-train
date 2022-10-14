@@ -46,8 +46,8 @@ def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8) ->
     p = p.permute(0, 2, 3, 1).reshape((-1, c))
     g = one_hot(g.flatten().long(), c)
 
-    tp = torch.sum(torch.mul(p, g), dim=0)
-    denominator = torch.sum(p + g, dim=0)
+    tp = torch.nansum(torch.mul(p, g), dim=0)
+    denominator = torch.nansum(p + g, dim=0)
     return ((2 * tp) + smooth) / (denominator + smooth)
 
 
@@ -89,7 +89,7 @@ def dice_loss(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8) -> torch.T
     2.0
     """
     dsc = dice_similarity_c(p, g, smooth)
-    return torch.sum(1 - dsc, dim=0)
+    return torch.nansum(1 - dsc, dim=0)
 
 
 # noinspection DuplicatedCode
@@ -146,9 +146,9 @@ def tversky_index_c(
     # p = p.permute(0, 2, 3, 1).reshape((-1, c))
     g = one_hot(g.flatten().long(), c)
 
-    tp = torch.sum(torch.mul(p, g), dim=0)
-    fn = torch.sum(torch.mul(1.0 - p, g), dim=0)
-    fp = torch.sum(torch.mul(p, 1.0 - g), dim=0)
+    tp = torch.nansum(torch.mul(p, g), dim=0)
+    fn = torch.nansum(torch.mul(1.0 - p, g), dim=0)
+    fp = torch.nansum(torch.mul(p, 1.0 - g), dim=0)
     return (tp + smooth) / (tp + alpha * fn + beta * fp + smooth)
 
 
@@ -197,7 +197,7 @@ def tversky_loss(
     2.0
     """
     ti = tversky_index_c(p, g, alpha, beta, smooth)
-    return torch.sum(1 - ti, dim=0)
+    return torch.nansum(1 - ti, dim=0)
 
 
 def focal_tversky_loss(
@@ -249,7 +249,7 @@ def focal_tversky_loss(
     """
     ti = tversky_index_c(p, g, alpha, beta, smooth)
     res = (1 - ti).pow(1 / gamma)
-    return torch.sum(res, dim=0)
+    return torch.nansum(res, dim=0)
 
 
 def del_column(data: torch.Tensor, idx: int) -> torch.Tensor:
@@ -343,18 +343,18 @@ class FocalTverskyLoss(Metric):
             target = del_column(target, self.ignore_index)
 
         # Remove pixels where label is ignore class with mask
-        mask = torch.sum(target, dim=1).unsqueeze(dim=1)
+        mask = torch.nansum(target, dim=1).unsqueeze(dim=1)
 
-        self.p_g += torch.sum(torch.mul(preds, target) * mask, dim=0)
-        self.np_g += torch.sum(torch.mul(1.0 - preds, target) * mask, dim=0)
-        self.p_ng += torch.sum(torch.mul(preds, 1.0 - target) * mask, dim=0)
+        self.p_g += torch.nansum(torch.mul(preds, target) * mask, dim=0)
+        self.np_g += torch.nansum(torch.mul(1.0 - preds, target) * mask, dim=0)
+        self.p_ng += torch.nansum(torch.mul(preds, 1.0 - target) * mask, dim=0)
 
     def compute(self) -> torch.Tensor:
         ti = (self.p_g + self.smooth) / (
                 self.p_g + self.alpha * self.np_g + self.beta * self.p_ng + self.smooth
         )
         res = (1 - ti).pow(1 / self.gamma)
-        return torch.sum(res, dim=0)
+        return torch.nansum(res, dim=0)
 
 
 if __name__ == "__main__":
