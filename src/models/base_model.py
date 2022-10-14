@@ -96,17 +96,17 @@ class BaseModel(pl.LightningModule):
         avg_precision = fm.precision(probs, y, num_classes=self.n, average='micro')
         avg_recall = fm.recall(probs, y, num_classes=self.n, average='micro')
 
-        # self.log(f"train/loss", loss)
-        self.log(f"{phase}/miou", miou),
-        self.log(f"{phase}/accuracy", acc)
-        self.log(f"{phase}/average_precision", avg_precision)
-        self.log(f"{phase}/average_recall", avg_recall)
+        self.log(f"{phase}/loss", loss, on_step=False, on_epoch=True),
+        self.log(f"{phase}/miou", miou, on_step=False, on_epoch=True),
+        self.log(f"{phase}/accuracy", acc, on_step=False, on_epoch=True)
+        self.log(f"{phase}/average_precision", avg_precision, on_step=False, on_epoch=True)
+        self.log(f"{phase}/average_recall", avg_recall, on_step=False, on_epoch=True)
 
         for c in range(self.n):
             if self.ignore_index and c >= self.ignore_index:
-                self.log(f"{phase}/cls{c+1}_iou", ious[c])
+                self.log(f"{phase}/cls{c + 1}_iou", ious[c], on_step=False, on_epoch=True)
             else:
-                self.log(f"{phase}/cls{c}_iou", ious[c])
+                self.log(f"{phase}/cls{c}_iou", ious[c], on_step=False, on_epoch=True)
 
         return loss
 
