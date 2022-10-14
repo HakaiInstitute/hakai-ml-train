@@ -297,9 +297,9 @@ services:
         "--max_epochs=20",
         "--precision=16",
         "--batch_size=32",
-        "--lr=0.0003",
+        "--lr=1e-3",
         "--alpha=0.7",
-        "--weight_decay=0.001",
+#        "--weight_decay=0.001",
         "--benchmark",
       ]
 
