@@ -88,6 +88,9 @@ class BaseModel(pl.LightningModule):
         if self.ignore_index is not None:
             probs, y = self.remove_ignore_pixels(probs, y)
 
+        if len(y) == 0:
+            return
+
         # Update metrics
         loss = focal_tversky_loss(probs, y, alpha=self.loss_alpha, beta=(1 - self.loss_alpha), gamma=self.loss_gamma)
         ious = fm.jaccard_index(probs, y, num_classes=self.n, average='none')
