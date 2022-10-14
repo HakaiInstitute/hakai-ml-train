@@ -181,13 +181,13 @@ def cli_main(argv=None):
             **vars(args),
             'sha': get_git_revision_hash(),
         }, {
-            'test/accuracy': float('nan'),
-            'test/average_precision': float('nan'),
-            'test/average_recall': float('nan'),
-            'test/cls0_iou': float('nan'),
-            'test/cls1_iou': float('nan'),
-            'test/loss': float('nan'),
-            'test/miou': float('nan'),
+            'val/accuracy': float('nan'),
+            'val/average_precision': float('nan'),
+            'val/average_recall': float('nan'),
+            'val/cls0_iou': float('nan'),
+            'val/cls1_iou': float('nan'),
+            'val/loss': float('nan'),
+            'val/miou': float('nan'),
         })
         trainer.fit(model, datamodule=kelp_data)
         print("Best mIoU:", checkpoint_callback.best_model_score.detach().cpu())
