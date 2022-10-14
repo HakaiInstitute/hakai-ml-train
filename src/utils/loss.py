@@ -43,7 +43,7 @@ def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8) ->
     [0.0, 0.0]
     """
     c = p.shape[1]
-    p = p.permute(0, 2, 3, 1).reshape((-1, c))
+    # p = p.permute(0, 2, 3, 1).reshape((-1, c))
     g = one_hot(g.flatten().long(), c)
 
     tp = torch.nansum(torch.mul(p, g), dim=0)
