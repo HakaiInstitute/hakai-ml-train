@@ -106,7 +106,7 @@ class KelpDataModule(pl.LightningDataModule):
     def val_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(
             self.ds_val,
-            shuffle=False,
+            shuffle=True,
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
@@ -116,7 +116,7 @@ class KelpDataModule(pl.LightningDataModule):
     def test_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(
             self.ds_test,
-            shuffle=False,
+            shuffle=True,
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
