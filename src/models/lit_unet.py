@@ -15,7 +15,7 @@ class UnetEfficientnet(BaseModel):
             encoder_name="efficientnet-b4",
             encoder_weights="imagenet",
             in_channels=3,
-            classes=self.num_classes,
+            classes=self.n,
         )
         self.model.requires_grad_(True)
         self.model.encoder.requires_grad_(False)

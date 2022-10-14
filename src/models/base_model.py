@@ -5,12 +5,12 @@ from typing import Any, Optional, TypeVar
 
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.callbacks import BaseFinetuning
-from torch.optim import Optimizer
 import torchmetrics.functional as fm
 from einops import rearrange
+from pytorch_lightning.callbacks import BaseFinetuning
+from torch.optim import Optimizer
 
-from utils.loss import del_column, focal_tversky_loss
+from utils.loss import focal_tversky_loss
 
 WeightsT = TypeVar('WeightsT')
 
@@ -46,6 +46,11 @@ class BaseModel(pl.LightningModule):
         self.loss_beta = 1 - loss_alpha
         self.loss_gamma = loss_gamma
 
+        if self.ignore_index is not None:
+            self.n = num_classes - 1
+        else:
+            self.n = num_classes
+
         # Create model from pre-trained UNet
         self.model = None
         self.init_model()
@@ -58,12 +63,7 @@ class BaseModel(pl.LightningModule):
         return self.model.forward(x)
 
     def remove_ignore_pixels(self, probs, y):
-        y_one_hot = torch.nn.functional.one_hot(y, num_classes=self.num_classes)
-        probs = del_column(probs, self.ignore_index)
-        y_one_hot = del_column(y_one_hot, self.ignore_index)
-        # Remove pixels where label is ignore class with mask
-        mask = torch.sum(y_one_hot, dim=1).to(bool)
-
+        mask = (y != self.ignore_index)
         return probs[mask], y[mask]
 
     def training_step(self, batch, batch_idx):
@@ -85,18 +85,16 @@ class BaseModel(pl.LightningModule):
         y = rearrange(y, 'b h w -> (b h w)').long()
         probs = rearrange(probs, 'b c h w -> (b h w) c')
 
-        n = self.num_classes
         if self.ignore_index is not None:
-            n -= 1
             probs, y = self.remove_ignore_pixels(probs, y)
 
         # Update metrics
         loss = focal_tversky_loss(probs, y, alpha=self.loss_alpha, beta=(1 - self.loss_alpha), gamma=self.loss_gamma)
-        ious = fm.jaccard_index(probs, y, num_classes=n, average='none')
-        miou = fm.jaccard_index(probs, y, num_classes=n, average='macro')
-        acc = fm.accuracy(probs, y, num_classes=n)
-        avg_precision = fm.precision(probs, y, num_classes=n, average='micro')
-        avg_recall = fm.recall(probs, y, num_classes=n, average='micro')
+        ious = fm.jaccard_index(probs, y, num_classes=self.n, average='none')
+        miou = fm.jaccard_index(probs, y, num_classes=self.n, average='macro')
+        acc = fm.accuracy(probs, y, num_classes=self.n)
+        avg_precision = fm.precision(probs, y, num_classes=self.n, average='micro')
+        avg_recall = fm.recall(probs, y, num_classes=self.n, average='micro')
 
         # self.log(f"train/loss", loss)
         self.log(f"{phase}/miou", miou),
@@ -104,7 +102,7 @@ class BaseModel(pl.LightningModule):
         self.log(f"{phase}/average_precision", avg_precision)
         self.log(f"{phase}/average_recall", avg_recall)
 
-        for c in range(n):
+        for c in range(self.n):
             if self.ignore_index and c >= self.ignore_index:
                 self.log(f"{phase}/cls{c+1}_iou", ious[c])
             else:

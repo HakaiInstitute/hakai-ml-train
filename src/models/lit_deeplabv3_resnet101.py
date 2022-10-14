@@ -13,7 +13,7 @@ from .base_model import BaseModel, Finetuning, WeightsT
 class DeepLabV3ResNet101(BaseModel):
     def init_model(self):
         self.model = deeplabv3_resnet101(progress=True, weights_backbone=ResNet101_Weights.DEFAULT,
-                                         num_classes=self.num_classes, aux_loss=True)
+                                         num_classes=self.n, aux_loss=True)
         self.model.requires_grad_(True)
         self.model.backbone.requires_grad_(False)
         self.model.backbone.layer3.requires_grad_(True)
