@@ -301,6 +301,7 @@ services:
         "--alpha=0.7",
         "--weight_decay=0.001",
         "--benchmark",
+        "--backbone_finetuning_epoch=100",
       ]
 
   kelp-species-train-deeplab:
