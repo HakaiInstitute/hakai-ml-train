@@ -144,7 +144,7 @@ def cli_main(argv=None):
         "monitor": "val/miou",
         "mode": "max",
         "filename": "{val/miou:.4f}_{epoch}",
-        "save_top_k": 1,
+        "save_top_k": 3,
         "save_last": True,
         "save_on_train_epoch_end": False,
         "every_n_epochs": 1,
