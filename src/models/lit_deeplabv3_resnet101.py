@@ -2,10 +2,12 @@
 # Organization: Hakai Institute
 
 import torch
+from einops import rearrange
 from torch.optim import Optimizer
 from torchvision.models import ResNet101_Weights
 from torchvision.models.segmentation import deeplabv3_resnet101
 
+from utils.loss import dice_loss
 from .base_model import BaseModel, Finetuning, WeightsT
 
 
@@ -26,8 +28,18 @@ class DeepLabV3ResNet101(BaseModel):
         x, y = batch
         logits = self.model.forward(x)["aux"]
         probs = torch.softmax(logits, dim=1)
-        aux_loss = self.focal_tversky_loss(probs, y)
 
+        # Flatten and eliminate ignore class instances
+        y = rearrange(y, 'b h w -> (b h w)').long()
+        probs = rearrange(probs, 'b c h w -> (b h w) c')
+
+        if self.ignore_index is not None:
+            probs, y = self.remove_ignore_pixels(probs, y)
+
+        if len(y) == 0:
+            return
+
+        aux_loss = dice_loss(probs, y)
         out_loss = self._phase_step(batch, batch_idx, phase="train")
         return out_loss + (0.3 * aux_loss)
 
