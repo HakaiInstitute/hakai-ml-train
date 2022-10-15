@@ -10,7 +10,7 @@ from einops import rearrange
 from pytorch_lightning.callbacks import BaseFinetuning
 from torch.optim import Optimizer
 
-from utils.loss import focal_tversky_loss
+from utils.loss import dice_loss, focal_tversky_loss
 
 WeightsT = TypeVar('WeightsT')
 
@@ -92,7 +92,7 @@ class BaseModel(pl.LightningModule):
             return
 
         # Update metrics
-        loss = focal_tversky_loss(probs, y, alpha=self.loss_alpha, beta=(1 - self.loss_alpha), gamma=self.loss_gamma)
+        loss = dice_loss(probs, y)
         ious = fm.jaccard_index(probs, y, num_classes=self.n, average='none')
         miou = fm.jaccard_index(probs, y, num_classes=self.n, average='macro')
         acc = fm.accuracy(probs, y, num_classes=self.n)
