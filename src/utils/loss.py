@@ -7,6 +7,41 @@ from torch.nn.functional import one_hot
 from torchmetrics import Metric
 
 
+def iou(true, logits, eps=1e-7):
+    """Computes the Jaccard loss, a.k.a. the IoU loss.
+    Note that PyTorch optimizers minimize a loss. In this
+    case, we would like to maximize the jaccard loss, so we
+    return the negated jaccard loss.
+    Args:
+        true: a tensor of shape [B, H, W] or [B, 1, H, W].
+        logits: a tensor of shape [B, C, H, W]. Corresponds to
+            the raw output or logits of the model.
+        eps: added to the denominator for numerical stability.
+    Returns:
+        jaccard_loss: the Jaccard loss.
+    """
+    num_classes = logits.shape[1]
+    if num_classes == 1:
+        true_1_hot = torch.eye(num_classes + 1)[true.squeeze(1)]
+        true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
+        true_1_hot_f = true_1_hot[:, 0:1, :, :]
+        true_1_hot_s = true_1_hot[:, 1:2, :, :]
+        true_1_hot = torch.cat([true_1_hot_s, true_1_hot_f], dim=1)
+        pos_prob = torch.sigmoid(logits)
+        neg_prob = 1 - pos_prob
+        probs = torch.cat([pos_prob, neg_prob], dim=1)
+    else:
+        true_1_hot = torch.eye(num_classes)[true.squeeze(1)]
+        true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
+        probs = torch.softmax(logits, dim=1)
+    true_1_hot = true_1_hot.type(logits.type())
+    dims = (0,) + tuple(range(2, true_1_hot.ndimension()))
+    intersection = torch.sum(probs * true_1_hot, dims)
+    cardinality = torch.sum(probs + true_1_hot, dims)
+    union = cardinality - intersection
+    return intersection / (union + eps)
+
+
 # noinspection DuplicatedCode
 def dice_similarity_c(p: torch.Tensor, g: torch.Tensor, smooth: float = 1e-8) -> torch.Tensor:
     """Compute the Dice similarity index for each class for predictions p and ground truth labels g.
