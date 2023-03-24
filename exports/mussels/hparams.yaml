@@ -1,0 +1,8 @@
+alpha: 0.7
+batch_size: 32
+loss_alpha: 0.7
+loss_gamma: 1.3333333333333333
+lr: 0.003
+max_epochs: 100
+sha: 76914fa09b11792ef939ed421f0685f9b339e5ac
+weight_decay: 0.001
