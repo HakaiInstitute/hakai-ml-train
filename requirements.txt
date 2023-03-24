@@ -3,7 +3,7 @@ pytorch-lightning
 s3fs
 segmentation-models-pytorch
 tensorboard
-torchmetrics==0.9.3
+torchmetrics
 tqdm
-protobuf<4.21.0
+protobuf
 einops
