@@ -13,7 +13,7 @@ from kelp_data_module import KelpDataModule
 from models.base_model import BaseModel, Finetuning
 from models.lit_deeplabv3_resnet101 import DeepLabV3ResNet101
 from models.lit_lraspp_mobilenet_v3_large import LRASPPMobileNetV3Large
-from models.lit_unet import UnetEfficientnet
+from models.lit_unet_efficientnet import UnetEfficientnet
 from utils.git_hash import get_git_revision_hash
 
 pl.seed_everything(0, workers=True)
