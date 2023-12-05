@@ -14,7 +14,7 @@ from kernels import Kernel, BartlettHanningKernel
 CLIP_SIZE = 1024
 NUM_CLASSES = 2
 DEVICE = torch.device('cuda')
-MODEL_WEIGHTS = "./UNetPlusPlus_Resnet34_kelp_presence_aco_jit_miou=0.8340.pt"
+MODEL_WEIGHTS = "./UnetPlusPlus_Resnet34_kelp_presence_aco_jit_miou=0.8323.pt"
 
 
 # Classification v1.1
@@ -170,7 +170,7 @@ class HanningWindowSegmentation(object):
         return self(img_path, output_path)
 
 
-def main(img_path, output_path):
+def find_kelp(img_path, output_path):
     with open(MODEL_WEIGHTS, "rb") as f:
         model = torch.jit.load(f, map_location=DEVICE).eval()
 
@@ -180,8 +180,10 @@ def main(img_path, output_path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("img_path", type=Path, required=True)
-    parser.add_argument("output_path", type=Path, required=True)
+    parser.add_argument("img_path", type=Path,
+                        help="Path to the image to be segmented")
+    parser.add_argument("output_path", type=Path,
+                        help="Path to the output segmentation")
     args = parser.parse_args()
 
-    main(**vars(args))
+    find_kelp(**vars(args))
