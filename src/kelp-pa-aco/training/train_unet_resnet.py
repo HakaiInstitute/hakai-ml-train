@@ -4,6 +4,7 @@
 import os
 import shutil
 from pathlib import Path
+from typing import Union
 
 import pytorch_lightning as pl
 import torch
@@ -11,18 +12,17 @@ import wandb
 from pytorch_lightning.loggers import WandbLogger
 from wandb import AlertLevel
 
+from config import PATrainingConfig, SPTrainingConfig
 from datamodule import DataModule
 from unetplusplus import UNetPlusPlus
-from config import TrainingConfig
 
-def main():
+
+def train(config: Union[PATrainingConfig, SPTrainingConfig]):
     pl.seed_everything(0, workers=True)
 
     # Get path to this notebook
     notebook_path = __file__ if "__file__" in globals() else os.path.abspath(os.getcwd())
     os.environ['WANDB_NOTEBOOK_NAME'] = notebook_path
-
-    config = TrainingConfig()
 
     # Make checkpoint directory
     Path(config.checkpoint_dir, config.name).mkdir(exist_ok=True, parents=True)
@@ -71,28 +71,10 @@ def main():
     )
 
     # # Load dataset
-    data_module = DataModule(
-        str(config.data_dir),
-        num_workers=config.num_workers,
-        pin_memory=config.pin_memory,
-        persistent_workers=True,
-        num_classes=config.num_classes,
-        batch_size=config.batch_size,
-        fill_value=config.fill_value,
-        tile_size=config.img_shape,
-    )
+    data_module = DataModule(**dict(config))
 
     # Load model
-    model = UNetPlusPlus(
-        num_classes=config.num_classes,
-        ignore_index=config.ignore_index,
-        lr=config.lr,
-        loss_delta=config.alpha,
-        loss_gamma=config.gamma,
-        weight_decay=config.weight_decay,
-        max_epochs=config.max_epochs,
-        warmup_period=config.warmup_period,
-    )
+    model = UNetPlusPlus(**dict(config))
 
     # Train
     torch.set_float32_matmul_precision("medium")
@@ -117,4 +99,17 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("model_type", type=str, choices=["pa", "sp"])
+    args = parser.parse_args()
+
+    if args.model_type == "pa":
+        train_config = PATrainingConfig()
+    elif args.model_type == "sp":
+        train_config = SPTrainingConfig
+    else:
+        raise ValueError("Invalid model type")
+
+    train(train_config)

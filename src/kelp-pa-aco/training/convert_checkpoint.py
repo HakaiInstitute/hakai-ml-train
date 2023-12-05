@@ -1,10 +1,16 @@
+from typing import Union
+
 import segmentation_models_pytorch as smp
 import torch
 
-from config import TrainingConfig
+from config import PATrainingConfig, SPTrainingConfig
+
+DEVICE = torch.device('cpu')
+CKPT_FILE = "./UNetPlusPlus_Resnet34_kelp_presence_aco_miou=0.8340.ckpt"
+OUTPUT_PATH = "../inference/UNetPlusPlus_Resnet34_kelp_presence_aco_jit_miou=0.8340.pt"
 
 
-def main():
+def convert_checkpoint(config: Union[PATrainingConfig, SPTrainingConfig]):
     # Download .ckpt file from W&B
     # import wandb
     # run = wandb.init()
@@ -12,14 +18,9 @@ def main():
     # artifact_dir = artifact.download()
     # print(artifact_dir)
 
-    DEVICE = torch.device('cpu')
-    CKPT_FILE = "./UNetPlusPlus_Resnet34_kelp_presence_aco_miou=0.8340.ckpt"
-
     state_dict = torch.load(CKPT_FILE, map_location=DEVICE)['state_dict']
-    # print(state_dict)
 
     # Load stripped back model
-    config = TrainingConfig()
     model = smp.UnetPlusPlus('resnet34', in_channels=config.num_bands,
                              classes=config.num_classes - 1, decoder_attention_type="scse")
 
@@ -33,12 +34,24 @@ def main():
         print(f"Unexpected keys: {unexpected}")
 
     # Export as JIT
-    x = torch.rand(1, config.num_bands, config.img_shape, config.img_shape,
-                               device=DEVICE, requires_grad=False)
-    output_path = "../inference/UNetPlusPlus_Resnet34_kelp_presence_aco_jit_miou=0.8340.pt"
+    x = torch.rand(1, config.num_bands, config.tile_size, config.tile_size,
+                   device=DEVICE, requires_grad=False)
+
     traced_model = torch.jit.trace_module(model, {"forward": x})
-    traced_model.save(output_path)
+    traced_model.save(OUTPUT_PATH)
 
 
 if __name__ == '__main__':
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("model_type", type=str, choices=["pa", "sp"])
+    args = parser.parse_args()
+    if args.model_type == "pa":
+        train_config = PATrainingConfig()
+    elif args.model_type == "sp":
+        train_config = SPTrainingConfig
+    else:
+        raise ValueError("Invalid model type")
+
+    convert_checkpoint(train_config)

@@ -16,7 +16,7 @@ config = TrainingConfig()
 class UNetPlusPlus(pl.LightningModule):
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
                  weight_decay: float = 0, loss_delta: float = 0.7, loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100,
-                 warmup_period: float = 0.3):
+                 warmup_period: float = 0.3, **kwargs):
         super().__init__()
         self.num_classes = num_classes
         self.ignore_index = ignore_index
@@ -41,7 +41,7 @@ class UNetPlusPlus(pl.LightningModule):
 
     @property
     def example_input_array(self) -> Any:
-        return torch.ones((config.batch_size, config.num_bands, config.img_shape, config.img_shape), device=self.device, dtype=self.dtype)
+        return torch.ones((config.batch_size, config.num_bands, config.tile_size, config.tile_size), device=self.device, dtype=self.dtype)
 
     @property
     def class_labels(self) -> dict[int, str]:
