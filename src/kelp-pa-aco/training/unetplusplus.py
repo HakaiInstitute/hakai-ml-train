@@ -8,22 +8,27 @@ from einops import rearrange
 from pytorch_lightning.loggers import WandbLogger
 from unified_focal_loss import FocalTverskyLoss
 
-from config import TrainingConfig
-
-config = TrainingConfig()
-
 
 class UNetPlusPlus(pl.LightningModule):
     def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
                  weight_decay: float = 0, loss_delta: float = 0.7, loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100,
-                 warmup_period: float = 0.3, **kwargs):
+                 warmup_period: float = 0.3, batch_size: int = 2, num_bands: int = 3, tile_size: int = 1024,
+                 class_labels=None, **kwargs):
         super().__init__()
+
         self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.lr = lr
         self.weight_decay = weight_decay
         self.max_epochs = max_epochs
         self.warmup_period = warmup_period
+        self.batch_size = batch_size
+        self.num_bands = num_bands
+        self.tile_size = tile_size
+        if class_labels is None:
+            self.class_labels = {0: "background", 1: "kelp"}
+        else:
+            self.class_labels = class_labels
 
         self.loss_delta = loss_delta
         if self.ignore_index is not None:
@@ -31,24 +36,18 @@ class UNetPlusPlus(pl.LightningModule):
         else:
             self.n = num_classes
 
-        self.model = smp.UnetPlusPlus('resnet34', in_channels=config.num_bands,
-                                      classes=self.n, decoder_attention_type="scse")
+        self.model = smp.UnetPlusPlus('resnet34', in_channels=self.num_bands, classes=self.n,
+                                      decoder_attention_type="scse")
         for p in self.model.parameters():
             p.requires_grad = True
-        self.model = torch.compile(self.model, fullgraph=False, mode="max-autotune")
+        # self.model = torch.compile(self.model, fullgraph=False, mode="max-autotune")
         # self.loss_fn = AsymmetricUnifiedFocalLoss(delta=loss_delta, gamma=loss_gamma)
         self.loss_fn = FocalTverskyLoss(delta=loss_delta, gamma=loss_gamma)
 
     @property
     def example_input_array(self) -> Any:
-        return torch.ones((config.batch_size, config.num_bands, config.tile_size, config.tile_size), device=self.device, dtype=self.dtype)
-
-    @property
-    def class_labels(self) -> dict[int, str]:
-        return {
-            0: "background",
-            1: "kelp"
-        }
+        return torch.ones((self.batch_size, self.num_bands, self.tile_size, self.tile_size), dtype=self.dtype,
+                          device=self.device)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)

@@ -108,7 +108,7 @@ if __name__ == '__main__':
     if args.model_type == "pa":
         train_config = PATrainingConfig()
     elif args.model_type == "sp":
-        train_config = SPTrainingConfig
+        train_config = SPTrainingConfig()
     else:
         raise ValueError("Invalid model type")
 

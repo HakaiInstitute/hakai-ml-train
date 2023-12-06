@@ -1,15 +1,14 @@
 import os
 from pathlib import Path
-from typing import List, Union, Any
+from typing import List, Union, Any, Optional
 
 import pytorch_lightning as pl
 import torch
 from PIL import Image as PILImage
 from torch.utils.data import DataLoader
-from torchvision import tv_tensors
 from torchvision.datasets import VisionDataset
 from torchvision.transforms import v2
-from torchvision.tv_tensors import Image, Mask
+from torchvision.tv_tensors import TVTensor, Image, Mask, wrap
 
 
 class SegmentationDataset(VisionDataset):
@@ -58,35 +57,35 @@ class PadOut(object):
         w_pad = self.width - w
         h_pad = self.height - h
 
-        return tv_tensors.wrap(v2.functional.pad(x, [0, 0, w_pad, h_pad], fill=self.fill_value), like=x)
+        return wrap(v2.functional.pad(x, [0, 0, w_pad, h_pad], fill=self.fill_value), like=x)
 
 
-def normalize_min_max(x: tv_tensors.TVTensor) -> tv_tensors.TVTensor:
+def normalize_min_max(x: TVTensor) -> TVTensor:
     mask = torch.all(x == 0, dim=0).unsqueeze(dim=0).repeat(x.shape[0], 1, 1)
     masked_values = x.flatten()[~mask.flatten()]
 
     min_ = masked_values.min()
     max_ = masked_values.max()
-    return tv_tensors.wrap(torch.clamp((x - min_) / (max_ - min_), 0, 1), like=x)
+    return wrap(torch.clamp((x - min_) / (max_ - min_), 0, 1), like=x)
 
 
-def normalize_min_max2(x: tv_tensors.TVTensor) -> tv_tensors.TVTensor:
+def normalize_min_max2(x: TVTensor) -> TVTensor:
     """Get second-smallest value as min to accommodate black backgrounds/nodata areas"""
     min_, _ = torch.kthvalue(x.flatten().unique(), 2)
     max_ = x.flatten().max()
-    return tv_tensors.wrap(torch.clamp((x - min_) / (max_ - min_), 0, 1), like=x)
+    return wrap(torch.clamp((x - min_) / (max_ - min_), 0, 1), like=x)
 
 
-def normalize_percentile(x: tv_tensors.TVTensor, upper=0.99, lower=0.01) -> tv_tensors.TVTensor:
+def normalize_percentile(x: TVTensor, upper=0.99, lower=0.01) -> TVTensor:
     mask = torch.all(x == 0, dim=0).unsqueeze(dim=0).repeat(x.shape[0], 1, 1)
     masked_values = x.flatten()[~mask.flatten()]
 
     max_ = torch.quantile(masked_values, upper)
     min_ = torch.quantile(masked_values, lower)
-    return tv_tensors.wrap(torch.clamp((x - min_) / (max_ - min_), 0, 1), like=x)
+    return wrap(torch.clamp((x - min_) / (max_ - min_), 0, 1), like=x)
 
 
-def append_ndvi(x: tv_tensors.TVTensor) -> tv_tensors.TVTensor:
+def append_ndvi(x: TVTensor) -> TVTensor:
     r, g, b, nir = x
     ndvi = torch.nan_to_num(torch.div((nir - r), (nir + r)))
 
@@ -94,10 +93,8 @@ def append_ndvi(x: tv_tensors.TVTensor) -> tv_tensors.TVTensor:
     ndvi = (((ndvi + 1) / 2.) * 255).to(torch.uint8)
 
     new_x = torch.concat((x, ndvi.unsqueeze(dim=0)), dim=0)
-    return tv_tensors.wrap(new_x, like=x)
+    return wrap(new_x, like=x)
 
-
-# normalize = t.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
 # noinspection PyAbstractClass
 class DataModule(pl.LightningDataModule):
@@ -110,9 +107,13 @@ class DataModule(pl.LightningDataModule):
             pin_memory: bool = True,
             persistent_workers: bool = False,
             fill_value: int = 0,
-            tile_size: int = 1024
+            tile_size: int = 1024,
+            extra_transforms=None,
+            **kwargs,
     ):
         super().__init__()
+        if extra_transforms is None:
+            extra_transforms = []
         self.num_classes = num_classes
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -125,7 +126,7 @@ class DataModule(pl.LightningDataModule):
         self.val_data_dir = str(Path(data_dir).joinpath("val"))
         self.test_data_dir = str(Path(data_dir).joinpath("test"))
 
-        self.pad_f = PadOut(self.tile_size, self.tile_size, fill_value=self.fill_value)
+        # self.pad_f = PadOut(self.tile_size, self.tile_size, fill_value=self.fill_value)
 
         self.train_trans = v2.Compose(
             [
@@ -135,6 +136,7 @@ class DataModule(pl.LightningDataModule):
                 v2.Lambda(normalize_min_max2, Image),
                 v2.Lambda(v2.ToDtype(torch.long), Mask),
                 v2.Lambda(torch.squeeze, Mask),
+                *extra_transforms,
             ]
         )
 
@@ -144,6 +146,7 @@ class DataModule(pl.LightningDataModule):
                 v2.Lambda(normalize_min_max2, Image),
                 v2.Lambda(v2.ToDtype(torch.long), Mask),
                 v2.Lambda(torch.squeeze, Mask),
+                *extra_transforms,
             ]
         )
 
@@ -152,8 +155,8 @@ class DataModule(pl.LightningDataModule):
     def prepare_data(self, *args, **kwargs):
         pass
 
-    def setup(self, stage: str):
-        if stage == "fit":
+    def setup(self, stage: Optional[str] = None):
+        if stage == "fit" or stage is None:
             self.ds_train = SegmentationDataset(
                 self.train_data_dir,
                 ext='tif',
@@ -164,18 +167,18 @@ class DataModule(pl.LightningDataModule):
                 ext='tif',
                 transforms=self.test_trans,
             )
-        if stage == "test":
+        elif stage == "test" or stage is None:
             self.ds_test = SegmentationDataset(
                 self.test_data_dir,
                 ext='tif',
                 transforms=self.test_trans,
             )
 
-    def teardown(self, stage: str) -> None:
-        if stage == "fit":
+    def teardown(self, stage: Optional[str] = None) -> None:
+        if stage == "fit" or stage is None:
             del self.ds_train
             del self.ds_val
-        if stage == "test":
+        elif stage == "test" or stage is None:
             del self.ds_test
 
     def train_dataloader(self, *args, **kwargs) -> DataLoader:
