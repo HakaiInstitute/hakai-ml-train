@@ -5,8 +5,7 @@ import segmentation_models_pytorch as smp
 import torch
 import torchmetrics.functional as fm
 from einops import rearrange
-from pytorch_lightning.loggers import WandbLogger
-from unified_focal_loss import FocalTverskyLoss
+from unified_focal_loss import DiceLoss
 
 
 class UNetPlusPlus(pl.LightningModule):
@@ -40,9 +39,10 @@ class UNetPlusPlus(pl.LightningModule):
                                       decoder_attention_type="scse")
         for p in self.model.parameters():
             p.requires_grad = True
-        # self.model = torch.compile(self.model, fullgraph=False, mode="max-autotune")
+        self.model = torch.compile(self.model, fullgraph=False, mode="max-autotune")
         # self.loss_fn = AsymmetricUnifiedFocalLoss(delta=loss_delta, gamma=loss_gamma)
-        self.loss_fn = FocalTverskyLoss(delta=loss_delta, gamma=loss_gamma)
+        # self.loss_fn = FocalTverskyLoss(delta=loss_delta, gamma=loss_gamma)
+        self.loss_fn = DiceLoss(delta=loss_delta)
 
     @property
     def example_input_array(self) -> Any:
@@ -108,7 +108,7 @@ class UNetPlusPlus(pl.LightningModule):
 
         probs = torch.softmax(logits, dim=1)
 
-        loss = self.loss_fn(probs, y.long())
+        loss = self.loss_fn(probs, y)
 
         accuracy = fm.accuracy(probs, y, task="multiclass", num_classes=self.n, average='macro')
         miou = fm.jaccard_index(probs, y, task="multiclass", num_classes=self.n, average='macro')
@@ -139,6 +139,7 @@ class UNetPlusPlus(pl.LightningModule):
         steps = self.trainer.estimated_stepping_batches
         warmup_steps = int(steps * self.warmup_period)
 
+        # Linear warmup then cosine decay
         linear_warmup_sch = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.001, total_iters=warmup_steps)
         cosine_sch = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=(steps - warmup_steps))
         lr_scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, [linear_warmup_sch, cosine_sch],

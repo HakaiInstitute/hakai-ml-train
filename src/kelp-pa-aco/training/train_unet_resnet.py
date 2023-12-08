@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import os
 import shutil
 from pathlib import Path
-from typing import Union
 
 import pytorch_lightning as pl
 import torch
@@ -12,17 +10,13 @@ import wandb
 from pytorch_lightning.loggers import WandbLogger
 from wandb import AlertLevel
 
-from config import PATrainingConfig, SPTrainingConfig
+from config import TrainingConfig, pa_training_config, sp_training_config
 from datamodule import DataModule
 from unetplusplus import UNetPlusPlus
 
 
-def train(config: Union[PATrainingConfig, SPTrainingConfig]):
+def train(config: TrainingConfig):
     pl.seed_everything(0, workers=True)
-
-    # Get path to this notebook
-    notebook_path = __file__ if "__file__" in globals() else os.path.abspath(os.getcwd())
-    os.environ['WANDB_NOTEBOOK_NAME'] = notebook_path
 
     # Make checkpoint directory
     Path(config.checkpoint_dir, config.name).mkdir(exist_ok=True, parents=True)
@@ -57,13 +51,13 @@ def train(config: Union[PATrainingConfig, SPTrainingConfig]):
         # limit_val_batches=3,
         # accelerator='cpu',
         # fast_dev_run=True,
-        deterministic=True,
-        benchmark=True,
+        deterministic=config.deterministic,
+        benchmark=config.benchmark,
         max_epochs=config.max_epochs,
         precision=config.precision,
         logger=logger,
-        gradient_clip_val=0.5,
-        accumulate_grad_batches=8,
+        gradient_clip_val=config.gradient_clip_val,
+        accumulate_grad_batches=config.accumulate_grad_batches,
         callbacks=[
             checkpoint_callback,
             pl.callbacks.LearningRateMonitor(),
@@ -104,12 +98,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("model_type", type=str, choices=["pa", "sp"])
     args = parser.parse_args()
-
-    if args.model_type == "pa":
-        train_config = PATrainingConfig()
-    elif args.model_type == "sp":
-        train_config = SPTrainingConfig()
-    else:
-        raise ValueError("Invalid model type")
+    train_config = {"pa": pa_training_config, "sp": sp_training_config}[args.model_type]
 
     train(train_config)

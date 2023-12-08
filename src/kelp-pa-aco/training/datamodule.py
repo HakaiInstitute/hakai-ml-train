@@ -134,9 +134,9 @@ class DataModule(pl.LightningDataModule):
                 v2.RandomVerticalFlip(),
                 v2.Lambda(v2.ToDtype(torch.float32, scale=True), Image),
                 v2.Lambda(normalize_min_max2, Image),
+                *extra_transforms,
                 v2.Lambda(v2.ToDtype(torch.long), Mask),
                 v2.Lambda(torch.squeeze, Mask),
-                *extra_transforms,
             ]
         )
 
@@ -144,9 +144,9 @@ class DataModule(pl.LightningDataModule):
             [
                 v2.Lambda(v2.ToDtype(torch.float32, scale=True), Image),
                 v2.Lambda(normalize_min_max2, Image),
+                *extra_transforms,
                 v2.Lambda(v2.ToDtype(torch.long), Mask),
                 v2.Lambda(torch.squeeze, Mask),
-                *extra_transforms,
             ]
         )
 

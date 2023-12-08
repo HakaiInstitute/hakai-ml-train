@@ -1,16 +1,15 @@
-from typing import Union
 
 import segmentation_models_pytorch as smp
 import torch
 
-from config import PATrainingConfig, SPTrainingConfig
+from config import pa_training_config, sp_training_config, TrainingConfig
 
 DEVICE = torch.device('cpu')
 CKPT_FILE = "./UNetPlusPlus_Resnet34_kelp_presence_aco_miou=0.8340.ckpt"
 OUTPUT_PATH = "../inference/UNetPlusPlus_Resnet34_kelp_presence_aco_jit_miou=0.8340.pt"
 
 
-def convert_checkpoint(config: Union[PATrainingConfig, SPTrainingConfig]):
+def convert_checkpoint(config: TrainingConfig):
     # Download .ckpt file from W&B
     # import wandb
     # run = wandb.init()
@@ -47,11 +46,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("model_type", type=str, choices=["pa", "sp"])
     args = parser.parse_args()
-    if args.model_type == "pa":
-        train_config = PATrainingConfig()
-    elif args.model_type == "sp":
-        train_config = SPTrainingConfig
-    else:
-        raise ValueError("Invalid model type")
+    train_config = {"pa": pa_training_config, "sp": sp_training_config}[args.model_type]
 
     convert_checkpoint(train_config)
