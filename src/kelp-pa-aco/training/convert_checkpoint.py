@@ -1,30 +1,34 @@
+import os.path
+from pathlib import Path
 
 import segmentation_models_pytorch as smp
 import torch
+import wandb
 
 from config import pa_training_config, sp_training_config, TrainingConfig
 
 DEVICE = torch.device('cpu')
-CKPT_FILE = "./UNetPlusPlus_Resnet34_kelp_presence_aco_miou=0.8340.ckpt"
-OUTPUT_PATH = "../inference/UNetPlusPlus_Resnet34_kelp_presence_aco_jit_miou=0.8340.pt"
 
 
-def convert_checkpoint(config: TrainingConfig):
+def convert_checkpoint(checkpoint_url: str, config: TrainingConfig):
     # Download .ckpt file from W&B
-    # import wandb
-    # run = wandb.init()
-    # artifact = run.use_artifact('hakai/kom-kelp-pa-aco-rgbi/model-mfiaag3u:v0', type='model')
-    # artifact_dir = artifact.download()
-    # print(artifact_dir)
+    api = wandb.Api()
+    artifact = api.artifact(checkpoint_url, type='model')
+    miou = round(artifact.metadata['score'], 4)
+    artifact_dir = artifact.download()
 
-    state_dict = torch.load(CKPT_FILE, map_location=DEVICE)['state_dict']
+    ckpt_file = Path(artifact_dir) / 'model.ckpt'.format(miou)
+    output_path = '../inference/UNetPlusPlus_Resnet34_kelp_presence_aco_jit_miou={:.4f}.pt'.format(miou)
+
+    state_dict = torch.load(ckpt_file, map_location=DEVICE)['state_dict']
 
     # Load stripped back model
     model = smp.UnetPlusPlus('resnet34', in_channels=config.num_bands,
                              classes=config.num_classes - 1, decoder_attention_type="scse")
 
     # Replace keys to remove mismatches due to torch.compile
-    state_dict = {k.replace('model._orig_mod.', ''): v for k, v in state_dict.items()}
+    state_dict = {k.replace('model.', ''): v for k, v in state_dict.items()}
+    state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
     missing, unexpected = model.load_state_dict(state_dict=state_dict, strict=False)
 
     if len(missing) > 0:
@@ -37,15 +41,17 @@ def convert_checkpoint(config: TrainingConfig):
                    device=DEVICE, requires_grad=False)
 
     traced_model = torch.jit.trace_module(model, {"forward": x})
-    traced_model.save(OUTPUT_PATH)
+    traced_model.save(output_path)
+    print(f"Saved JIT model to {os.path.abspath(output_path)}")
 
 
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument(("checkpoint_url"), type=str)
     parser.add_argument("model_type", type=str, choices=["pa", "sp"])
     args = parser.parse_args()
-    train_config = {"pa": pa_training_config, "sp": sp_training_config}[args.model_type]
 
-    convert_checkpoint(train_config)
+    train_config = {"pa": pa_training_config, "sp": sp_training_config}[args.model_type]
+    convert_checkpoint(args.checkpoint_url, train_config)
