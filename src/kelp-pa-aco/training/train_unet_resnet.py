@@ -17,6 +17,7 @@ from unetplusplus import UNetPlusPlus
 
 def train(config: TrainingConfig):
     pl.seed_everything(0, workers=True)
+    torch.set_float32_matmul_precision("medium")
 
     # Make checkpoint directory
     Path(config.checkpoint_dir, config.name).mkdir(exist_ok=True, parents=True)
@@ -44,6 +45,15 @@ def train(config: TrainingConfig):
     else:
         logger = pl.loggers.CSVLogger(save_dir="/tmp/")
 
+    def compute_amount(epoch):
+        # the sum of all returned values need to be smaller than 1
+        if epoch == 1:
+            return 0.5
+        elif epoch == 5:
+            return 0.25
+        elif 7 < epoch < 9:
+            return 0.01
+
     trainer = pl.Trainer(
         # overfit_batches=10,
         # log_every_n_steps=3,
@@ -61,17 +71,17 @@ def train(config: TrainingConfig):
         callbacks=[
             checkpoint_callback,
             pl.callbacks.LearningRateMonitor(),
+            pl.callbacks.ModelPruning("l1_unstructured", amount=compute_amount)
         ],
     )
 
-    # # Load dataset
+    # Load dataset
     data_module = DataModule(**dict(config))
 
     # Load model
     model = UNetPlusPlus(**dict(config))
 
     # Train
-    torch.set_float32_matmul_precision("medium")
 
     try:
         trainer.fit(model, datamodule=data_module)

@@ -1,14 +1,16 @@
 import os
+import warnings
 from pathlib import Path
-from typing import List, Union, Any, Optional
+from typing import List, Optional, Union
 
+import albumentations as A
+import numpy as np
 import pytorch_lightning as pl
 import torch
-from PIL import Image as PILImage
+from PIL import Image
+from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 from torchvision.datasets import VisionDataset
-from torchvision.transforms import v2
-from torchvision.tv_tensors import TVTensor, Image, Mask, wrap
 
 
 class SegmentationDataset(VisionDataset):
@@ -17,8 +19,11 @@ class SegmentationDataset(VisionDataset):
     def __init__(self, root: str, *args, ext: str = "tif", **kwargs):
         super().__init__(root, *args, **kwargs)
 
-        self._images = sorted(Path(root).joinpath("x").glob(f"*.{ext}"))
-        self._labels = sorted(Path(root).joinpath("y").glob(f"*.{ext}"))
+        warnings.warn(
+            "Using every 2nd image under the assumption that this dataset was "
+            "generated with 50% overlap.")
+        self._images = sorted(Path(root).joinpath("x").glob(f"*.{ext}"))[::2]
+        self._labels = sorted(Path(root).joinpath("y").glob(f"*.{ext}"))[::2]
 
         assert len(self._images) == len(
             self._labels
@@ -29,71 +34,15 @@ class SegmentationDataset(VisionDataset):
 
     # noinspection DuplicatedCode
     def __getitem__(self, idx):
-        img = Image(PILImage.open(self._images[idx]))
-        target = Mask(PILImage.open(self._labels[idx]))
+        img = np.array(Image.open(self._images[idx]))
+        target = np.array(Image.open(self._labels[idx]))
 
         if self.transforms is not None:
             with torch.no_grad():
-                img, target = self.transforms(img, target)
+                transformed = self.transforms(image=img, mask=target)
+                img, target = transformed['image'], transformed['mask']
 
         return img, target
-
-
-class PadOut(object):
-    def __init__(self, height: int = 128, width: int = 128, fill_value: int = 0):
-        self.height = height
-        self.width = width
-        self.fill_value = fill_value
-
-    def __call__(self, x: Any) -> Any:
-        """
-        Pad out a pillow image, so it is the correct size as specified by `self.height` and `self.width`
-        """
-        h, w = x.shape[-2:]
-
-        if h == self.height and w == self.width:
-            return x
-
-        w_pad = self.width - w
-        h_pad = self.height - h
-
-        return wrap(v2.functional.pad(x, [0, 0, w_pad, h_pad], fill=self.fill_value), like=x)
-
-
-def normalize_min_max(x: TVTensor) -> TVTensor:
-    mask = torch.all(x == 0, dim=0).unsqueeze(dim=0).repeat(x.shape[0], 1, 1)
-    masked_values = x.flatten()[~mask.flatten()]
-
-    min_ = masked_values.min()
-    max_ = masked_values.max()
-    return wrap(torch.clamp((x - min_) / (max_ - min_), 0, 1), like=x)
-
-
-def normalize_min_max2(x: TVTensor) -> TVTensor:
-    """Get second-smallest value as min to accommodate black backgrounds/nodata areas"""
-    min_, _ = torch.kthvalue(x.flatten().unique(), 2)
-    max_ = x.flatten().max()
-    return wrap(torch.clamp((x - min_) / (max_ - min_), 0, 1), like=x)
-
-
-def normalize_percentile(x: TVTensor, upper=0.99, lower=0.01) -> TVTensor:
-    mask = torch.all(x == 0, dim=0).unsqueeze(dim=0).repeat(x.shape[0], 1, 1)
-    masked_values = x.flatten()[~mask.flatten()]
-
-    max_ = torch.quantile(masked_values, upper)
-    min_ = torch.quantile(masked_values, lower)
-    return wrap(torch.clamp((x - min_) / (max_ - min_), 0, 1), like=x)
-
-
-def append_ndvi(x: TVTensor) -> TVTensor:
-    r, g, b, nir = x
-    ndvi = torch.nan_to_num(torch.div((nir - r), (nir + r)))
-
-    # Scale NDVI from [-1, 1] to [0, 255]
-    ndvi = (((ndvi + 1) / 2.) * 255).to(torch.uint8)
-
-    new_x = torch.concat((x, ndvi.unsqueeze(dim=0)), dim=0)
-    return wrap(new_x, like=x)
 
 
 # noinspection PyAbstractClass
@@ -126,29 +75,51 @@ class DataModule(pl.LightningDataModule):
         self.val_data_dir = str(Path(data_dir).joinpath("val"))
         self.test_data_dir = str(Path(data_dir).joinpath("test"))
 
-        # self.pad_f = PadOut(self.tile_size, self.tile_size, fill_value=self.fill_value)
+        self.train_trans = A.Compose([
+            *extra_transforms,
+            A.ToFloat(p=1),
+            A.ShiftScaleRotate(scale_limit=0.2, rotate_limit=45, border_mode=0, value=0,
+                               p=0.7),
+            A.PadIfNeeded(self.tile_size, self.tile_size, border_mode=0, value=0, p=1.),
+            A.RandomCrop(self.tile_size, self.tile_size, p=1.),
+            A.Flip(p=0.75),
+            A.Downscale(scale_min=0.5, scale_max=0.75, p=0.05),
+            A.MaskDropout(max_objects=3, image_fill_value=0, mask_fill_value=0, p=0.1),
 
-        self.train_trans = v2.Compose(
-            [
-                v2.RandomHorizontalFlip(),
-                v2.RandomVerticalFlip(),
-                v2.Lambda(v2.ToDtype(torch.float32, scale=True), Image),
-                v2.Lambda(normalize_min_max2, Image),
-                *extra_transforms,
-                v2.Lambda(v2.ToDtype(torch.long), Mask),
-                v2.Lambda(torch.squeeze, Mask),
-            ]
-        )
+            # Colour transforms
+            A.OneOf([
+                A.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.3,
+                                           p=1),
+                A.RandomGamma(gamma_limit=(70, 130), p=1),
+                # A.ChannelShuffle(p=0.2),
+                # A.HueSaturationValue(hue_shift_limit=30, sat_shift_limit=40, val_shift_limit=30, p=1),
+                # A.RGBShift(r_shift_limit=30, g_shift_limit=30, b_shift_limit=30, p=1),
+            ], p=0.8),
 
-        self.test_trans = v2.Compose(
-            [
-                v2.Lambda(v2.ToDtype(torch.float32, scale=True), Image),
-                v2.Lambda(normalize_min_max2, Image),
-                *extra_transforms,
-                v2.Lambda(v2.ToDtype(torch.long), Mask),
-                v2.Lambda(torch.squeeze, Mask),
-            ]
-        )
+            # distortion
+            A.OneOf([
+                A.ElasticTransform(p=1),
+                A.OpticalDistortion(p=1),
+                A.GridDistortion(p=1),
+                A.Perspective(p=1),
+            ], p=0.2),
+
+            # noise transforms
+            A.OneOf([
+                A.GaussNoise(p=1),
+                A.MultiplicativeNoise(p=1),
+                A.Sharpen(p=1),
+                A.GaussianBlur(p=1),
+            ], p=0.2),
+            ToTensorV2(),
+        ], p=1)
+
+        self.test_trans = A.Compose([
+            *extra_transforms,
+            A.ToFloat(p=1),
+            A.PadIfNeeded(self.tile_size, self.tile_size, border_mode=0, value=0, p=1.),
+            ToTensorV2(),
+        ], p=1)
 
         self.ds_train, self.ds_val, self.ds_test = None, None, None
 
@@ -156,30 +127,26 @@ class DataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage: Optional[str] = None):
-        if stage == "fit" or stage is None:
-            self.ds_train = SegmentationDataset(
-                self.train_data_dir,
-                ext='tif',
-                transforms=self.train_trans,
-            )
-            self.ds_val = SegmentationDataset(
-                self.val_data_dir,
-                ext='tif',
-                transforms=self.test_trans,
-            )
-        elif stage == "test" or stage is None:
-            self.ds_test = SegmentationDataset(
-                self.test_data_dir,
-                ext='tif',
-                transforms=self.test_trans,
-            )
+        self.ds_train = SegmentationDataset(
+            self.train_data_dir,
+            ext='tif',
+            transforms=self.train_trans,
+        )
+        self.ds_val = SegmentationDataset(
+            self.val_data_dir,
+            ext='tif',
+            transforms=self.test_trans,
+        )
+        self.ds_test = SegmentationDataset(
+            self.test_data_dir,
+            ext='tif',
+            transforms=self.test_trans,
+        )
 
     def teardown(self, stage: Optional[str] = None) -> None:
-        if stage == "fit" or stage is None:
-            del self.ds_train
-            del self.ds_val
-        elif stage == "test" or stage is None:
-            del self.ds_test
+        del self.ds_train
+        del self.ds_val
+        del self.ds_test
 
     def train_dataloader(self, *args, **kwargs) -> DataLoader:
         return DataLoader(
@@ -195,7 +162,7 @@ class DataModule(pl.LightningDataModule):
     def val_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(
             self.ds_val,
-            shuffle=False,
+            shuffle=True,
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,

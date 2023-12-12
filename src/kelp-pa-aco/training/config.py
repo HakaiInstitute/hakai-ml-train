@@ -2,10 +2,11 @@ import os
 from pathlib import Path
 from typing import Optional, Callable
 
+import numpy as np
 from pydantic import BaseModel
 from torchvision.transforms import v2
 from torchvision.tv_tensors import TVTensor, Mask, wrap
-
+import albumentations as A
 
 class TrainingConfig(BaseModel):
     data_dir: Path
@@ -14,19 +15,20 @@ class TrainingConfig(BaseModel):
     project_name: str
     class_labels: dict[int, str]
     extra_transforms: Optional[list[Callable]] = None
+    name: str = "UNet++_efficientnet-b4"
+    backbone: str = "efficientnet-b4"
 
     # Dataset config
     num_workers: int = os.cpu_count() // 2
     persistent_workers: bool = True
     pin_memory: bool = True
     tile_size: int = 1024
-    batch_size: int = 2
+    batch_size: int = 4
     num_bands: int = 4
     fill_value: int = 0
 
     # Checkpoint options
     checkpoint_dir: str = "./checkpoints"
-    name: str = "UNetPlusPlus-ResNet34"
 
     # Training options
     lr: float = 0.0003
@@ -53,13 +55,12 @@ pa_training_config = TrainingConfig(
 )
 
 
-def remap_species_labels(y: TVTensor) -> TVTensor:
-    """Remap species labels to ignore background class"""
-    new_y = y.clone()
+def _remap_species_labels(y: np.ndarray, **kwargs):
+    new_y = y.copy()
     new_y[new_y == 0] = 3
-    new_y = new_y.sub(1)
-    return wrap(new_y, like=y)
+    return new_y - 1
 
+species_label_transform = A.Lambda(name="remap_labels", mask=_remap_species_labels)
 
 sp_training_config = TrainingConfig(
     data_dir="/home/taylor/data/KS-ACO-RGBI-Nov2023/",
@@ -67,5 +68,5 @@ sp_training_config = TrainingConfig(
     ignore_index=2,
     project_name="kom-kelp-sp-aco-rgbi",
     class_labels={0: "macro", 1: "nereo"},
-    extra_transforms=[v2.Lambda(remap_species_labels, Mask)],
+    extra_transforms=[species_label_transform],
 )

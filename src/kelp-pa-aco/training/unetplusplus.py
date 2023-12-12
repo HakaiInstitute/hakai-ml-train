@@ -5,14 +5,19 @@ import segmentation_models_pytorch as smp
 import torch
 import torchmetrics.functional as fm
 from einops import rearrange
-from unified_focal_loss import DiceLoss
+from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
+from unified_focal_loss import FocalTverskyLoss
 
 
 class UNetPlusPlus(pl.LightningModule):
-    def __init__(self, num_classes: int = 2, ignore_index: Optional[int] = None, lr: float = 0.35,
-                 weight_decay: float = 0, loss_delta: float = 0.7, loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100,
-                 warmup_period: float = 0.3, batch_size: int = 2, num_bands: int = 3, tile_size: int = 1024,
-                 class_labels=None, **kwargs):
+    def __init__(
+            self, num_classes: int = 2, ignore_index: Optional[int] = None,
+            lr: float = 0.35, weight_decay: float = 0, loss_delta: float = 0.7,
+            loss_gamma: float = 4.0 / 3.0, max_epochs: int = 100,
+            warmup_period: float = 0.3, batch_size: int = 2, num_bands: int = 3,
+            tile_size: int = 1024, class_labels=None, backbone: str = "resnet34",
+            **kwargs
+    ):
         super().__init__()
 
         self.num_classes = num_classes
@@ -35,19 +40,20 @@ class UNetPlusPlus(pl.LightningModule):
         else:
             self.n = num_classes
 
-        self.model = smp.UnetPlusPlus('resnet34', in_channels=self.num_bands, classes=self.n,
-                                      decoder_attention_type="scse")
+        self.model = smp.UnetPlusPlus(backbone, in_channels=self.num_bands,
+                                      classes=self.n, decoder_attention_type="scse")
         for p in self.model.parameters():
             p.requires_grad = True
-        self.model = torch.compile(self.model, fullgraph=False, mode="max-autotune")
+        # self.model = torch.compile(self.model, fullgraph=False, mode="max-autotune")
         # self.loss_fn = AsymmetricUnifiedFocalLoss(delta=loss_delta, gamma=loss_gamma)
-        # self.loss_fn = FocalTverskyLoss(delta=loss_delta, gamma=loss_gamma)
-        self.loss_fn = DiceLoss(delta=loss_delta)
+        self.loss_fn = FocalTverskyLoss(delta=loss_delta, gamma=loss_gamma)
+        # self.loss_fn = DiceLoss(delta=loss_delta)
 
     @property
     def example_input_array(self) -> Any:
-        return torch.ones((self.batch_size, self.num_bands, self.tile_size, self.tile_size), dtype=self.dtype,
-                          device=self.device)
+        return torch.ones(
+            (self.batch_size, self.num_bands, self.tile_size, self.tile_size),
+            dtype=self.dtype, device=self.device)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
@@ -64,6 +70,29 @@ class UNetPlusPlus(pl.LightningModule):
 
     def test_step(self, batch: torch.Tensor, batch_idx: int):
         return self._phase_step(batch, batch_idx, phase="test")
+
+    def on_fit_start(self):
+        has_wandb_logger = isinstance(self.trainer.logger, pl.loggers.WandbLogger)
+        if has_wandb_logger:
+            for phase in ["train", "val"]:
+                self.logger.experiment.define_metric(f"{phase}/loss", goal="minimize",
+                                                     summary="min")
+                self.logger.experiment.define_metric(f"{phase}/miou", goal="maximize",
+                                                     summary="max")
+                self.logger.experiment.define_metric(f"{phase}/accuracy",
+                                                     goal="maximize", summary="max")
+                # self.logger.experiment.define_metric(f"{phase}/dice", goal="maximize")
+
+                for c in range(self.n):
+                    clsx = f"cls{c + 1}" if self.ignore_index and c >= self.ignore_index else f"cls{c}"
+                    self.logger.experiment.define_metric(f"{phase}/{clsx}_iou",
+                                                         goal="maximize", summary="max")
+                    self.logger.experiment.define_metric(f"{phase}/{clsx}_recall",
+                                                         goal="maximize", summary="max")
+                    self.logger.experiment.define_metric(f"{phase}/{clsx}_precision",
+                                                         goal="maximize", summary="max")
+                    self.logger.experiment.define_metric(f"{phase}/{clsx}_f1",
+                                                         goal="maximize", summary="max")
 
     def log_image_samples(self, batch: torch.Tensor, preds: torch.Tensor):
         has_wandb_logger = isinstance(self.trainer.logger, pl.loggers.WandbLogger)
@@ -110,12 +139,18 @@ class UNetPlusPlus(pl.LightningModule):
 
         loss = self.loss_fn(probs, y)
 
-        accuracy = fm.accuracy(probs, y, task="multiclass", num_classes=self.n, average='macro')
-        miou = fm.jaccard_index(probs, y, task="multiclass", num_classes=self.n, average='macro')
-        ious = fm.jaccard_index(probs, y, task="multiclass", num_classes=self.n, average='none')
-        recalls = fm.recall(probs, y, task="multiclass", num_classes=self.n, average='none')
-        precisions = fm.precision(probs, y, task="multiclass", num_classes=self.n, average='none')
-        f1s = fm.f1_score(probs, y, task="multiclass", num_classes=self.n, average='none')
+        accuracy = fm.accuracy(probs, y,
+                               task="multiclass", num_classes=self.n, average='macro')
+        miou = fm.jaccard_index(probs, y,
+                                task="multiclass", num_classes=self.n, average='macro')
+        ious = fm.jaccard_index(probs, y,
+                                task="multiclass", num_classes=self.n, average='none')
+        recalls = fm.recall(probs, y,
+                            task="multiclass", num_classes=self.n, average='none')
+        precisions = fm.precision(probs, y,
+                                  task="multiclass", num_classes=self.n, average='none')
+        f1s = fm.f1_score(probs, y,
+                          task="multiclass", num_classes=self.n, average='none')
 
         is_training = phase == "train"
         self.log(f"{phase}/loss", loss, prog_bar=is_training)
@@ -133,16 +168,21 @@ class UNetPlusPlus(pl.LightningModule):
 
     def configure_optimizers(self):
         """Init optimizer and scheduler"""
-        optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, self.parameters()),
-                                      lr=self.lr, weight_decay=self.weight_decay, amsgrad=True)
+        optimizer = torch.optim.AdamW(
+            filter(lambda p: p.requires_grad, self.parameters()),
+            lr=self.lr, weight_decay=self.weight_decay, amsgrad=True)
 
         steps = self.trainer.estimated_stepping_batches
         warmup_steps = int(steps * self.warmup_period)
 
         # Linear warmup then cosine decay
-        linear_warmup_sch = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.001, total_iters=warmup_steps)
-        cosine_sch = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=(steps - warmup_steps))
-        lr_scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, [linear_warmup_sch, cosine_sch],
-                                                             milestones=[warmup_steps])
+        linear_warmup_sch = LinearLR(
+            optimizer, start_factor=0.001, total_iters=warmup_steps)
+        cosine_sch = CosineAnnealingLR(
+            optimizer, T_max=(steps - warmup_steps))
+        lr_scheduler = SequentialLR(optimizer,
+                                    [linear_warmup_sch,
+                                     cosine_sch],
+                                    milestones=[warmup_steps])
 
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
