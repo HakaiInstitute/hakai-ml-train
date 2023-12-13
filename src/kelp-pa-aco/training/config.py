@@ -2,11 +2,10 @@ import os
 from pathlib import Path
 from typing import Optional, Callable
 
+import albumentations as A
 import numpy as np
 from pydantic import BaseModel
-from torchvision.transforms import v2
-from torchvision.tv_tensors import TVTensor, Mask, wrap
-import albumentations as A
+
 
 class TrainingConfig(BaseModel):
     data_dir: Path
@@ -42,7 +41,7 @@ class TrainingConfig(BaseModel):
     enable_logging: bool = True
     gradient_clip_val: float = 0.5
     accumulate_grad_batches: int = 8
-    deterministic:bool = True
+    deterministic: bool = True
     benchmark: bool = True
 
 
@@ -52,6 +51,7 @@ pa_training_config = TrainingConfig(
     ignore_index=2,
     project_name="kom-kelp-pa-aco-rgbi",
     class_labels={0: "background", 1: "kelp"},
+    backbone="efficientnet-b4",
 )
 
 
@@ -59,6 +59,7 @@ def _remap_species_labels(y: np.ndarray, **kwargs):
     new_y = y.copy()
     new_y[new_y == 0] = 3
     return new_y - 1
+
 
 species_label_transform = A.Lambda(name="remap_labels", mask=_remap_species_labels)
 

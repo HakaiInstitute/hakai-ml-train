@@ -163,3 +163,5 @@ data
 checkpoints
 
 !/src/kelp-pa-aco/training/checkpoints/
+
+src/kelp-pa-aco/training/wandb/

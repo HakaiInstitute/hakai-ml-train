@@ -10,7 +10,7 @@ import wandb
 from pytorch_lightning.loggers import WandbLogger
 from wandb import AlertLevel
 
-from config import TrainingConfig, pa_training_config, sp_training_config
+from config import TrainingConfig, pa_efficientnet_b4_config, sp_training_config
 from datamodule import DataModule
 from unetplusplus import UNetPlusPlus
 
@@ -108,6 +108,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("model_type", type=str, choices=["pa", "sp"])
     args = parser.parse_args()
-    train_config = {"pa": pa_training_config, "sp": sp_training_config}[args.model_type]
+    train_config = {"pa": pa_efficientnet_b4_config, "sp": sp_training_config}[args.model_type]
 
     train(train_config)
