@@ -14,7 +14,7 @@ class TrainingConfig(BaseModel):
     project_name: str
     class_labels: dict[int, str]
     extra_transforms: Optional[list[Callable]] = None
-    name: str = "UNet++_efficientnet-b4"
+    name: str = "UNet++"
     backbone: str = "efficientnet-b4"
 
     # Dataset config
@@ -45,13 +45,14 @@ class TrainingConfig(BaseModel):
     benchmark: bool = True
 
 
-pa_training_config = TrainingConfig(
+pa_efficientnet_b4_config = TrainingConfig(
     data_dir="/home/taylor/data/KP-ACO-RGBI-Nov2023/",
     num_classes=3,
     ignore_index=2,
     project_name="kom-kelp-pa-aco-rgbi",
     class_labels={0: "background", 1: "kelp"},
     backbone="efficientnet-b4",
+    name = "UNet++_efficientnet-b4",
 )
 
 
@@ -63,11 +64,13 @@ def _remap_species_labels(y: np.ndarray, **kwargs):
 
 species_label_transform = A.Lambda(name="remap_labels", mask=_remap_species_labels)
 
-sp_training_config = TrainingConfig(
+sp_efficientnet_b4_config = TrainingConfig(
     data_dir="/home/taylor/data/KS-ACO-RGBI-Nov2023/",
     num_classes=3,
     ignore_index=2,
     project_name="kom-kelp-sp-aco-rgbi",
     class_labels={0: "macro", 1: "nereo"},
+    backbone="efficientnet-b4",
+    name = "UNet++_efficientnet-b4",
     extra_transforms=[species_label_transform],
 )

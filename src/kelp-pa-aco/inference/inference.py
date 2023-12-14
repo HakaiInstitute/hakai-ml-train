@@ -14,7 +14,7 @@ from kernels import Kernel, BartlettHanningKernel
 CLIP_SIZE = 1024
 NUM_CLASSES = 2
 DEVICE = torch.device('cuda')
-MODEL_WEIGHTS = "./UNetPlusPlus_Resnet34_kelp_presence_aco_jit_miou=0.8785.pt"
+MODEL_WEIGHTS = "./UNetPlusPlus_EfficientNetB4_kelp_presence_aco_jit_miou=0.8785.pt"
 
 
 # Classification v1.1
