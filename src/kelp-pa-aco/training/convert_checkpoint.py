@@ -2,6 +2,7 @@ import os.path
 from pathlib import Path
 
 import torch
+import torch.nn.utils.prune as prune
 import wandb
 
 from config import pa_efficientnet_b4_config, sp_efficientnet_b4_config, TrainingConfig
@@ -19,8 +20,8 @@ def convert_checkpoint(checkpoint_url: str, config: TrainingConfig):
     ckpt_file = Path(artifact_dir) / 'model.ckpt'
 
     # Set output paths
-    output_path_jit = f'../inference/UNetPlusPlus_EfficientNetB4_kelp_presence_aco_jit_miou={miou:.4f}.pt'
-    output_path_onnx = f'../inference/UNetPlusPlus_EfficientNetB4_kelp_presence_aco_miou={miou:.4f}.onnx'
+    output_path_jit = f'../inference/UNetPlusPlus_EfficientNetB4_kelp_species_rgbi_jit_miou={miou:.4f}.pt'
+    output_path_onnx = f'../inference/UNetPlusPlus_EfficientNetB4_kelp_species_rgbi_miou={miou:.4f}.onnx'
 
     # Load stripped back model
     model = UNetPlusPlus.load_from_checkpoint(ckpt_file, **dict(config))
@@ -49,5 +50,6 @@ if __name__ == '__main__':
     parser.add_argument("model_type", type=str, choices=["pa", "sp"])
     args = parser.parse_args()
 
-    train_config = {"pa": pa_efficientnet_b4_config, "sp": sp_efficientnet_b4_config}[args.model_type]
+    train_config = {"pa": pa_efficientnet_b4_config, "sp": sp_efficientnet_b4_config}[
+        args.model_type]
     convert_checkpoint(args.checkpoint_url, train_config)
