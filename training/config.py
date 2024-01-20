@@ -42,7 +42,7 @@ class TrainingConfig(BaseModel):
     gradient_clip_val: float = 0.5
     accumulate_grad_batches: int = 8
     deterministic: bool = True
-    benchmark: bool = True
+    benchmark: bool = False
 
 def _remap_species_labels(y: np.ndarray, **kwargs):
     new_y = y.copy()

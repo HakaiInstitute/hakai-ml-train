@@ -179,7 +179,7 @@ class DataModule(pl.LightningDataModule):
     def val_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(
             self.ds_val,
-            shuffle=True,
+            shuffle=False,
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
