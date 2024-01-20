@@ -53,19 +53,19 @@ def _remap_species_labels(y: np.ndarray, **kwargs):
 species_label_transform = A.Lambda(name="remap_labels", mask=_remap_species_labels)
 
 class KelpPresenceEfficientNetB4Config(TrainingConfig):
-    num_classes=3,
-    ignore_index=2,
-    class_labels={0: "background", 1: "kelp"},
-    backbone="efficientnet-b4",
-    name="UNet++_efficientnet-b4",
+    num_classes: int = 3
+    ignore_index: int = 2
+    class_labels: dict[int, str] = {0: "background", 1: "kelp"}
+    backbone: str = "efficientnet-b4"
+    name: str = "UNet++_efficientnet-b4"
 
 class KelpSpeciesEfficientNetB4Config(TrainingConfig):
-    num_classes=3,
-    ignore_index=2,
-    class_labels={0: "macro", 1: "nereo"},
-    backbone="efficientnet-b4",
-    name="UNet++_efficientnet-b4",
-    extra_transforms=[species_label_transform],
+    num_classes: int = 3
+    ignore_index: int = 2
+    class_labels: dict[int, str] = {0: "macro", 1: "nereo"}
+    backbone: str = "efficientnet-b4"
+    name: str = "UNet++_efficientnet-b4"
+    extra_transforms: Optional[list[Callable]] = [species_label_transform]
 
 kelp_pa_efficientnet_b4_config_rgbi = KelpPresenceEfficientNetB4Config(
     data_dir="/home/taylor/data/KP-ACO-RGBI-Nov2023/",
