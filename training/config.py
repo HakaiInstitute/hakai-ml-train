@@ -84,7 +84,7 @@ kelp_pa_efficientnet_b4_config_rgb = KelpPresenceEfficientNetB4Config(
     project_name="kom-kelp-pa-rgb",
     num_bands=3,
     max_epochs=100,
-    warmup_period=0.1,
+    warmup_period=0.02,
 )
 
 kelp_sp_efficientnet_b4_config_rgb = KelpSpeciesEfficientNetB4Config(
@@ -92,5 +92,5 @@ kelp_sp_efficientnet_b4_config_rgb = KelpSpeciesEfficientNetB4Config(
     project_name="kom-kelp-sp-rgb",
     num_bands=3,
     max_epochs=100,
-    warmup_period=0.1,
+    warmup_period=0.02,
 )
