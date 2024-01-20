@@ -149,8 +149,8 @@ class UNetPlusPlus(pl.LightningModule):
         logits = self.forward(x)
         preds = logits.argmax(dim=1)
 
-        if phase == "val" and batch_idx == 0:
-            self.log_image_samples(batch, preds)
+        # if phase == "val" and batch_idx == 0:
+        #     self.log_image_samples(batch, preds)
 
         # Flatten and eliminate ignore class instances
         y = rearrange(y, "b h w -> (b h w)").long()
