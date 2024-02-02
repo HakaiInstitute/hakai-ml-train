@@ -2,14 +2,14 @@ import os
 from pathlib import Path
 from typing import List, Optional, Union
 
-import albumentations as A
 import numpy as np
 import pytorch_lightning as pl
 import torch
 from PIL import Image
-from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 from torchvision.datasets import VisionDataset
+
+from training.transforms import get_test_transforms, get_train_transforms
 
 
 class SegmentationDataset(VisionDataset):
@@ -44,21 +44,19 @@ class SegmentationDataset(VisionDataset):
 # noinspection PyAbstractClass
 class DataModule(pl.LightningDataModule):
     def __init__(
-        self,
-        data_dir: str,
-        num_classes: int,
-        batch_size: int,
-        num_workers: int = os.cpu_count(),
-        pin_memory: bool = True,
-        persistent_workers: bool = False,
-        fill_value: int = 0,
-        tile_size: int = 1024,
-        extra_transforms=None,
-        **kwargs,
+            self,
+            data_dir: str,
+            num_classes: int,
+            batch_size: int,
+            num_workers: int = os.cpu_count(),
+            pin_memory: bool = True,
+            persistent_workers: bool = False,
+            fill_value: int = 0,
+            tile_size: int = 1024,
+            extra_transforms=None,
+            **kwargs,
     ):
         super().__init__()
-        if extra_transforms is None:
-            extra_transforms = []
         self.num_classes = num_classes
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -71,78 +69,8 @@ class DataModule(pl.LightningDataModule):
         self.val_data_dir = str(Path(data_dir).joinpath("val"))
         self.test_data_dir = str(Path(data_dir).joinpath("test"))
 
-        self.train_trans = A.Compose(
-            [
-                *extra_transforms,
-                A.ToFloat(p=1),
-                A.ShiftScaleRotate(
-                    scale_limit=0.2, rotate_limit=45, border_mode=0, value=0, p=0.7
-                ),
-                A.PadIfNeeded(
-                    self.tile_size, self.tile_size, border_mode=0, value=0, p=1.0
-                ),
-                A.RandomCrop(self.tile_size, self.tile_size, p=1.0),
-                A.Flip(p=0.75),
-                A.Downscale(scale_min=0.5, scale_max=0.75, p=0.05),
-                A.MaskDropout(
-                    max_objects=3, image_fill_value=0, mask_fill_value=0, p=0.1
-                ),
-                # Colour transforms
-                A.OneOf(
-                    [
-                        A.RandomBrightnessContrast(
-                            brightness_limit=0.3, contrast_limit=0.3, p=1
-                        ),
-                        A.RandomGamma(gamma_limit=(70, 130), p=1),
-                        # A.ChannelShuffle(p=0.2),
-                        # A.HueSaturationValue(
-                        #     hue_shift_limit=30,
-                        #     sat_shift_limit=40,
-                        #     val_shift_limit=30,
-                        #     p=1,
-                        # ),
-                        # A.RGBShift(
-                        #     r_shift_limit=30, g_shift_limit=30, b_shift_limit=30, p=1
-                        # ),
-                    ],
-                    p=0.8,
-                ),
-                # distortion
-                A.OneOf(
-                    [
-                        A.ElasticTransform(p=1),
-                        A.OpticalDistortion(p=1),
-                        A.GridDistortion(p=1),
-                        A.Perspective(p=1),
-                    ],
-                    p=0.2,
-                ),
-                # noise transforms
-                A.OneOf(
-                    [
-                        A.GaussNoise(p=1),
-                        A.MultiplicativeNoise(p=1),
-                        A.Sharpen(p=1),
-                        A.GaussianBlur(p=1),
-                    ],
-                    p=0.2,
-                ),
-                ToTensorV2(),
-            ],
-            p=1,
-        )
-
-        self.test_trans = A.Compose(
-            [
-                *extra_transforms,
-                A.ToFloat(p=1),
-                A.PadIfNeeded(
-                    self.tile_size, self.tile_size, border_mode=0, value=0, p=1.0
-                ),
-                ToTensorV2(),
-            ],
-            p=1,
-        )
+        self.train_trans = get_train_transforms(self.tile_size, extra_transforms)
+        self.test_trans = get_test_transforms(self.tile_size, extra_transforms)
 
         self.ds_train, self.ds_val, self.ds_test = None, None, None
 
