@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
 
 import albumentations as A
 import numpy as np
@@ -14,8 +14,11 @@ class TrainingConfig(BaseModel):
     project_name: str
     class_labels: dict[int, str]
     extra_transforms: Optional[list[Callable]] = None
-    name: str = "UNet++"
-    backbone: str = "efficientnet-b4"
+
+    name: str
+    architecture: str
+    backbone: str
+    options_model: dict[str, Any] = None
 
     # Dataset config
     num_workers: int = os.cpu_count() // 2
@@ -44,6 +47,7 @@ class TrainingConfig(BaseModel):
     deterministic: bool = True
     benchmark: bool = False
 
+
 def _remap_species_labels(y: np.ndarray, **kwargs):
     new_y = y.copy()
     new_y[new_y == 0] = 3
@@ -52,20 +56,27 @@ def _remap_species_labels(y: np.ndarray, **kwargs):
 
 species_label_transform = A.Lambda(name="remap_labels", mask=_remap_species_labels)
 
+
 class KelpPresenceEfficientNetB4Config(TrainingConfig):
     num_classes: int = 3
     ignore_index: int = 2
     class_labels: dict[int, str] = {0: "background", 1: "kelp"}
+    architecture: str = "UnetPlusPlus"
     backbone: str = "efficientnet-b4"
-    name: str = "UNet++_efficientnet-b4"
+    name: str = "UNetPlusPlus-effb4"
+    options_model: dict[str, Any] = {"decoder_attention_type": "scse"}
+
 
 class KelpSpeciesEfficientNetB4Config(TrainingConfig):
     num_classes: int = 3
     ignore_index: int = 2
     class_labels: dict[int, str] = {0: "macro", 1: "nereo"}
+    architecture: str = "UnetPlusPlus"
     backbone: str = "efficientnet-b4"
-    name: str = "UNet++_efficientnet-b4"
+    name: str = "UNetPlusPlus-effb4"
+    options_model: dict[str, Any] = {"decoder_attention_type": "scse"}
     extra_transforms: Optional[list[Callable]] = [species_label_transform]
+
 
 kelp_pa_efficientnet_b4_config_rgbi = KelpPresenceEfficientNetB4Config(
     data_dir="/home/taylor/data/KP-ACO-RGBI-Nov2023/",

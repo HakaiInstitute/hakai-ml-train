@@ -4,8 +4,12 @@ from pathlib import Path
 import torch
 import wandb
 
-from config import kelp_pa_efficientnet_b4_config_rgbi, kelp_sp_efficientnet_b4_config_rgbi, TrainingConfig
-from unetplusplus import UNetPlusPlus
+from config import (
+    kelp_pa_efficientnet_b4_config_rgbi,
+    kelp_sp_efficientnet_b4_config_rgbi,
+    TrainingConfig,
+)
+from model import UNetPlusPlus
 
 DEVICE = torch.device("cpu")
 
@@ -19,8 +23,14 @@ def convert_checkpoint(checkpoint_url: str, config: TrainingConfig):
     ckpt_file = Path(artifact_dir) / "model.ckpt"
 
     # Set output paths
-    output_path_jit = f"../inference/weights/UNetPlusPlus_EfficientNetB4_kelp_species_rgbi_jit_miou={miou:.4f}.pt"
-    output_path_onnx = f"../inference/weights/UNetPlusPlus_EfficientNetB4_kelp_species_rgbi_miou={miou:.4f}.onnx"
+    output_path_jit = (
+        f"../inference/weights/"
+        f"UNetPlusPlus_EfficientNetB4_kelp_species_rgbi_jit_miou={miou:.4f}.pt"
+    )
+    output_path_onnx = (
+        f"../inference/weights/"
+        f"UNetPlusPlus_EfficientNetB4_kelp_species_rgbi_miou={miou:.4f}.onnx"
+    )
 
     # Load stripped back model
     model = UNetPlusPlus.load_from_checkpoint(ckpt_file, **dict(config))
@@ -55,7 +65,8 @@ if __name__ == "__main__":
     parser.add_argument("model_type", type=str, choices=["pa", "sp"])
     args = parser.parse_args()
 
-    train_config = {"pa": kelp_pa_efficientnet_b4_config_rgbi, "sp": kelp_sp_efficientnet_b4_config_rgbi}[
-        args.model_type
-    ]
+    train_config = {
+        "pa": kelp_pa_efficientnet_b4_config_rgbi,
+        "sp": kelp_sp_efficientnet_b4_config_rgbi,
+    }[args.model_type]
     convert_checkpoint(args.checkpoint_url, train_config)

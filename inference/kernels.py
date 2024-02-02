@@ -68,7 +68,8 @@ class BartlettHanningKernel(Kernel):
     def _init_wi(size: int, device: torch.device.type) -> torch.Tensor:
         # Follows original paper:
         # Ha YH, Pearce JA. A new window and comparison to standard windows.
-        # IEEE Transactions on Acoustics, Speech, and Signal Processing. 1989;37(2):298–301.
+        # IEEE Transactions on Acoustics, Speech, and Signal Processing.
+        # 1989;37(2):298–301.
         i = torch.arange(0, size, device=device)
         return (
             0.62

@@ -61,7 +61,8 @@ class TorchMemoryRegister(object):
             ].clone()
             logits_abcd += new_logits
 
-        # Move data around and write to the registry to make new space for the next row of processing windows
+        # Move data around and write to the registry to make new space for the next row
+        # of processing windows
         # |c|b| | + pop a
         # |0|d| |
         logits_a = logits_abcd[:, : self.hws, : self.hws]
@@ -78,7 +79,8 @@ class TorchMemoryRegister(object):
         col_off_bd = img_window.col_off + self.hws
         self.register[:, :, col_off_bd : col_off_bd + self.hws] = logits_bd
 
-        # Return the information complete predictions (argmax of a, stripped over overflowing padding)
+        # Return the information complete predictions
+        # (argmax of a, stripped over overflowing padding)
         preds_win = Window(
             col_off=img_window.col_off,
             row_off=img_window.row_off,
@@ -109,7 +111,8 @@ class HanningWindowSegmentation(object):
 
     @property
     def _pure_black_pred(self):
-        """Shortcut prediction for any tiles that are all black. Equal to a pred of BG for all pixels"""
+        """Shortcut prediction for any tiles that are all black. Equal to a pred of BG
+        for all pixels"""
         pred = torch.zeros((self.n, self.ws, self.ws), device=self.device)
         pred[0] = 1
         return pred
@@ -179,7 +182,8 @@ class HanningWindowSegmentation(object):
                         right=(window.col_off == last_col_off),
                     )
 
-                # Update the registry with intermediate data and recieve complete predictions (softmax output)
+                # Update the registry with intermediate data and recieve complete
+                # predictions (softmax output)
                 preds, pred_win = register.step(kernel_pred, window)
                 dest.write(
                     preds.argmax(dim=0).detach().cpu().numpy(),
@@ -189,7 +193,8 @@ class HanningWindowSegmentation(object):
 
     @staticmethod
     def _init_output_file(img_path: str, output_path: str):
-        """Write a new single band geotiff with the same size and CRS as the src image and all pixels==0"""
+        """Write a new single band geotiff with the same size and CRS as the src image
+        and all pixels==0"""
         with rasterio.open(img_path) as src:
             # Initialize final output file
             output_profile = src.profile

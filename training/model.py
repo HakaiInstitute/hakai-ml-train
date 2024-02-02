@@ -24,7 +24,9 @@ class UNetPlusPlus(pl.LightningModule):
         num_bands: int = 3,
         tile_size: int = 1024,
         class_labels=None,
+        architecture: str = "UnetPlusPlus",
         backbone: str = "resnet34",
+        options_model: dict[str, Any] = None,
         **kwargs,
     ):
         super().__init__()
@@ -38,6 +40,8 @@ class UNetPlusPlus(pl.LightningModule):
         self.batch_size = batch_size
         self.num_bands = num_bands
         self.tile_size = tile_size
+        if options_model is None:
+            options_model = {}
         if class_labels is None:
             self.class_labels = {0: "background", 1: "kelp"}
         else:
@@ -49,11 +53,11 @@ class UNetPlusPlus(pl.LightningModule):
         else:
             self.n = num_classes
 
-        self.model = smp.UnetPlusPlus(
+        self.model = smp.__dict__[architecture](
             backbone,
             in_channels=self.num_bands,
             classes=self.n,
-            decoder_attention_type="scse",
+            **options_model,
         )
         for p in self.model.parameters():
             p.requires_grad = True
@@ -147,7 +151,7 @@ class UNetPlusPlus(pl.LightningModule):
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
         logits = self.forward(x)
-        preds = logits.argmax(dim=1)
+        logits.argmax(dim=1)
 
         # if phase == "val" and batch_idx == 0:
         #     self.log_image_samples(batch, preds)

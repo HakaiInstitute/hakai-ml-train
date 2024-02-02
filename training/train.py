@@ -10,11 +10,15 @@ import wandb
 from pytorch_lightning.loggers import WandbLogger
 from wandb import AlertLevel
 
-from config import TrainingConfig, kelp_pa_efficientnet_b4_config_rgbi, \
-    kelp_sp_efficientnet_b4_config_rgbi, kelp_sp_efficientnet_b4_config_rgb, \
-    kelp_pa_efficientnet_b4_config_rgb
+from config import (
+    TrainingConfig,
+    kelp_pa_efficientnet_b4_config_rgbi,
+    kelp_sp_efficientnet_b4_config_rgbi,
+    kelp_sp_efficientnet_b4_config_rgb,
+    kelp_pa_efficientnet_b4_config_rgb,
+)
 from datamodule import DataModule
-from unetplusplus import UNetPlusPlus
+from model import UNetPlusPlus
 
 
 def train(config: TrainingConfig):

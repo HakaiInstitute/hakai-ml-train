@@ -7,18 +7,16 @@ dependencies:
   - pytorch::pytorch
   - pytorch::torchvision
   - pytorch::torchaudio
-  - nvidia::pytorch-cuda=11.7
+  - nvidia::pytorch-cuda=11.8
   - conda-forge::jupyter
-  - conda-forge::loguru
   - conda-forge::pytorch-lightning
-  - conda-forge::s3fs
   - conda-forge::tensorboard
   - conda-forge::torchmetrics1>=0.11.0
   - conda-forge::tqdm
   - conda-forge::onnx
   - conda-forge::onnx-runtime
+  - conda-forge::pydantic
   - pip
   - pip:
-    - lightning-bolts
     - segmentation-models-pytorch
     - einops

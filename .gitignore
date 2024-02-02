@@ -165,3 +165,5 @@ checkpoints
 !/src/kelp-pa-aco/training/checkpoints/
 
 src/kelp-pa-aco/training/wandb/
+training/wandb/
+lightning_logs/

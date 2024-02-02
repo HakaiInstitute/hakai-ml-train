@@ -1,5 +1,4 @@
 import os
-import warnings
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -96,8 +95,15 @@ class DataModule(pl.LightningDataModule):
                         ),
                         A.RandomGamma(gamma_limit=(70, 130), p=1),
                         # A.ChannelShuffle(p=0.2),
-                        # A.HueSaturationValue(hue_shift_limit=30, sat_shift_limit=40, val_shift_limit=30, p=1),
-                        # A.RGBShift(r_shift_limit=30, g_shift_limit=30, b_shift_limit=30, p=1),
+                        # A.HueSaturationValue(
+                        #     hue_shift_limit=30,
+                        #     sat_shift_limit=40,
+                        #     val_shift_limit=30,
+                        #     p=1,
+                        # ),
+                        # A.RGBShift(
+                        #     r_shift_limit=30, g_shift_limit=30, b_shift_limit=30, p=1
+                        # ),
                     ],
                     p=0.8,
                 ),
