@@ -29,11 +29,11 @@ def convert_checkpoint(checkpoint_url: str, config: TrainingConfig):
     # Set output paths
     output_path_jit = (
         f"../inference/weights/"
-        f"UNetPlusPlus_EfficientNetB5_seagrass_presence_rgb_jit_dice={dice:.4f}.pt"
+        f"UNetPlusPlus_EfficientNetB4_mussel_presence_rgb_jit_dice={dice:.4f}.pt"
     )
     output_path_onnx = (
         f"../inference/weights/"
-        f"UNetPlusPlus_EfficientNetB5_seagrass_presence_rgb_dice={dice:.4f}.onnx"
+        f"UNetPlusPlus_EfficientNetB4_mussel_presence_rgb_dice={dice:.4f}.onnx"
     )
 
     # Load stripped back model
