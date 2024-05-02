@@ -10,13 +10,12 @@ dependencies:
   - nvidia::pytorch-cuda=11.8
   - conda-forge::jupyter
   - conda-forge::pytorch-lightning
-  - conda-forge::tensorboard
   - conda-forge::torchmetrics1>=0.11.0
   - conda-forge::tqdm
   - conda-forge::onnx
-  - conda-forge::onnx-runtime
   - conda-forge::pydantic
   - pip
   - pip:
     - segmentation-models-pytorch
     - einops
+    - unified-focal-loss-pytorch

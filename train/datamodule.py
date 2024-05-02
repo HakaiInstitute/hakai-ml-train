@@ -9,15 +9,12 @@ from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision.datasets import VisionDataset
 
-from training.transforms import get_test_transforms, get_train_transforms
-
 
 class SegmentationDataset(VisionDataset):
     """Load preprocessed image chips. Used during model train and validation phases."""
 
     def __init__(self, root: str, *args, ext: str = "tif", **kwargs):
         super().__init__(root, *args, **kwargs)
-
         self._images = sorted(Path(root).joinpath("x").glob(f"*.{ext}"))
         self._labels = sorted(Path(root).joinpath("y").glob(f"*.{ext}"))
 
@@ -44,17 +41,20 @@ class SegmentationDataset(VisionDataset):
 # noinspection PyAbstractClass
 class DataModule(pl.LightningDataModule):
     def __init__(
-            self,
-            data_dir: str,
-            num_classes: int,
-            batch_size: int,
-            num_workers: int = os.cpu_count(),
-            pin_memory: bool = True,
-            persistent_workers: bool = False,
-            fill_value: int = 0,
-            tile_size: int = 1024,
-            extra_transforms=None,
-            **kwargs,
+        self,
+        data_dir: str,
+        num_classes: int,
+        batch_size: int,
+        num_workers: int = os.cpu_count(),
+        pin_memory: bool = True,
+        persistent_workers: bool = False,
+        fill_value: int = 0,
+        tile_size: int = 1024,
+        extra_transforms=None,
+        seed: int = 42,
+        train_transforms=None,
+        tests_transforms=None,
+        **kwargs,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -64,13 +64,13 @@ class DataModule(pl.LightningDataModule):
         self.persistent_workers = persistent_workers
         self.fill_value = fill_value
         self.tile_size = tile_size
+        self.seed = seed
+        self.train_trans = train_transforms
+        self.test_trans = tests_transforms
 
         self.train_data_dir = str(Path(data_dir).joinpath("train"))
         self.val_data_dir = str(Path(data_dir).joinpath("val"))
         self.test_data_dir = str(Path(data_dir).joinpath("test"))
-
-        self.train_trans = get_train_transforms(self.tile_size, extra_transforms)
-        self.test_trans = get_test_transforms(self.tile_size, extra_transforms)
 
         self.ds_train, self.ds_val, self.ds_test = None, None, None
 

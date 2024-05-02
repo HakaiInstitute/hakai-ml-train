@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="kom" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.11.6 (sftp://taylor@10.8.1.28:22/home/taylor/miniforge3/envs/kom/bin/python)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="kom (borg)" project-jdk-type="Python SDK" />
 </project>

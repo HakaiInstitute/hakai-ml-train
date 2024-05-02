@@ -4,21 +4,25 @@
 import shutil
 from pathlib import Path
 
+import albumentations as A
 import pytorch_lightning as pl
 import torch
 import wandb
 from pytorch_lightning.loggers import WandbLogger
 from wandb import AlertLevel
 
-from config import (
+from .config import (
     TrainingConfig,
     kelp_pa_efficientnet_b4_config_rgbi,
     kelp_sp_efficientnet_b4_config_rgbi,
     kelp_sp_efficientnet_b4_config_rgb,
     kelp_pa_efficientnet_b4_config_rgb,
+    seagrass_pa_efficientnet_b5_config_rgb,
+    mussels_pa_efficientnet_b4_config_rgb,
 )
-from datamodule import DataModule
-from model import UNetPlusPlus
+from .datamodule import DataModule
+from .model import SegmentationModel
+from .transforms import get_test_transforms, get_train_transforms
 
 
 def train(config: TrainingConfig):
@@ -30,9 +34,9 @@ def train(config: TrainingConfig):
 
     # Setup Callbacks and Trainer
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        monitor="val/miou",
+        monitor="val/dice_epoch",
         mode="max",
-        filename="{val/miou:.4f}_{epoch}",
+        filename="{val/dice_epoch:.4f}_{epoch}",
         save_top_k=1,
         save_last=True,
         save_on_train_epoch_end=False,
@@ -77,27 +81,53 @@ def train(config: TrainingConfig):
         callbacks=[
             checkpoint_callback,
             pl.callbacks.LearningRateMonitor(),
-            pl.callbacks.ModelPruning("l1_unstructured", amount=compute_amount),
+            # pl.callbacks.ModelPruning("l1_unstructured", amount=compute_amount),
         ],
     )
 
+    # Load data augmentation
+    train_trans = get_train_transforms(config.tile_size, config.extra_transforms)
+    test_trans = get_test_transforms(config.tile_size, config.extra_transforms)
+
+    # Save to WandB
+    if config.enable_logging:
+        A.save(train_trans, "./train_transforms.json")
+        A.save(test_trans, "./test_transforms.json")
+
+        artifact = wandb.Artifact(name=f"{wandb.run.id}-transforms", type="config")
+        artifact.add_file("./train_transforms.json")
+        artifact.add_file("./test_transforms.json")
+
+        wandb.run.log_artifact(artifact)
+
     # Load dataset
-    data_module = DataModule(**dict(config))
+    data_module = DataModule(
+        train_transforms=train_trans, tests_transforms=test_trans, **dict(config)
+    )
 
     # Load model
-    model = UNetPlusPlus(**dict(config))
+    model = SegmentationModel(**dict(config))
 
     # Train
+    if config.enable_logging:
+        wandb.run.config.update(dict(config))
+        # wandb.run.config.update(
+        #     {
+        #         "train_transforms": train_trans.to_dict(),
+        #         "test_transforms": test_trans.to_dict(),
+        #     }
+        # )
+        wandb.run.tags += tuple(config.tags)
 
     try:
         trainer.fit(model, datamodule=data_module)
 
         if not trainer.fast_dev_run and config.enable_logging:
-            best_miou = checkpoint_callback.best_model_score.detach().cpu()
-            print("Best mIoU:", best_miou)
+            best_dice = checkpoint_callback.best_model_score.detach().cpu()
+            print("Best dice:", best_dice)
             wandb.alert(
                 title="Training complete",
-                text=f"Best mIoU: {best_miou}",
+                text=f"Best dice: {best_dice}",
                 level=AlertLevel.INFO,
             )
 
@@ -112,21 +142,32 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("model_type", type=str, choices=["pa", "sp"])
-    parser.add_argument("band_type", type=str, choices=["rgb", "rgbi"])
+    parser.add_argument("model_type", type=str, choices=["kelp", "seagrass", "mussels"])
+    parser.add_argument("objective", type=str, choices=["pa", "sp"])
+    parser.add_argument("--bands", type=int, default=3)
     args = parser.parse_args()
 
     train_config = None
-    if args.band_type == "rgb":
-        if args.model_type == "pa":
-            train_config = kelp_pa_efficientnet_b4_config_rgb
-        elif args.model_type == "sp":
-            train_config = kelp_sp_efficientnet_b4_config_rgb
-    elif args.band_type == "rgbi":
-        if args.model_type == "pa":
-            train_config = kelp_pa_efficientnet_b4_config_rgbi
-        elif args.model_type == "sp":
-            train_config = kelp_sp_efficientnet_b4_config_rgbi
+    if args.model_type == "kelp":
+        if args.objective == "pa":
+            if args.bands == 3:
+                train_config = kelp_pa_efficientnet_b4_config_rgb
+            elif args.bands == 4:
+                train_config = kelp_pa_efficientnet_b4_config_rgbi
+
+        elif args.objective == "sp":
+            if args.bands == 3:
+                train_config = kelp_sp_efficientnet_b4_config_rgb
+            elif args.bands == 4:
+                train_config = kelp_sp_efficientnet_b4_config_rgbi
+
+    elif args.model_type == "seagrass":
+        if args.bands == 3 and args.objective == "pa":
+            train_config = seagrass_pa_efficientnet_b5_config_rgb
+
+    elif args.model_type == "mussels":
+        if args.bands == 3 and args.objective == "pa":
+            train_config = mussels_pa_efficientnet_b4_config_rgb
 
     if train_config is None:
         raise ValueError("Invalid model_type or band_type")
