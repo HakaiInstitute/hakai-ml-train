@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 import numpy as np
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 import torch
 from PIL import Image
 from torch.utils.data import DataLoader
@@ -50,7 +50,6 @@ class DataModule(pl.LightningDataModule):
         persistent_workers: bool = False,
         fill_value: int = 0,
         tile_size: int = 1024,
-        extra_transforms=None,
         seed: int = 42,
         train_transforms=None,
         tests_transforms=None,

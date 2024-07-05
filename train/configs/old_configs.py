@@ -35,7 +35,7 @@ class TrainingConfig(BaseModel):
     pin_memory: bool = True
 
     # Checkpoint options
-    checkpoint_dir: str = "./checkpoints"
+    checkpoint_dir: str = "../checkpoints"
 
     # Training options
     lr: float = 0.0003

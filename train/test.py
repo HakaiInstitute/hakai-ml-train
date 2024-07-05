@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 import torch
 import wandb
 
@@ -15,7 +15,7 @@ from .config import (
     kelp_pa_efficientnet_b4_config_rgb,
 )
 from .datamodule import DataModule
-from .model import SegmentationModel
+from .model import SMPSegmentationModel
 
 
 def test(config: TrainingConfig, checkpoint_url: str):
@@ -41,7 +41,7 @@ def test(config: TrainingConfig, checkpoint_url: str):
     data_module = DataModule(**dict(config))
 
     # Load model
-    model = SegmentationModel(**dict(config))
+    model = SMPSegmentationModel(**dict(config))
 
     results = trainer.test(model, datamodule=data_module, ckpt_path=str(ckpt_file))
 

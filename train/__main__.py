@@ -1,93 +1,81 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import shutil
 from pathlib import Path
 
 import albumentations as A
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 import torch
 import wandb
+from finetuning_scheduler import FinetuningScheduler, FTSEarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 from wandb import AlertLevel
 
-from .config import (
-    TrainingConfig,
-    kelp_pa_efficientnet_b4_config_rgbi,
-    kelp_sp_efficientnet_b4_config_rgbi,
-    kelp_sp_efficientnet_b4_config_rgb,
-    kelp_pa_efficientnet_b4_config_rgb,
-    seagrass_pa_efficientnet_b5_config_rgb,
-    mussels_pa_efficientnet_b4_config_rgb,
-)
+from . import model as models
+from .configs.config import Config, load_yml_config
 from .datamodule import DataModule
-from .model import SegmentationModel
-from .transforms import get_test_transforms, get_train_transforms
+from .transforms import get_test_transforms, get_train_transforms, extra_transforms
 
 
-def train(config: TrainingConfig):
+def train(config: Config):
     pl.seed_everything(0, workers=True)
     torch.set_float32_matmul_precision("medium")
 
     # Make checkpoint directory
-    Path(config.checkpoint_dir, config.name).mkdir(exist_ok=True, parents=True)
-
-    # Setup Callbacks and Trainer
-    checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        monitor="val/dice_epoch",
-        mode="max",
-        filename="{val/dice_epoch:.4f}_{epoch}",
-        save_top_k=1,
-        save_last=True,
-        save_on_train_epoch_end=False,
-        every_n_epochs=1,
-        verbose=False,
+    Path(config.checkpoint.dirpath, config.logging.project).mkdir(
+        exist_ok=True, parents=True
     )
 
+    # Setup Callbacks and Trainer
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(**config.checkpoint.dict())
+
     if config.enable_logging:
-        logger = WandbLogger(
-            name=config.name,
-            project=config.project_name,
-            save_dir=config.checkpoint_dir,
-            log_model=True,
-        )
-        logger.experiment.config["batch_size"] = config.batch_size
+        logger = WandbLogger(**config.logging.dict())
+        logger.experiment.config["batch_size"] = config.data_module.batch_size
     else:
         logger = pl.loggers.CSVLogger(save_dir="/tmp/")
 
-    def compute_amount(epoch):
-        # the sum of all returned values need to be smaller than 1
-        if epoch == 1:
-            return 0.5
-        elif epoch == 5:
-            return 0.25
-        elif 7 < epoch < 9:
-            return 0.01
+    # def compute_amount(epoch):
+    #     # the sum of all returned values need to be smaller than 1
+    #     if epoch == 2:
+    #         return 0.5
+    #     elif epoch == 10:
+    #         return 0.25
+    #     elif 14 < epoch < 18:
+    #         return 0.01
 
     trainer = pl.Trainer(
+        logger=logger,
+        callbacks=[
+            checkpoint_callback,
+            # pl.callbacks.ModelPruning("l1_unstructured", amount=compute_amount),
+            # FTSEarlyStopping(monitor=config.checkpoint.monitor, patience=3),
+            # FinetuningScheduler(
+            #     # gen_ft_sched_only=True,
+            #     ft_schedule="./train/configs/ft_schedule.yml",
+            #     allow_untested=True,
+            #     base_max_lr=config.segmentation_config.lr,
+            #     epoch_transitions_only=True
+            # ),
+            pl.callbacks.LearningRateMonitor(),
+        ],
+        **config.trainer.dict(),
         # overfit_batches=10,
         # log_every_n_steps=3,
         # limit_train_batches=3,
         # limit_val_batches=3,
         # accelerator='cpu',
         # fast_dev_run=True,
-        deterministic=config.deterministic,
-        benchmark=config.benchmark,
-        max_epochs=config.max_epochs,
-        precision=config.precision,
-        logger=logger,
-        gradient_clip_val=config.gradient_clip_val,
-        accumulate_grad_batches=config.accumulate_grad_batches,
-        callbacks=[
-            checkpoint_callback,
-            pl.callbacks.LearningRateMonitor(),
-            # pl.callbacks.ModelPruning("l1_unstructured", amount=compute_amount),
-        ],
     )
 
     # Load data augmentation
-    train_trans = get_train_transforms(config.tile_size, config.extra_transforms)
-    test_trans = get_test_transforms(config.tile_size, config.extra_transforms)
+    extra_trans = []
+    if config.extra_transforms is not None:
+        for k in config.extra_transforms:
+            extra_trans.append(extra_transforms[k])
+
+    train_trans = get_train_transforms(config.data_module.tile_size, extra_trans)
+    test_trans = get_test_transforms(config.data_module.tile_size, extra_trans)
 
     # Save to WandB
     if config.enable_logging:
@@ -102,21 +90,27 @@ def train(config: TrainingConfig):
 
     # Load dataset
     data_module = DataModule(
-        train_transforms=train_trans, tests_transforms=test_trans, **dict(config)
+        train_transforms=train_trans,
+        tests_transforms=test_trans,
+        **config.data_module.dict(),
     )
 
     # Load model
-    model = SegmentationModel(**dict(config))
+    model_cls = models.__dict__[config.segmentation_model_cls]
+    model = model_cls(**config.segmentation_config.dict())
+
+    if config.segmentation_config.freeze_encoder:
+        model.model.encoder.model.requires_grad_(False)
 
     # Train
     if config.enable_logging:
-        wandb.run.config.update(dict(config))
-        # wandb.run.config.update(
-        #     {
-        #         "train_transforms": train_trans.to_dict(),
-        #         "test_transforms": test_trans.to_dict(),
-        #     }
-        # )
+        wandb.run.config.update(config.dict())
+        wandb.run.config.update(
+            {
+                "train_transforms": train_trans.to_dict(),
+                "test_transforms": test_trans.to_dict(),
+            }
+        )
         wandb.run.tags += tuple(config.tags)
 
     try:
@@ -134,42 +128,16 @@ def train(config: TrainingConfig):
     finally:
         if config.enable_logging:
             wandb.finish()
-        else:
-            shutil.rmtree(logger.log_dir)
+        # else:
+        #     shutil.rmtree(logger.log_dir)
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("model_type", type=str, choices=["kelp", "seagrass", "mussels"])
-    parser.add_argument("objective", type=str, choices=["pa", "sp"])
-    parser.add_argument("--bands", type=int, default=3)
+    parser.add_argument("config", type=Path)
     args = parser.parse_args()
 
-    train_config = None
-    if args.model_type == "kelp":
-        if args.objective == "pa":
-            if args.bands == 3:
-                train_config = kelp_pa_efficientnet_b4_config_rgb
-            elif args.bands == 4:
-                train_config = kelp_pa_efficientnet_b4_config_rgbi
-
-        elif args.objective == "sp":
-            if args.bands == 3:
-                train_config = kelp_sp_efficientnet_b4_config_rgb
-            elif args.bands == 4:
-                train_config = kelp_sp_efficientnet_b4_config_rgbi
-
-    elif args.model_type == "seagrass":
-        if args.bands == 3 and args.objective == "pa":
-            train_config = seagrass_pa_efficientnet_b5_config_rgb
-
-    elif args.model_type == "mussels":
-        if args.bands == 3 and args.objective == "pa":
-            train_config = mussels_pa_efficientnet_b4_config_rgb
-
-    if train_config is None:
-        raise ValueError("Invalid model_type or band_type")
-
-    train(train_config)
+    config = load_yml_config(args.config)
+    train(config)

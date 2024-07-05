@@ -1,22 +1,25 @@
+from abc import ABCMeta, abstractmethod
 from typing import Optional, Any
 
-import pytorch_lightning as pl
-import segmentation_models_pytorch as smp
+import lightning.pytorch as pl
 import torch
 import torchmetrics.classification as fm
+import torchseg
 from einops import rearrange
 from huggingface_hub import PyTorchModelHubMixin
+from torch import nn
 
 from . import losses
 
 
-class SegmentationModel(
+class _SegmentationModelBase(
     pl.LightningModule,
     PyTorchModelHubMixin,
     library_name="kelp-o-matic",
     tags=["pytorch", "kelp", "segmentation", "drones", "remote-sensing"],
     repo_url="https://github.com/HakaiInstitute/kelp-o-matic",
     docs_url="https://kelp-o-matic.readthedocs.io/",
+    metaclass=ABCMeta,
 ):
     def __init__(
         self,
@@ -29,11 +32,7 @@ class SegmentationModel(
         batch_size: int = 2,
         num_bands: int = 3,
         tile_size: int = 1024,
-        architecture: str = "UnetPlusPlus",
-        backbone: str = "resnet34",
-        options_model: dict[str, Any] = None,
-        loss_name: str = "DiceLoss",
-        loss_opts: dict[str, Any] = None,
+        loss: dict[str, Any] = None,
         **kwargs,
     ):
         super().__init__()
@@ -46,22 +45,9 @@ class SegmentationModel(
         self.batch_size = batch_size
         self.num_bands = num_bands
         self.tile_size = tile_size
-        self.n = num_classes - int(
-            self.ignore_index is not None
-        )  # Sub 1 if ignore_index is set
-        if options_model is None:
-            options_model = {}
+        self.n = num_classes - int(self.ignore_index is not None)
 
-        self.model = smp.__dict__[architecture](
-            backbone,
-            in_channels=self.num_bands,
-            classes=self.n,
-            **options_model,
-        )
-        for p in self.model.parameters():
-            p.requires_grad = True
-
-        self.loss_fn = losses.__dict__[loss_name](**(loss_opts or {}))
+        self.loss_fn = losses.__dict__[loss["name"]](**(loss["opts"] or {}))
 
         # metrics
         self.accuracy = fm.BinaryAccuracy()
@@ -71,6 +57,10 @@ class SegmentationModel(
         self.f1_score = fm.BinaryF1Score()
         self.dice = fm.Dice()
 
+    @abstractmethod
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
     @property
     def example_input_array(self) -> Any:
         return torch.ones(
@@ -78,9 +68,6 @@ class SegmentationModel(
             dtype=self.dtype,
             device=self.device,
         )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model(x)
 
     def remove_ignore_pixels(self, logits: torch.Tensor, y: torch.Tensor):
         mask = y != self.ignore_index
@@ -131,12 +118,12 @@ class SegmentationModel(
     def on_validation_epoch_end(self) -> None:
         self.log_dict(
             {
-                f"val/accuracy_epoch": self.accuracy,
-                f"val/iou_epoch": self.jaccard_index,
-                f"val/recall_epoch": self.recall,
-                f"val/precision_epoch": self.precision,
-                f"val/f1_epoch": self.f1_score,
-                f"val/dice_epoch": self.dice,
+                "val/accuracy_epoch": self.accuracy,
+                "val/iou_epoch": self.jaccard_index,
+                "val/recall_epoch": self.recall,
+                "val/precision_epoch": self.precision,
+                "val/f1_epoch": self.f1_score,
+                "val/dice_epoch": self.dice,
             }
         )
 
@@ -155,3 +142,120 @@ class SegmentationModel(
             optimizer, max_lr=self.lr, total_steps=steps, pct_start=self.warmup_period
         )
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
+
+        # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
+        # return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
+
+
+class SMPSegmentationModel(_SegmentationModelBase):
+    def __init__(
+        self,
+        *args,
+        architecture: str = "UnetPlusPlus",
+        backbone: str = "resnet34",
+        opts: dict[str, Any] = None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        if opts is None:
+            opts = {}
+
+        self.model = torchseg.__dict__[architecture](
+            backbone,
+            in_channels=self.num_bands,
+            classes=self.n,
+            **opts,
+        )
+
+        for p in self.model.parameters():
+            p.requires_grad = True
+
+        self.model = torch.compile(self.model)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x)
+
+
+dino_backbones = {
+    "dinov2_s": {"name": "dinov2_vits14", "embedding_size": 384, "patch_size": 14},
+    "dinov2_b": {"name": "dinov2_vitb14", "embedding_size": 768, "patch_size": 14},
+    "dinov2_l": {"name": "dinov2_vitl14", "embedding_size": 1024, "patch_size": 14},
+    "dinov2_g": {"name": "dinov2_vitg14", "embedding_size": 1536, "patch_size": 14},
+    "dinov2_s_reg": {
+        "name": "dinov2_vits14_reg",
+        "embedding_size": 384,
+        "patch_size": 14,
+    },
+    "dinov2_b_reg": {
+        "name": "dinov2_vitb14_reg",
+        "embedding_size": 768,
+        "patch_size": 14,
+    },
+    "dinov2_l_reg": {
+        "name": "dinov2_vitl14_reg",
+        "embedding_size": 1024,
+        "patch_size": 14,
+    },
+    "dinov2_g_reg": {
+        "name": "dinov2_vitg14_reg",
+        "embedding_size": 1536,
+        "patch_size": 14,
+    },
+}
+
+
+class DINOv2Segmentation(_SegmentationModelBase):
+    def __init__(
+        self,
+        *args,
+        backbone: str = "dino_v2s",
+        opts: dict[str, Any] = None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        if opts is None:
+            opts = {}
+
+        self.backbone = torch.hub.load(
+            "facebookresearch/dinov2",
+            dino_backbones[backbone]["name"],
+            **opts,
+        )
+        self.backbone.eval()
+        self.embedding_size = dino_backbones[backbone]["embedding_size"]
+        self.patch_size = dino_backbones[backbone]["patch_size"]
+        self.head = nn.Sequential(
+            nn.ConvTranspose2d(
+                self.embedding_size, 256, kernel_size=4, stride=2, padding=1
+            ),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, self.num_classes, (3, 3), padding=(1, 1)),
+            nn.Upsample(scale_factor=1.75, mode="bilinear", align_corners=False),
+        )
+        for p in self.head.parameters():
+            p.requires_grad = True
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        batch_size = x.shape[0]
+        mask_dim = (x.shape[2] / self.patch_size, x.shape[3] / self.patch_size)
+        with torch.no_grad():
+            x = self.backbone.forward_features(x.cuda())
+            x = x["x_norm_patchtokens"]
+            x = x.permute(0, 2, 1)
+            x = x.reshape(
+                batch_size, self.embedding_size, int(mask_dim[0]), int(mask_dim[1])
+            )
+        return self.head(x)
+
+    @property
+    def example_input_array(self) -> Any:
+        return torch.ones(
+            (self.batch_size, self.num_bands, 896, 896),
+            dtype=self.dtype,
+            device=self.device,
+        )

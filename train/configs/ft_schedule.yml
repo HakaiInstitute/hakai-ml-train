@@ -1,0 +1,9 @@
+0:
+  params:
+    - model._orig_mod.segmentation_head.*
+    - model._orig_mod.decoder.*
+  max_transition_epoch: 3
+1:
+  params:
+    - model._orig_mod.encoder.*
+  lr: 1e-6

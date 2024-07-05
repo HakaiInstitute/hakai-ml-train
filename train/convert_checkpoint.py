@@ -13,7 +13,7 @@ from .config import (
     kelp_sp_efficientnet_b4_config_rgb,
     mussels_pa_efficientnet_b4_config_rgb,
 )
-from .model import SegmentationModel
+from .model import SMPSegmentationModel
 
 DEVICE = torch.device("cpu")
 
@@ -37,7 +37,7 @@ def convert_checkpoint(checkpoint_url: str, config: TrainingConfig):
     )
 
     # Load stripped back model
-    model = SegmentationModel.load_from_checkpoint(ckpt_file, **dict(config))
+    model = SMPSegmentationModel.load_from_checkpoint(ckpt_file, **dict(config))
     # Have to deactivate SWISH for EfficientNet to export to TorchScript
     model.model.encoder.set_swish(False)
 

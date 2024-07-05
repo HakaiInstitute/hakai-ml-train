@@ -18,8 +18,9 @@ dependencies:
   - conda-forge::monai
   - pip
   - pip:
-    - segmentation-models-pytorch
+    - torchseg
     - einops
-    - unified-focal-loss-pytorch
+    - finetuning_scheduler
+#    - unified-focal-loss-pytorch
     - albumentations
     - wandb

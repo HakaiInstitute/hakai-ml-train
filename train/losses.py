@@ -1,6 +1,5 @@
-import torch
-from segmentation_models_pytorch.losses import DiceLoss
-from unified_focal_loss import FocalTverskyLoss
+from torchseg.losses import DiceLoss
+# from unified_focal_loss import FocalTverskyLoss
 from monai.losses import DiceFocalLoss, GeneralizedDiceLoss
 
 # class FocalDiceLoss(DiceLoss):
@@ -14,4 +13,4 @@ from monai.losses import DiceFocalLoss, GeneralizedDiceLoss
 #         return focal_dice_loss
 
 
-__all__ = ["FocalTverskyLoss", "DiceLoss", "DiceFocalLoss", "GeneralizedDiceLoss"]
+__all__ = ["DiceLoss", "DiceFocalLoss", "GeneralizedDiceLoss"]

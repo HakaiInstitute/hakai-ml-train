@@ -1,0 +1,55 @@
+segmentation_model_cls: SMPSegmentationModel
+enable_logging: true
+tags:
+  - mussels
+  - May2024
+
+num_bands: &num_bands 3
+num_classes: &num_classes 1
+tile_size: &tile_size 1024
+batch_size: &batch_size 6
+max_epoch: &max_epoch 20
+
+segmentation_config:
+  architecture: "UnetPlusPlus"
+  backbone: "tf_efficientnetv2_s"
+  freeze_encoder: false
+  opts:
+    encoder_weights: true
+  num_classes: *num_classes
+  lr: 0.003
+  weight_decay: 0.0001
+  num_bands: *num_bands
+  tile_size: *tile_size
+  batch_size: *batch_size
+  max_epochs: *max_epoch
+  warmup_period: 0.1
+  loss:
+    name: "DiceLoss"
+    opts:
+      mode: "binary"
+      from_logits: true
+      smooth: 1.0
+
+data_module:
+  data_dir: "/home/taylor/data/MP-RGB-May2024-1024-1024"
+  tile_size: *tile_size
+  num_classes: *num_classes
+  batch_size: *batch_size
+  fill_value: 0
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+
+trainer:
+  accumulate_grad_batches: 32
+  gradient_clip_val: 0.5
+  max_epochs: *max_epoch
+  precision: "16-mixed"
+
+logging:
+  project: "kom-mussels-rgb"
+  name: "UNetPP-efficientnetv2-s"
+  save_dir: "./checkpoints"
+  log_model: true
+
