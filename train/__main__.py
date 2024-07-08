@@ -91,7 +91,7 @@ def train(config: Config):
     # Load dataset
     data_module = DataModule(
         train_transforms=train_trans,
-        tests_transforms=test_trans,
+        test_transforms=test_trans,
         **config.data_module.dict(),
     )
 

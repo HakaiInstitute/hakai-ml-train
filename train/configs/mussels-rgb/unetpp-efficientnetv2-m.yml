@@ -12,13 +12,10 @@ max_epoch: &max_epoch 20
 
 segmentation_config:
   architecture: "UnetPlusPlus"
-  backbone: "convnextv2_large"
-  freeze_encoder: true
+  backbone: "tf_efficientnetv2_m"
+  freeze_encoder: false
   opts:
     encoder_weights: true
-    encoder_depth: 4
-    decoder_channels: [128, 64, 32, 16]
-    head_upsampling: 2
   num_classes: *num_classes
   lr: 0.003
   weight_decay: 0.0001
@@ -26,7 +23,7 @@ segmentation_config:
   tile_size: *tile_size
   batch_size: *batch_size
   max_epochs: *max_epoch
-  warmup_period: 0.2
+  warmup_period: 0.1
   loss:
     name: "DiceLoss"
     opts:
@@ -52,7 +49,7 @@ trainer:
 
 logging:
   project: "kom-mussels-rgb"
-  name: "UNetPP-convnextv2-large"
+  name: "UNetPP-efficientnetv2-m"
   save_dir: "./checkpoints"
   log_model: true
 

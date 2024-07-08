@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 from typing import List, Optional, Union
 
-import numpy as np
 import lightning.pytorch as pl
+import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import DataLoader
@@ -11,7 +11,7 @@ from torchvision.datasets import VisionDataset
 
 
 class SegmentationDataset(VisionDataset):
-    """Load preprocessed image chips. Used during model train and validation phases."""
+    """Load preprocessed image chips. Used during m odel train and validation phases."""
 
     def __init__(self, root: str, *args, ext: str = "tif", **kwargs):
         super().__init__(root, *args, **kwargs)
@@ -52,7 +52,7 @@ class DataModule(pl.LightningDataModule):
         tile_size: int = 1024,
         seed: int = 42,
         train_transforms=None,
-        tests_transforms=None,
+        test_transforms=None,
         **kwargs,
     ):
         super().__init__()
@@ -65,7 +65,7 @@ class DataModule(pl.LightningDataModule):
         self.tile_size = tile_size
         self.seed = seed
         self.train_trans = train_transforms
-        self.test_trans = tests_transforms
+        self.test_trans = test_transforms
 
         self.train_data_dir = str(Path(data_dir).joinpath("train"))
         self.val_data_dir = str(Path(data_dir).joinpath("val"))

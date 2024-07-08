@@ -12,8 +12,8 @@ max_epoch: &max_epoch 20
 
 segmentation_config:
   architecture: "UnetPlusPlus"
-  backbone: "convnextv2_large"
-  freeze_encoder: true
+  backbone: "convnextv2_tiny"
+  freeze_encoder: false
   opts:
     encoder_weights: true
     encoder_depth: 4
@@ -52,7 +52,7 @@ trainer:
 
 logging:
   project: "kom-mussels-rgb"
-  name: "UNetPP-convnextv2-large"
+  name: "UNetPP-convnextv2-tiny"
   save_dir: "./checkpoints"
   log_model: true
 

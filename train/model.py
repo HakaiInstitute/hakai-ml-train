@@ -36,7 +36,7 @@ class _SegmentationModelBase(
         **kwargs,
     ):
         super().__init__()
-        self.num_classes = num_classes
+        # self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.lr = lr
         self.weight_decay = weight_decay
@@ -45,7 +45,7 @@ class _SegmentationModelBase(
         self.batch_size = batch_size
         self.num_bands = num_bands
         self.tile_size = tile_size
-        self.n = num_classes - int(self.ignore_index is not None)
+        self.n = num_classes #- int(self.ignore_index is not None)
 
         self.loss_fn = losses.__dict__[loss["name"]](**(loss["opts"] or {}))
 
@@ -171,7 +171,7 @@ class SMPSegmentationModel(_SegmentationModelBase):
         for p in self.model.parameters():
             p.requires_grad = True
 
-        self.model = torch.compile(self.model)
+        # self.model = torch.compile(self.model, fullgraph=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
@@ -234,7 +234,7 @@ class DINOv2Segmentation(_SegmentationModelBase):
             nn.ReLU(inplace=True),
             nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(64, self.num_classes, (3, 3), padding=(1, 1)),
+            nn.Conv2d(64, self.n, (3, 3), padding=(1, 1)),
             nn.Upsample(scale_factor=1.75, mode="bilinear", align_corners=False),
         )
         for p in self.head.parameters():

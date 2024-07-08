@@ -1,24 +1,22 @@
 import os.path
+from collections import OrderedDict
 from pathlib import Path
 
 import torch
 import wandb
 
-from .config import (
-    seagrass_pa_efficientnet_b5_config_rgb,
-    kelp_pa_efficientnet_b4_config_rgbi,
-    kelp_sp_efficientnet_b4_config_rgbi,
-    TrainingConfig,
-    kelp_pa_efficientnet_b4_config_rgb,
-    kelp_sp_efficientnet_b4_config_rgb,
-    mussels_pa_efficientnet_b4_config_rgb,
-)
+from .configs.config import load_yml_config, Config
 from .model import SMPSegmentationModel
 
 DEVICE = torch.device("cpu")
 
 
-def convert_checkpoint(checkpoint_url: str, config: TrainingConfig):
+def convert_checkpoint(
+    checkpoint_url: str,
+    config: Config,
+    model_name: str = "UNetPlusPlus_EfficientNetB4",
+    model_task: str = "kelp_presence_rgb",
+):
     # Download .ckpt file from W&B
     api = wandb.Api()
     artifact = api.artifact(checkpoint_url, type="model")
@@ -28,18 +26,30 @@ def convert_checkpoint(checkpoint_url: str, config: TrainingConfig):
 
     # Set output paths
     output_path_jit = (
-        f"../inference/weights/"
-        f"UNetPlusPlus_EfficientNetB4_mussel_presence_rgb_jit_dice={dice:.4f}.pt"
+        f"../inference/weights/{model_name}_{model_task}_jit_dice={dice:.4f}.pt"
     )
     output_path_onnx = (
-        f"../inference/weights/"
-        f"UNetPlusPlus_EfficientNetB4_mussel_presence_rgb_dice={dice:.4f}.onnx"
+        f"../inference/weights/{model_name}_{model_task}_dice={dice:.4f}.onnx"
     )
 
+    # Remove ._orig_mod from state dict
+    ckpt = torch.load(ckpt_file)
+    state_dict = ckpt["state_dict"]
+    state_dict = OrderedDict([(k.replace("._orig_mod", ""), v) for k, v in state_dict.items()])
+    ckpt["state_dict"] = state_dict
+
+    ckpt_file_clean = Path(ckpt_file).with_stem(Path(ckpt_file).stem + "_clean")
+    torch.save(ckpt, ckpt_file_clean)
+
     # Load stripped back model
-    model = SMPSegmentationModel.load_from_checkpoint(ckpt_file, **dict(config))
+    model = SMPSegmentationModel.load_from_checkpoint(
+        ckpt_file_clean, **config.segmentation_config.dict()
+    )
+
+
+
     # Have to deactivate SWISH for EfficientNet to export to TorchScript
-    model.model.encoder.set_swish(False)
+    # model.model.encoder.set_swish(False)
 
     # Export as JIT
     x = torch.rand(
@@ -65,35 +75,12 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(("checkpoint_url"), type=str)
-    parser.add_argument("model_type", type=str, choices=["kelp", "seagrass", "mussels"])
-    parser.add_argument("objective", type=str, choices=["pa", "sp"])
-    parser.add_argument("--bands", type=int, default=3)
+    parser.add_argument("checkpoint_url", type=str)
+    parser.add_argument("config", type=Path)
+    parser.add_argument("--model_name", type=str, default="UNetPlusPlus_EfficientNetB4")
+    parser.add_argument("--task", type=str, default="kelp_presence_rgb")
     args = parser.parse_args()
 
-    train_config = None
-    if args.model_type == "kelp":
-        if args.objective == "pa":
-            if args.bands == 3:
-                train_config = kelp_pa_efficientnet_b4_config_rgb
-            elif args.bands == 4:
-                train_config = kelp_pa_efficientnet_b4_config_rgbi
+    config = load_yml_config(args.config)
 
-        elif args.objective == "sp":
-            if args.bands == 3:
-                train_config = kelp_sp_efficientnet_b4_config_rgb
-            elif args.bands == 4:
-                train_config = kelp_sp_efficientnet_b4_config_rgbi
-
-    elif args.model_type == "seagrass":
-        if args.bands == 3 and args.objective == "pa":
-            train_config = seagrass_pa_efficientnet_b5_config_rgb
-
-    elif args.model_type == "mussels":
-        if args.bands == 3 and args.objective == "pa":
-            train_config = mussels_pa_efficientnet_b4_config_rgb
-
-    if train_config is None:
-        raise ValueError("Invalid model_type or band_type")
-
-    convert_checkpoint(args.checkpoint_url, train_config)
+    convert_checkpoint(args.checkpoint_url, config, args.model_name, args.task)
