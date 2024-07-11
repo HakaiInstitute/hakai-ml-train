@@ -46,54 +46,53 @@ def get_train_transforms(
     return A.Compose(
         [
             *extra_transforms,
-            A.PadIfNeeded(tile_size, tile_size, border_mode=0, value=0, p=1.0),
+            A.PadIfNeeded(
+                tile_size, tile_size, border_mode=cv2.BORDER_REFLECT_101, p=1.0
+            ),
             A.RandomCrop(tile_size, tile_size, p=1.0),
             A.D4(p=1.0),
-            A.Downscale(
-                p=0.1,
-                scale_min=0.5,
-                scale_max=0.9,
-                interpolation_pair={
-                    "upscale": cv2.INTER_LINEAR,
-                    "downscale": cv2.INTER_NEAREST,
-                },
-            ),
-
-            # Colour transforms
             A.OneOf(
                 [
-                    A.ColorJitter(
-                        p=1,
-                        brightness=(0.7, 1.3),
-                        contrast=(0.7, 1.3),
-                        saturation=(0.7, 1.3),
-                        hue=(-0.3, 0.3),
+                    A.RandomBrightnessContrast(
+                        brightness_limit=0.1, contrast_limit=0.1, p=1
                     ),
-                    A.RandomGamma(p=1, gamma_limit=(70, 130)),
-                    A.CLAHE(p=1),
-                ],
-                p=0.8,
-            ),
-
-            # distortion
-            A.OneOf(
-                [
-                    A.ElasticTransform(p=1),
-                    A.OpticalDistortion(p=1),
-                    A.Perspective(p=1),
-                ],
-                p=0.8,
-            ),
-            # noise transforms
-            A.OneOf(
-                [
-                    A.GaussNoise(p=1),
-                    A.MultiplicativeNoise(p=1),
-                    A.Sharpen(p=1),
-                    A.GaussianBlur(p=0.7),
-
+                    A.HueSaturationValue(
+                        hue_shift_limit=10, sat_shift_limit=15, val_shift_limit=10, p=1
+                    ),
                 ],
                 p=0.5,
+            ),
+            A.OneOf(
+                [
+                    A.GaussNoise(var_limit=(5.0, 30.0), p=1),
+                    A.ISONoise(color_shift=(0.01, 0.05), intensity=(0.1, 0.3), p=1),
+                ],
+                p=0.3,
+            ),
+            A.OneOf(
+                [
+                    A.MotionBlur(blur_limit=3, p=1),
+                    A.MedianBlur(blur_limit=3, p=1),
+                    A.GaussianBlur(blur_limit=3, p=1),
+                ],
+                p=0.3,
+            ),
+            A.OneOf(
+                [
+                    A.CoarseDropout(
+                        max_holes=4, max_height=16, max_width=16, fill_value=0, p=1
+                    ),
+                    A.GridDistortion(num_steps=3, distort_limit=0.2, p=1),
+                ],
+                p=0.3,
+            ),
+            A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=0.3),
+            # Drone mosaic-specific augmentations
+            A.ColorJitter(
+                brightness=0.05, contrast=0.05, saturation=0.05, hue=0.05, p=0.3
+            ),
+            A.ShiftScaleRotate(
+                shift_limit=0.0625, scale_limit=0.1, rotate_limit=5, p=0.3
             ),
             A.Normalize(mean=mean, std=std, max_pixel_value=255.0, p=1.0),
             ToTensorV2(),
