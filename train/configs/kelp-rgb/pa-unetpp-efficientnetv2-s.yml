@@ -12,13 +12,13 @@ max_epoch: &max_epoch 20
 
 segmentation_config:
   architecture: "UnetPlusPlus"
-  backbone: "tf_efficientnetv2_m"
+  backbone: "tf_efficientnetv2_s"
   freeze_encoder: false
   opts:
     encoder_weights: true
   num_classes: *num_classes
   ignore_index: 2
-  lr: 0.003
+  lr: 0.0003
   weight_decay: 0.0001
   num_bands: *num_bands
   tile_size: *tile_size
@@ -50,7 +50,7 @@ trainer:
 
 logging:
   project: "kom-kelp-pa-rgb"
-  name: "UNetPP-efficientnetv2-m"
+  name: "UNetPP-efficientnetv2-s"
   save_dir: "./checkpoints"
   log_model: true
 

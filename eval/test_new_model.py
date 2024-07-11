@@ -1,16 +1,16 @@
+from pathlib import Path
+
 import torch
 import torchmetrics.classification as fm
 import wandb
 from einops import rearrange
-from kelp_o_matic.models import KelpRGBPresenceSegmentationModel
 from tqdm.auto import tqdm
 
+from train.configs.config import load_yml_config
 from train.datamodule import DataModule
+from train.model import SMPSegmentationModel
 # from train.losses import DiceLoss
 from train.transforms import get_train_transforms, get_test_transforms
-from train.model import SMPSegmentationModel
-from train.configs.config import Config, load_yml_config
-
 
 DEVICE = torch.device("cuda")
 BATCH_SIZE = 6
@@ -18,17 +18,23 @@ TILE_SIZE = 1024
 IGNORE_INDEX = 2
 
 
-def main():
-    config = load_yml_config("/home/taylor/PycharmProjects/hakai-ml-train/train/configs/kelp-rgb/unetpp-efficientnetv2-m.yml")
-    model = SMPSegmentationModel(**config.segmentation_config.dict())
-    state_dict = torch.load("/home/taylor/PycharmProjects/hakai-ml-train/eval/model-s3ocbcu8.ckpt")["state_dict"]
-    model.load_state_dict(state_dict)
+def main(
+    run_id: str = "p7tfmx4t",
+    config_file: str = "/home/taylor/PycharmProjects/hakai-ml-train/train/configs/kelp-rgb/pa-unetpp-efficientnetv2-s.yml",
+):
+    # Setup WandB logging
+    run = wandb.init(project="kom-kelp-pa-rgb", id=run_id, resume="must")
 
-    # model = SMPSegmentationModel.load_from_checkpoint("/home/taylor/PycharmProjects/hakai-ml-train/eval/model-s3ocbcu8.ckpt")
+    # Download and load model
+    artifact = run.use_artifact(f"hakai/kom-kelp-pa-rgb/model-{run_id}:best")
+    checkpoint_path = artifact.get_path("model.ckpt").download()
+    state_dict = torch.load(checkpoint_path)["state_dict"]
+
+    config = load_yml_config(Path(config_file))
+    model = SMPSegmentationModel(**config.segmentation_config.dict())
+    model.load_state_dict(state_dict)
     model = model.model.eval().to(DEVICE)
     model.requires_grad_(False)
-    # print(model)
-    # exit(0)
 
     data_module = DataModule(
         data_dir="/home/taylor/data/KP-RGB-Jan2024/",
@@ -43,13 +49,6 @@ def main():
     train_dataloader = data_module.train_dataloader()
     val_dataloader = data_module.val_dataloader()
     test_dataloader = data_module.test_dataloader()
-
-    # Setup WandB logging
-    run = wandb.init(
-        project="kom-kelp-pa-rgb",
-        id="s3ocbcu8",
-        resume="must"
-    )
 
     # Setup metrics
     # loss_fn = DiceLoss(mode="binary", from_logits=True, smooth=1.0)
@@ -92,7 +91,7 @@ def main():
                     f"{phase}/precision": precision(probs, y),
                     f"{phase}/f1": f1_score(probs, y),
                     f"{phase}/dice": dice(probs, y),
-                    "epoch": 19
+                    "epoch": 19,
                 },
             )
 
@@ -105,7 +104,7 @@ def main():
                 f"{phase}/precision_epoch": precision.compute(),
                 f"{phase}/f1_epoch": f1_score.compute(),
                 f"{phase}/dice_epoch": dice.compute(),
-                "epoch": 19
+                "epoch": 19,
             },
         )
 

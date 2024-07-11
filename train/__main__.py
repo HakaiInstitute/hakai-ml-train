@@ -7,7 +7,6 @@ import albumentations as A
 import lightning.pytorch as pl
 import torch
 import wandb
-from finetuning_scheduler import FinetuningScheduler, FTSEarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 from wandb import AlertLevel
 
@@ -48,15 +47,6 @@ def train(config: Config):
         logger=logger,
         callbacks=[
             checkpoint_callback,
-            # pl.callbacks.ModelPruning("l1_unstructured", amount=compute_amount),
-            # FTSEarlyStopping(monitor=config.checkpoint.monitor, patience=3),
-            # FinetuningScheduler(
-            #     # gen_ft_sched_only=True,
-            #     ft_schedule="./train/configs/ft_schedule.yml",
-            #     allow_untested=True,
-            #     base_max_lr=config.segmentation_config.lr,
-            #     epoch_transitions_only=True
-            # ),
             pl.callbacks.LearningRateMonitor(),
         ],
         **config.trainer.dict(),

@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Any
+from typing import Optional, Any, Dict, List
 
 import lightning.pytorch as pl
 import torch
@@ -8,6 +8,7 @@ import torchseg
 from einops import rearrange
 from huggingface_hub import PyTorchModelHubMixin
 from torch import nn
+from torchvision.transforms import v2
 
 from . import losses
 
@@ -45,7 +46,7 @@ class _SegmentationModelBase(
         self.batch_size = batch_size
         self.num_bands = num_bands
         self.tile_size = tile_size
-        self.n = num_classes #- int(self.ignore_index is not None)
+        self.n = num_classes  # - int(self.ignore_index is not None)
 
         self.loss_fn = losses.__dict__[loss["name"]](**(loss["opts"] or {}))
 
@@ -161,8 +162,9 @@ class SMPSegmentationModel(_SegmentationModelBase):
         if opts is None:
             opts = {}
 
-        self.model = torchseg.__dict__[architecture](
-            backbone,
+        self.model = torchseg.create_model(
+            arch=architecture,
+            encoder_name=backbone,
             in_channels=self.num_bands,
             classes=self.n,
             **opts,
