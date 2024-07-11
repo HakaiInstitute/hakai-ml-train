@@ -16,6 +16,16 @@ IGNORE_INDEX = 2
 
 
 def main():
+    # Setup WandB logging
+    run = wandb.init(
+        project="kom-kelp-pa-rgb",
+        name="KOM-LRASPP_MobileNetV3 ",
+        notes="KOM production RGB model. LRASPP_MobileNetV3",
+        tags=["kp-rgb", "Jan2024"],
+        id="79scp2y7",
+        resume="allow"
+    )
+
     model = KelpRGBPresenceSegmentationModel()
 
     data_module = DataModule(
@@ -32,14 +42,6 @@ def main():
     val_dataloader = data_module.val_dataloader()
     test_dataloader = data_module.test_dataloader()
 
-    # Setup WandB logging
-    run = wandb.init(
-        project="kom-kelp-pa-rgb",
-        name="KOM-LRASPP_MobileNetV3 ",
-        notes="KOM production RGB model. LRASPP_MobileNetV3",
-        tags=["kp-rgb", "Jan2024"],
-    )
-
     # Setup metrics
     # loss_fn = DiceLoss(mode="binary", from_logits=True, smooth=1.0)
     accuracy = fm.BinaryAccuracy().to(DEVICE)
@@ -49,7 +51,7 @@ def main():
     f1_score = fm.BinaryF1Score().to(DEVICE)
     dice = fm.Dice().to(DEVICE)
 
-    for phase, dataloader in [("test", test_dataloader), ("val", val_dataloader), ("train", train_dataloader)]:
+    for phase, dataloader in [("test", test_dataloader), ("val", val_dataloader)]:
         # Test loop
         for batch_idx, batch in enumerate(tqdm(dataloader, desc=phase)):
             x, y = batch

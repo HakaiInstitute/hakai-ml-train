@@ -19,8 +19,8 @@ IGNORE_INDEX = 2
 
 
 def main(
-    run_id: str = "p7tfmx4t",
-    config_file: str = "/home/taylor/PycharmProjects/hakai-ml-train/train/configs/kelp-rgb/pa-unetpp-efficientnetv2-s.yml",
+    run_id: str = "at5rzw2x",
+    config_file: str = "/home/taylor/PycharmProjects/hakai-ml-train/train/configs/kelp-rgb/pa-unetpp-vit-base-patch14-reg4-dinov2.yml",
 ):
     # Setup WandB logging
     run = wandb.init(project="kom-kelp-pa-rgb", id=run_id, resume="must")
@@ -38,11 +38,11 @@ def main(
 
     data_module = DataModule(
         data_dir="/home/taylor/data/KP-RGB-Jan2024/",
-        tile_size=TILE_SIZE,
+        tile_size=config.tile_size,
         num_classes=1,
         batch_size=BATCH_SIZE,
-        train_transforms=get_train_transforms(tile_size=TILE_SIZE),
-        test_transforms=get_test_transforms(tile_size=TILE_SIZE),
+        train_transforms=get_train_transforms(tile_size=config.tile_size),
+        test_transforms=get_test_transforms(tile_size=config.tile_size),
     )
     data_module.setup()
 

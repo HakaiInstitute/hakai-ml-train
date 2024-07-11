@@ -28,7 +28,7 @@ def get_test_transforms(
     return A.Compose(
         [
             *extra_transforms,
-            A.PadIfNeeded(tile_size, tile_size, border_mode=0, value=0, p=1.0),
+            A.PadIfNeeded(tile_size, tile_size, border_mode=cv2.BORDER_REFLECT_101, p=1.0),
             A.RandomCrop(tile_size, tile_size, p=1.0),
             A.Normalize(mean=mean, std=std, max_pixel_value=255.0, p=1.0),
             ToTensorV2(),
