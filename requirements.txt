@@ -1,8 +1,0 @@
-lightning-bolts
-pytorch-lightning
-s3fs
-segmentation-models-pytorch
-tensorboard
-torchmetrics
-tqdm
-protobuf<4.21.0
