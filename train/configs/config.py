@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Extra
@@ -31,6 +31,7 @@ class ModelConfig(_BaseConfig):
     freeze_encoder: bool = False
     ignore_index: int | None = None
     opts: dict[str, Any] = None
+    task: Literal["binary", "multiclass"] = "binary"
 
 
 class DataModuleConfig(_BaseConfig):
@@ -76,7 +77,7 @@ class CheckpointConfig(_BaseConfig):
 class Config(_BaseConfig):
     segmentation_model_cls: str
     enable_logging: bool
-    tags: list[str] |  None = None
+    tags: list[str] | None = None
     extra_transforms: list[str] | None = None
 
     num_bands: int = 3

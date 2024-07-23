@@ -71,9 +71,9 @@ def get_train_transforms(
             ),
             A.OneOf(
                 [
-                    A.MotionBlur(blur_limit=3, p=1),
-                    A.MedianBlur(blur_limit=3, p=1),
-                    A.GaussianBlur(blur_limit=3, p=1),
+                    A.MotionBlur(p=1),
+                    A.MedianBlur(p=1),
+                    A.GaussianBlur(p=1),
                 ],
                 p=0.3,
             ),

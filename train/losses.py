@@ -1,6 +1,6 @@
-from torchseg.losses import DiceLoss
 # from unified_focal_loss import FocalTverskyLoss
-from monai.losses import DiceFocalLoss, GeneralizedDiceLoss
+# from monai.losses import DiceFocalLoss, GeneralizedDiceLoss
+from torchseg.losses import DiceLoss, LovaszLoss, FocalLoss, TverskyLoss, JaccardLoss
 
 # class FocalDiceLoss(DiceLoss):
 #     def __init__(self, *args, gamma: float = 2, **kwargs):
@@ -13,4 +13,12 @@ from monai.losses import DiceFocalLoss, GeneralizedDiceLoss
 #         return focal_dice_loss
 
 
-__all__ = ["DiceLoss", "DiceFocalLoss", "GeneralizedDiceLoss"]
+__all__ = [
+    "DiceLoss",
+    "LovaszLoss",
+    "FocalLoss",
+    "TverskyLoss",
+    "JaccardLoss",
+    # "DiceFocalLoss",
+    # "GeneralizedDiceLoss",
+]

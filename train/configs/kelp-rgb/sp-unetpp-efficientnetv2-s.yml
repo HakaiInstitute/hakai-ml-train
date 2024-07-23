@@ -1,18 +1,18 @@
 segmentation_model_cls: SMPSegmentationModel
 enable_logging: true
 tags:
-  - kp-rgb
+  - ks-rgb
   - Jan2024
 
 num_bands: &num_bands 3
-num_classes: &num_classes 1
+num_classes: &num_classes 2
 tile_size: &tile_size 1024
 batch_size: &batch_size 6
 max_epoch: &max_epoch 20
 
 segmentation_config:
   architecture: "UnetPlusPlus"
-  backbone: "tf_efficientnetv2_m"
+  backbone: "tf_efficientnetv2_s"
   freeze_encoder: false
   opts:
     encoder_weights: true
@@ -24,15 +24,16 @@ segmentation_config:
   tile_size: *tile_size
   batch_size: *batch_size
   max_epochs: *max_epoch
+  task: "multiclass"
   warmup_period: 0.1
   loss:
     name: "LovaszLoss"
     opts:
-      mode: "binary"
+      mode: "multiclass"
       from_logits: true
 
 data_module:
-  data_dir: "/home/taylor/data/KP-RGB-Jan2024/"
+  data_dir: "/home/taylor/data/KS-RGB-Jan2024/"
   tile_size: *tile_size
   num_classes: *num_classes
   batch_size: *batch_size
@@ -49,8 +50,8 @@ trainer:
   deterministic: false
 
 logging:
-  project: "kom-kelp-pa-rgb"
-  name: "UNetPP-efficientnetv2-m"
+  project: "kom-kelp-sp-rgb"
+  name: "UNetPP-efficientnetv2-s"
   save_dir: "./checkpoints"
   log_model: true
 

@@ -10,23 +10,23 @@ from train.configs.config import load_yml_config
 from train.datamodule import DataModule
 from train.model import SMPSegmentationModel
 # from train.losses import DiceLoss
-from train.transforms import get_train_transforms, get_test_transforms
+from train.transforms import get_train_transforms, get_test_transforms, extra_transforms
 
 DEVICE = torch.device("cuda")
 BATCH_SIZE = 6
 TILE_SIZE = 1024
 IGNORE_INDEX = 2
-
+NUM_CLASSES = 2
 
 def main(
-    run_id: str = "at5rzw2x",
-    config_file: str = "/home/taylor/PycharmProjects/hakai-ml-train/train/configs/kelp-rgb/pa-unetpp-vit-base-patch14-reg4-dinov2.yml",
+    run_id: str = "8a1r0k6h",
+    config_file: str = "/home/taylor/PycharmProjects/hakai-ml-train/train/configs/kelp-rgb/pa-unetpp-efficientnetv2-m.yml",
 ):
     # Setup WandB logging
-    run = wandb.init(project="kom-kelp-pa-rgb", id=run_id, resume="must")
+    run = wandb.init(project="kom-kelp-sp-rgb", id=run_id, resume="must")
 
     # Download and load model
-    artifact = run.use_artifact(f"hakai/kom-kelp-pa-rgb/model-{run_id}:best")
+    artifact = run.use_artifact(f"hakai/kom-kelp-sp-rgb/model-{run_id}:best")
     checkpoint_path = artifact.get_path("model.ckpt").download()
     state_dict = torch.load(checkpoint_path)["state_dict"]
 
@@ -37,12 +37,16 @@ def main(
     model.requires_grad_(False)
 
     data_module = DataModule(
-        data_dir="/home/taylor/data/KP-RGB-Jan2024/",
+        data_dir="/home/taylor/data/KS-RGB-Jan2024/",
         tile_size=config.tile_size,
-        num_classes=1,
+        num_classes=NUM_CLASSES,
         batch_size=BATCH_SIZE,
-        train_transforms=get_train_transforms(tile_size=config.tile_size),
-        test_transforms=get_test_transforms(tile_size=config.tile_size),
+        train_transforms=get_train_transforms(
+            tile_size=TILE_SIZE,
+        ),
+        test_transforms=get_test_transforms(
+            tile_size=TILE_SIZE,
+        ),
     )
     data_module.setup()
 
@@ -52,12 +56,12 @@ def main(
 
     # Setup metrics
     # loss_fn = DiceLoss(mode="binary", from_logits=True, smooth=1.0)
-    accuracy = fm.BinaryAccuracy().to(DEVICE)
-    jaccard_index = fm.BinaryJaccardIndex().to(DEVICE)
-    recall = fm.BinaryRecall().to(DEVICE)
-    precision = fm.BinaryPrecision().to(DEVICE)
-    f1_score = fm.BinaryF1Score().to(DEVICE)
-    dice = fm.Dice().to(DEVICE)
+    accuracy = fm.Accuracy(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
+    jaccard_index = fm.JaccardIndex(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
+    recall = fm.Recall(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
+    precision = fm.Precision(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
+    f1_score = fm.F1Score(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
+    dice = fm.Dice(num_classes=NUM_CLASSES, multiclass=True).to(DEVICE)
 
     for phase, dataloader in [("test", test_dataloader)]:
         # Test loop
@@ -75,11 +79,11 @@ def main(
             logits, y = logits[mask], y[mask]
 
             if len(y) == 0:
-                print("0 length y!")
-                return 0
+                # print("0 length y!")
+                continue
 
-            # loss = loss_fn(logits, y.long().unsqueeze(1))
-            probs = torch.sigmoid(logits).squeeze(1)
+            probs = torch.softmax(logits, dim=1)
+            # probs = torch.sigmoid(logits).squeeze(1)
 
             # Log metrics
             wandb.log(

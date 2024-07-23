@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any, Literal
 
 import lightning.pytorch as pl
 import torch
@@ -8,7 +8,6 @@ import torchseg
 from einops import rearrange
 from huggingface_hub import PyTorchModelHubMixin
 from torch import nn
-from torchvision.transforms import v2
 
 from . import losses
 
@@ -34,6 +33,7 @@ class _SegmentationModelBase(
         num_bands: int = 3,
         tile_size: int = 1024,
         loss: dict[str, Any] = None,
+        task: Literal["binary", "multiclass"] = "binary",
         **kwargs,
     ):
         super().__init__()
@@ -48,15 +48,24 @@ class _SegmentationModelBase(
         self.tile_size = tile_size
         self.n = num_classes  # - int(self.ignore_index is not None)
 
+        if task == "binary":
+            self.activation_fn = lambda x: torch.sigmoid(x).squeeze(1)
+        elif task == "multiclass":
+            self.activation_fn = lambda x: torch.softmax(x, dim=1).squeeze(1)
+        else:
+            raise ValueError(
+                "task not supported. Must be 'binary' or 'multiclass'"
+            )
+
         self.loss_fn = losses.__dict__[loss["name"]](**(loss["opts"] or {}))
 
         # metrics
-        self.accuracy = fm.BinaryAccuracy()
-        self.jaccard_index = fm.BinaryJaccardIndex()
-        self.recall = fm.BinaryRecall()
-        self.precision = fm.BinaryPrecision()
-        self.f1_score = fm.BinaryF1Score()
-        self.dice = fm.Dice()
+        self.accuracy = fm.Accuracy(task=task, num_classes=self.n)
+        self.jaccard_index = fm.JaccardIndex(task=task, num_classes=self.n)
+        self.recall = fm.Recall(task=task, num_classes=self.n)
+        self.precision = fm.Precision(task=task, num_classes=self.n)
+        self.f1_score = fm.F1Score(task=task, num_classes=self.n)
+        self.dice = fm.Dice(num_classes=self.n)
 
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -102,7 +111,7 @@ class _SegmentationModelBase(
         loss = self.loss_fn(logits, y.long().unsqueeze(1))
         self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"))
 
-        probs = torch.sigmoid(logits).squeeze(1)
+        probs = self.activation_fn(logits)
         self.log_dict(
             {
                 f"{phase}/accuracy": self.accuracy(probs, y),
