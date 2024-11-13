@@ -53,9 +53,7 @@ class _SegmentationModelBase(
         elif task == "multiclass":
             self.activation_fn = lambda x: torch.softmax(x, dim=1).squeeze(1)
         else:
-            raise ValueError(
-                "task not supported. Must be 'binary' or 'multiclass'"
-            )
+            raise ValueError("task not supported. Must be 'binary' or 'multiclass'")
 
         self.loss_fn = losses.__dict__[loss["name"]](**(loss["opts"] or {}))
 

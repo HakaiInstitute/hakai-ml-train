@@ -3,7 +3,6 @@
 
 from pathlib import Path
 
-import albumentations as A
 import lightning.pytorch as pl
 import torch
 import wandb
@@ -13,7 +12,6 @@ from wandb import AlertLevel
 from . import model as models
 from .configs.config import Config, load_yml_config
 from .datamodule import DataModule
-from .transforms import get_test_transforms, get_train_transforms, extra_transforms
 
 
 def train(config: Config):
@@ -58,30 +56,10 @@ def train(config: Config):
         # fast_dev_run=True,
     )
 
-    # Load data augmentation
-    extra_trans = []
-    if config.extra_transforms is not None:
-        for k in config.extra_transforms:
-            extra_trans.append(extra_transforms[k])
-
-    train_trans = get_train_transforms(config.data_module.tile_size, extra_trans)
-    test_trans = get_test_transforms(config.data_module.tile_size, extra_trans)
-
-    # Save to WandB
-    if config.enable_logging:
-        A.save(train_trans, "./train_transforms.json")
-        A.save(test_trans, "./test_transforms.json")
-
-        artifact = wandb.Artifact(name=f"{wandb.run.id}-transforms", type="config")
-        artifact.add_file("./train_transforms.json")
-        artifact.add_file("./test_transforms.json")
-
-        wandb.run.log_artifact(artifact)
-
     # Load dataset
     data_module = DataModule(
-        train_transforms=train_trans,
-        test_transforms=test_trans,
+        train_transforms=config.train_transforms,
+        test_transforms=config.test_transforms,
         **config.data_module.dict(),
     )
 
@@ -94,13 +72,7 @@ def train(config: Config):
 
     # Train
     if config.enable_logging:
-        wandb.run.config.update(config.dict())
-        wandb.run.config.update(
-            {
-                "train_transforms": train_trans.to_dict(),
-                "test_transforms": test_trans.to_dict(),
-            }
-        )
+        wandb.run.config.update(config.model_dump(warnings="none"))
         wandb.run.tags += tuple(config.tags)
 
     try:

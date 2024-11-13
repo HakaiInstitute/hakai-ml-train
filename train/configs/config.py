@@ -2,13 +2,21 @@ import os
 from pathlib import Path
 from typing import Any, Literal
 
+import albumentations as A
 import yaml
-from pydantic import BaseModel, Extra
+from albumentations.core.serialization import Serializable
+from pydantic import BaseModel, GetCoreSchemaHandler
+from pydantic import (
+    GetJsonSchemaHandler,
+)
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import core_schema
+from typing_extensions import Annotated
 
 
 class _BaseConfig(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = "forbid"
 
 
 class LossConfig(_BaseConfig):
@@ -74,11 +82,49 @@ class CheckpointConfig(_BaseConfig):
     verbose: bool = False
 
 
+class AlbumentationsAnnotation:
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: GetCoreSchemaHandler,
+    ) -> core_schema.CoreSchema:
+        """
+        We return a pydantic_core.CoreSchema that behaves in the following ways:
+
+        * dicts will be parsed as `A.Compose` instances with the dict as the definition
+        * `ComposeType` instances will be parsed as `ComposeType` instances without any changes
+        * Nothing else will pass validation
+        * Serialization will always return a dict
+        """
+
+        def validate(value: Any) -> Serializable:
+            if isinstance(value, Serializable):
+                return value
+            if isinstance(value, dict):
+                return A.from_dict(value)
+            raise ValueError(
+                "Value must be a Albumentations Serializable Transform instance or a dict that can be read with `A.from_dict`)"
+            )
+
+        return core_schema.json_or_python_schema(
+            json_schema=core_schema.dict_schema(),
+            python_schema=core_schema.no_info_plain_validator_function(validate),
+            serialization=core_schema.plain_serializer_function_ser_schema(A.to_dict),
+        )
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, _core_schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        # Use the same schema that would be used for `int`
+        return handler(core_schema.dict_schema())
+
+
 class Config(_BaseConfig):
     segmentation_model_cls: str
     enable_logging: bool
     tags: list[str] | None = None
-    extra_transforms: list[str] | None = None
 
     num_bands: int = 3
     num_classes: int = 1
@@ -91,17 +137,21 @@ class Config(_BaseConfig):
     trainer: TrainerConfig
     logging: LoggingConfig
     checkpoint: CheckpointConfig = CheckpointConfig()
+    train_transforms: Annotated[A.Compose, AlbumentationsAnnotation]
+    test_transforms: Annotated[A.Compose, AlbumentationsAnnotation]
 
 
-def _load_yml(path: Path):
+def _load_yml(path: Path | str):
     with open(path) as f:
         return yaml.safe_load(f)
 
 
-def load_yml_config(path: Path):
+def load_yml_config(path: Path | str):
     return Config(**_load_yml(path))
 
 
 if __name__ == "__main__":
-    y = _load_yml("./mussels-rgb/pa-dinov2-s.yml")
-    print(Config.validate(y))
+    y = _load_yml("./kelp-rgbi/pa-unetpp-efficientnetv2-s.yml")
+    config = Config.model_validate(y)
+
+    print(config.model_dump(warnings="none"))
