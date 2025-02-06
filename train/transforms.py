@@ -66,7 +66,7 @@ def get_train_transforms(
             ),
             A.OneOf(
                 [
-                    A.GaussNoise(std_range=(0.2,0.44), p=1),
+                    A.GaussNoise(std_range=(0.2, 0.44), p=1),
                     A.ISONoise(color_shift=(0.01, 0.05), intensity=(0.1, 0.3), p=1),
                 ],
                 p=0.3,
@@ -82,7 +82,11 @@ def get_train_transforms(
             A.OneOf(
                 [
                     A.CoarseDropout(
-                        num_holes_range=(1, 4), hole_height_range=(8, 16), hole_width_range=(8, 16), fill=0, p=1
+                        num_holes_range=(1, 4),
+                        hole_height_range=(8, 16),
+                        hole_width_range=(8, 16),
+                        fill=0,
+                        p=1,
                     ),
                     A.GridDistortion(num_steps=3, distort_limit=0.2, p=1),
                 ],
@@ -94,7 +98,12 @@ def get_train_transforms(
                 brightness=0.05, contrast=0.05, saturation=0.05, hue=0.05, p=0.3
             ),
             A.Affine(
-                scale=(0.9, 1.1), keep_ratio=True, translate_percent=0.0625, rotate=5, fill=0, p=0.3
+                scale=(0.9, 1.1),
+                keep_ratio=True,
+                translate_percent=0.0625,
+                rotate=5,
+                fill=0,
+                p=0.3,
             ),
             A.Normalize(mean=mean, std=std, max_pixel_value=255.0, p=1.0),
             ToTensorV2(),

@@ -25,7 +25,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "notebook>=7.3.2",
     "pre-commit>=4.1.0",
+    "ruff>=0.9.5",
 ]
 
 [tool.ruff.lint]
