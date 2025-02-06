@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding: utf-8
 
 from pathlib import Path
 
@@ -13,7 +12,7 @@ from wandb import AlertLevel
 from . import model as models
 from .configs.config import Config, load_yml_config
 from .datamodule import DataModule
-from .transforms import get_test_transforms, get_train_transforms, extra_transforms
+from .transforms import extra_transforms, get_test_transforms, get_train_transforms
 
 
 def train(config: Config):

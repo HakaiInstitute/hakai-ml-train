@@ -1,7 +1,7 @@
-import numpy as np
-import torch
 from abc import ABCMeta, abstractmethod
 
+import numpy as np
+import torch
 
 # Implementation of paper:
 # https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0229839#pone.0229839.ref007
@@ -9,9 +9,14 @@ from abc import ABCMeta, abstractmethod
 
 class Kernel(torch.nn.Module, metaclass=ABCMeta):
     def __init__(
-        self, size: int = 512, device: torch.device.type = torch.device("cpu")
+        self,
+        size: int = 512,
+        device: torch.device.type = None,
     ):
         super().__init__()
+        if device is None:
+            device = torch.device("cpu")
+
         self.size = size
         self.wi = self._init_wi(size, device)
         self.wj = self.wi.clone()

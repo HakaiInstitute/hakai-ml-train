@@ -3,16 +3,15 @@
 exclude: ^.*\.lock$
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.0.265
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.4
     hooks:
       - id: ruff
+        types_or: [ python, pyi ]
         args: [ --fix ]
-  - repo: https://github.com/psf/black
-    rev: 23.3.0
-    hooks:
-      - id: black
+      - id: ruff-format
+        types_or: [ python, pyi ]

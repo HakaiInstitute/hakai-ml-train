@@ -1,15 +1,13 @@
 #!/usr/bin/env python
-# coding: utf-8
 import argparse
 import math
 from pathlib import Path
 
 import rasterio
 import torch
+from kernels import BartlettHanningKernel, Kernel
 from rasterio.windows import Window
 from tqdm import tqdm
-
-from kernels import Kernel, BartlettHanningKernel
 
 CLIP_SIZE = 1024
 NUM_CLASSES = 2
@@ -20,7 +18,7 @@ MODEL_WEIGHTS = (
 
 
 # Classification v1.1
-class TorchMemoryRegister(object):
+class TorchMemoryRegister:
     def __init__(
         self,
         image_path: str,
@@ -71,9 +69,9 @@ class TorchMemoryRegister(object):
         logits_bd = logits_abcd[:, :, self.hws :]
 
         # write c0
-        self.register[
-            :, :, img_window.col_off : img_window.col_off + self.hws
-        ] = logits_c0
+        self.register[:, :, img_window.col_off : img_window.col_off + self.hws] = (
+            logits_c0
+        )
 
         # write bd
         col_off_bd = img_window.col_off + self.hws
@@ -92,7 +90,7 @@ class TorchMemoryRegister(object):
         return preds, preds_win
 
 
-class HanningWindowSegmentation(object):
+class HanningWindowSegmentation:
     def __init__(
         self,
         model: torch.nn.Module,

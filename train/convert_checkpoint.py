@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 import wandb
 
-from .configs.config import load_yml_config, Config
+from .configs.config import Config, load_yml_config
 from .model import SMPSegmentationModel
 
 DEVICE = torch.device("cpu")
@@ -35,7 +35,9 @@ def convert_checkpoint(
     # Remove ._orig_mod from state dict
     ckpt = torch.load(ckpt_file)
     state_dict = ckpt["state_dict"]
-    state_dict = OrderedDict([(k.replace("._orig_mod", ""), v) for k, v in state_dict.items()])
+    state_dict = OrderedDict(
+        [(k.replace("._orig_mod", ""), v) for k, v in state_dict.items()]
+    )
     ckpt["state_dict"] = state_dict
 
     ckpt_file_clean = Path(ckpt_file).with_stem(Path(ckpt_file).stem + "_clean")
@@ -45,8 +47,6 @@ def convert_checkpoint(
     model = SMPSegmentationModel.load_from_checkpoint(
         ckpt_file_clean, **config.segmentation_config.dict()
     )
-
-
 
     # Have to deactivate SWISH for EfficientNet to export to TorchScript
     # model.model.encoder.set_swish(False)

@@ -1,6 +1,7 @@
 import os
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Optional, Callable, Any, Iterable
+from typing import Any
 
 import albumentations as A
 import numpy as np
@@ -17,7 +18,7 @@ class TrainingConfig(BaseModel):
     backbone: str
     options_model: dict[str, Any] = None
     num_classes: int
-    ignore_index: Optional[int] = None
+    ignore_index: int | None = None
 
     # Loss config
     loss_name: str
@@ -81,7 +82,7 @@ class KelpSpeciesEfficientNetB4Config(TrainingConfig):
     backbone: str = "efficientnet-b4"
     name: str = "UNetPlusPlus-effb4"
     options_model: dict[str, Any] = dict(decoder_attention_type="scse")
-    extra_transforms: Optional[list[Callable]] = [species_label_transform]
+    extra_transforms: list[Callable] | None = [species_label_transform]
     loss_name: str = "FocalTverskyLoss"
     loss_opts: dict[str, Any] = dict(delta=0.5, gamma=2.0)
 

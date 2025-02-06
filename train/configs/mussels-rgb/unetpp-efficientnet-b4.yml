@@ -52,4 +52,3 @@ logging:
   name: "UNetPP-efficientnet-b4"
   save_dir: "./checkpoints"
   log_model: true
-

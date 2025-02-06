@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding: utf-8
 
 from pathlib import Path
 
@@ -9,10 +8,10 @@ import wandb
 
 from .config import (
     TrainingConfig,
-    kelp_pa_efficientnet_b4_config_rgbi,
-    kelp_sp_efficientnet_b4_config_rgbi,
-    kelp_sp_efficientnet_b4_config_rgb,
     kelp_pa_efficientnet_b4_config_rgb,
+    kelp_pa_efficientnet_b4_config_rgbi,
+    kelp_sp_efficientnet_b4_config_rgb,
+    kelp_sp_efficientnet_b4_config_rgbi,
 )
 from .datamodule import DataModule
 from .model import SMPSegmentationModel

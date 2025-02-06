@@ -50,4 +50,3 @@ logging:
   name: "UNetPlusPlus-effb4"
   save_dir: "./checkpoints"
   log_model: true
-

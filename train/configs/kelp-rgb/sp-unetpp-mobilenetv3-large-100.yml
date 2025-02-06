@@ -54,4 +54,3 @@ logging:
   name: "UNetPP-mobilenetv3-large-100"
   save_dir: "./checkpoints"
   log_model: true
-
