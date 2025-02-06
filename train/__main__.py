@@ -25,10 +25,10 @@ def train(config: Config):
     )
 
     # Setup Callbacks and Trainer
-    checkpoint_callback = pl.callbacks.ModelCheckpoint(**config.checkpoint.dict())
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(**config.checkpoint.model_dump())
 
     if config.enable_logging:
-        logger = WandbLogger(**config.logging.dict())
+        logger = WandbLogger(**config.logging.model_dump())
         logger.experiment.config["batch_size"] = config.data_module.batch_size
     else:
         logger = pl.loggers.CSVLogger(save_dir="/tmp/")
@@ -48,7 +48,7 @@ def train(config: Config):
             checkpoint_callback,
             pl.callbacks.LearningRateMonitor(),
         ],
-        **config.trainer.dict(),
+        **config.trainer.model_dump(),
         # overfit_batches=10,
         # log_every_n_steps=3,
         # limit_train_batches=3,
@@ -81,19 +81,19 @@ def train(config: Config):
     data_module = DataModule(
         train_transforms=train_trans,
         test_transforms=test_trans,
-        **config.data_module.dict(),
+        **config.data_module.model_dump(),
     )
 
     # Load model
     model_cls = models.__dict__[config.segmentation_model_cls]
-    model = model_cls(**config.segmentation_config.dict())
+    model = model_cls(**config.segmentation_config.model_dump())
 
     if config.segmentation_config.freeze_encoder:
         model.model.encoder.model.requires_grad_(False)
 
     # Train
     if config.enable_logging:
-        wandb.run.config.update(config.dict())
+        wandb.run.config.update(config.model_dump())
         wandb.run.config.update(
             {
                 "train_transforms": train_trans.to_dict(),
