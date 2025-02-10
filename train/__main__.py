@@ -32,22 +32,23 @@ def train(config: Config):
     else:
         logger = pl.loggers.CSVLogger(save_dir="/tmp/")
 
-    # def compute_amount(epoch):
-    #     # the sum of all returned values need to be smaller than 1
-    #     if epoch == 2:
-    #         return 0.5
-    #     elif epoch == 10:
-    #         return 0.25
-    #     elif 14 < epoch < 18:
-    #         return 0.01
+    def compute_amount(epoch):
+        # the sum of all returned values need to be smaller than 1
+        if epoch == 2:
+            return 0.5
+        elif epoch == 10:
+            return 0.25
+        elif 14 < epoch < 18:
+            return 0.01
 
     trainer = pl.Trainer(
         logger=logger,
         callbacks=[
             checkpoint_callback,
             pl.callbacks.LearningRateMonitor(),
+            pl.callbacks.ModelPruning("l1_unstructured", amount=compute_amount),
         ],
-        **config.trainer.dict(),
+        **config.trainer.model_dump(),
         # overfit_batches=10,
         # log_every_n_steps=3,
         # limit_train_batches=3,

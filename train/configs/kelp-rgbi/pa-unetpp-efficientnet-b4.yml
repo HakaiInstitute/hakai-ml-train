@@ -12,7 +12,7 @@ max_epoch: &max_epoch 10
 
 segmentation_config:
   architecture: "UnetPlusPlus"
-  backbone: "tf_efficientnetv2_s"
+  backbone: "efficientnet_b4"
   freeze_encoder: false
   opts:
     encoder_weights: true
@@ -26,7 +26,7 @@ segmentation_config:
   max_epochs: *max_epoch
   warmup_period: 0.1
   loss:
-    name: "LovaszLoss"
+    name: "DiceLoss"
     opts:
       mode: "binary"
       from_logits: true
@@ -46,11 +46,12 @@ trainer:
   gradient_clip_val: 0.5
   max_epochs: *max_epoch
   precision: "16-mixed"
-  deterministic: false
+  deterministic: true
+  benchmark: true
 
 logging:
   project: "kom-kelp-pa-aco-rgbi"
-  name: "UNetPP-efficientnetv2-s"
+  name: "UNetPP-efficientnet-b4"
   save_dir: "./checkpoints"
   log_model: true
 

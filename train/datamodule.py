@@ -15,8 +15,8 @@ class SegmentationDataset(VisionDataset):
 
     def __init__(self, root: str, *args, ext: str = "tif", **kwargs):
         super().__init__(root, *args, **kwargs)
-        self._images = sorted(Path(root).joinpath("x").glob(f"*.{ext}"))
-        self._labels = sorted(Path(root).joinpath("y").glob(f"*.{ext}"))
+        self._images = list(sorted(Path(root).joinpath("x").glob(f"*.{ext}")))[::2]
+        self._labels = list(sorted(Path(root).joinpath("y").glob(f"*.{ext}")))[::2]
 
         assert len(self._images) == len(
             self._labels
@@ -128,3 +128,89 @@ class DataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers,
         )
+
+
+if __name__ == "__main__":
+    from albumentations.pytorch import ToTensorV2
+    import albumentations as A
+    from tqdm import tqdm
+    import math
+    import torch
+    import numpy as np
+    from collections import defaultdict
+
+    # Calculate channel stats
+    train_data_dir = "/home/taylor/data/KP-ACO-RGBI-Nov2023/train"
+    ds_train = SegmentationDataset(
+        train_data_dir,
+        ext="tif",
+        transforms=A.Compose(
+            [
+                A.ToFloat(max_value=255.0),
+                ToTensorV2(),
+            ]
+        ),
+    )
+    batch_size = 16
+    dataloader = DataLoader(
+        ds_train,
+        shuffle=False,
+        batch_size=batch_size,
+        pin_memory=True,
+        drop_last=False,
+        num_workers=os.cpu_count() - 2,
+        persistent_workers=True,
+    )
+
+    num_channels = 4
+    n_samples = 0
+    channel_sum = torch.zeros(num_channels)
+    channel_sum_sq = torch.zeros(num_channels)
+
+    max_pixels = 1024 * 1024
+    num_bins = 20
+    bin_edges = np.exp(np.linspace(np.log(1), np.log(max_pixels), num_bins + 1)).astype(
+        int
+    )
+    histogram = np.zeros((num_bins,))
+
+    label_count = torch.zeros((max_pixels,))
+
+    for images, labels in tqdm(dataloader, total=math.ceil(len(ds_train) / batch_size)):
+        b, c, h, w = images.shape
+        n_samples += b * h * w
+
+        # Update channel sums and squared sums
+        channel_sum += images.sum(dim=(0, 2, 3))
+        channel_sum_sq += (images**2).sum(dim=(0, 2, 3))
+
+        labels = np.ma.array(labels.numpy(), mask=(labels == 2).numpy())
+        label_sum = labels.sum(axis=(1, 2))
+        label_count[label_sum] += 1
+        bin_idx = np.digitize(label_sum, bin_edges) - 1
+        histogram[bin_idx] += 1
+
+    # Calculate mean and std
+    mean = channel_sum / n_samples
+    # Var[X] = E[X^2] - E[X]^2
+    var = (channel_sum_sq / n_samples) - (mean**2)
+    std = torch.sqrt(var)
+
+    print(f"{mean=}")
+    print(f"{std=}")
+
+    # Convert to format for visualization
+    histogram_data = [
+        {
+            "range": f"{bin_edges[i]}-{bin_edges[i+1]}",
+            "count": histogram[i],
+            "binStart": int(bin_edges[i]),
+            "binEnd": int(bin_edges[i + 1]),
+        }
+        for i in range(len(bin_edges) - 1)
+    ]
+
+    # Print some statistics
+    print("\nHistogram data:")
+    for bin_data in histogram_data:
+        print(f"Range {bin_data['range']}: {bin_data['count']} images")

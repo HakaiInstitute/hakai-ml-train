@@ -145,14 +145,19 @@ class _SegmentationModelBase(
         )
 
         steps = self.trainer.estimated_stepping_batches
+        warmup_steps = int(steps * self.warmup_period)
 
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr=self.lr, total_steps=steps, pct_start=self.warmup_period
+        linear_warmup_sch = torch.optim.lr_scheduler.LinearLR(
+            optimizer, start_factor=0.001, total_iters=warmup_steps
         )
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
+        cosine_sch = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=(steps - warmup_steps)
+        )
+        lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
+            optimizer, [linear_warmup_sch, cosine_sch], milestones=[warmup_steps]
+        )
 
-        # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
-        # return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
+        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
 
 class SMPSegmentationModel(_SegmentationModelBase):
