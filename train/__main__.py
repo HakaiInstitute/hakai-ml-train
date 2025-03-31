@@ -63,7 +63,12 @@ def train(config: Config):
         for k in config.extra_transforms:
             extra_trans.append(extra_transforms[k])
 
-    train_trans = get_train_transforms(config.data_module.tile_size, extra_trans)
+    train_trans = get_train_transforms(
+        config.data_module.tile_size,
+        extra_trans,
+        fill=config.data_module.fill_value,
+        fill_mask=config.data_module.fill_mask,
+    )
     test_trans = get_test_transforms(config.data_module.tile_size, extra_trans)
 
     # Save to WandB

@@ -44,6 +44,8 @@ def get_train_transforms(
     extra_transforms: Iterable[Callable] = (),
     mean=(0.485, 0.456, 0.406),
     std=(0.229, 0.224, 0.225),
+    fill: int = 0,
+    fill_mask: int = 0,
 ):
     return A.Compose(
         [
@@ -59,15 +61,15 @@ def get_train_transforms(
                         brightness_limit=0.1, contrast_limit=0.1, p=1
                     ),
                     A.HueSaturationValue(
-                        hue_shift_limit=10, sat_shift_limit=15, val_shift_limit=10, p=1
+                        hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=15, p=1
                     ),
                 ],
                 p=0.5,
             ),
             A.OneOf(
                 [
-                    A.GaussNoise(std_range=(0.2, 0.44), p=1),
-                    A.ISONoise(color_shift=(0.01, 0.05), intensity=(0.1, 0.3), p=1),
+                    A.GaussNoise(std_range=(0.02, 0.044), p=1),
+                    A.ISONoise(color_shift=(0.01, 0.05), intensity=(0.1, 0.2), p=1),
                 ],
                 p=0.3,
             ),
@@ -82,17 +84,18 @@ def get_train_transforms(
             A.OneOf(
                 [
                     A.CoarseDropout(
-                        num_holes_range=(1, 4),
-                        hole_height_range=(8, 16),
-                        hole_width_range=(8, 16),
-                        fill=0,
+                        num_holes_range=(1, 64),
+                        hole_height_range=(1, 5),
+                        hole_width_range=(1, 5),
+                        fill=fill,
+                        fill_mask=fill_mask,
                         p=1,
                     ),
-                    A.GridDistortion(num_steps=3, distort_limit=0.2, p=1),
+                    A.GridDistortion(num_steps=10, distort_limit=(-0.1, 0.1), p=0.3),
                 ],
                 p=0.3,
             ),
-            A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=0.3),
+            A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=0.1),
             # Drone mosaic-specific augmentations
             A.ColorJitter(
                 brightness=0.05, contrast=0.05, saturation=0.05, hue=0.05, p=0.3
@@ -100,9 +103,10 @@ def get_train_transforms(
             A.Affine(
                 scale=(0.9, 1.1),
                 keep_ratio=True,
-                translate_percent=0.0625,
-                rotate=5,
-                fill=0,
+                translate_percent=(-0.05, 0.05),
+                rotate=(-5, 5),
+                fill=fill,
+                fill_mask=fill_mask,
                 p=0.3,
             ),
             A.Normalize(mean=mean, std=std, max_pixel_value=255.0, p=1.0),

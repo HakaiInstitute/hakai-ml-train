@@ -42,6 +42,7 @@ class DataModuleConfig(_BaseConfig):
     pin_memory: bool = True
     persistent_workers: bool = False
     fill_value: int = 0
+    fill_mask: int = 0
     tile_size: int = 1024
     seed: int = 42
 
