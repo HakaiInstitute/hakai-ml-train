@@ -11,8 +11,8 @@ batch_size: &batch_size 6
 max_epoch: &max_epoch 20
 
 segmentation_config:
-  architecture: "UnetPlusPlus"
-  backbone: "tu-tf_efficientnetv2_m"
+  architecture: "Segformer"
+  backbone: "tu-mobilenetv4_conv_medium"
   freeze_encoder: false
   opts:
     encoder_weights: true
@@ -51,6 +51,6 @@ trainer:
 
 logging:
   project: "kom-kelp-pa-rgb"
-  name: "UNetPP-efficientnetv2-m"
+  name: "Segformer-mobilenetv4_conv_m"
   save_dir: "./checkpoints"
   log_model: true

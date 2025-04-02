@@ -94,7 +94,7 @@ def train(config: Config):
     model = model_cls(**config.segmentation_config.model_dump())
 
     if config.segmentation_config.freeze_encoder:
-        model.model.encoder.model.requires_grad_(False)
+        model.model.encoder.requires_grad_(False)
 
     # Train
     if config.enable_logging:

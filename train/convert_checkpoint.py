@@ -33,7 +33,7 @@ def convert_checkpoint(
     )
 
     # Remove ._orig_mod from state dict
-    ckpt = torch.load(ckpt_file)
+    ckpt = torch.load(ckpt_file, map_location=DEVICE)
     state_dict = ckpt["state_dict"]
     state_dict = OrderedDict(
         [(k.replace("._orig_mod", ""), v) for k, v in state_dict.items()]
@@ -45,7 +45,7 @@ def convert_checkpoint(
 
     # Load stripped back model
     model = SMPSegmentationModel.load_from_checkpoint(
-        ckpt_file_clean, **config.segmentation_config.dict()
+        ckpt_file_clean, **config.segmentation_config.model_dump()
     )
 
     # Have to deactivate SWISH for EfficientNet to export to TorchScript

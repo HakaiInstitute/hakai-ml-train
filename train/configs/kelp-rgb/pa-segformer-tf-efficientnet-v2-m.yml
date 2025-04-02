@@ -7,11 +7,11 @@ tags:
 num_bands: &num_bands 3
 num_classes: &num_classes 1
 tile_size: &tile_size 1024
-batch_size: &batch_size 6
+batch_size: &batch_size 2
 max_epoch: &max_epoch 20
 
 segmentation_config:
-  architecture: "UnetPlusPlus"
+  architecture: "Segformer"
   backbone: "tu-tf_efficientnetv2_m"
   freeze_encoder: false
   opts:
@@ -51,6 +51,6 @@ trainer:
 
 logging:
   project: "kom-kelp-pa-rgb"
-  name: "UNetPP-efficientnetv2-m"
+  name: "Segformer-efficientnetv2-m"
   save_dir: "./checkpoints"
   log_model: true

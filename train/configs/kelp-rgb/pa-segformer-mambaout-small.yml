@@ -11,11 +11,11 @@ batch_size: &batch_size 6
 max_epoch: &max_epoch 20
 
 segmentation_config:
-  architecture: "UnetPlusPlus"
-  backbone: "tu-tf_efficientnetv2_m"
-  freeze_encoder: false
+  architecture: "Segformer"
+  backbone: "tu-mambaout_small"
+  freeze_encoder: true
   opts:
-    encoder_weights: true
+    encoder_weights: null
   num_classes: *num_classes
   ignore_index: 2
   lr: 0.0003
@@ -51,6 +51,6 @@ trainer:
 
 logging:
   project: "kom-kelp-pa-rgb"
-  name: "UNetPP-efficientnetv2-m"
+  name: "Segformer-mambaout-s"
   save_dir: "./checkpoints"
   log_model: true

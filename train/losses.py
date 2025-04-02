@@ -1,16 +1,28 @@
 # from unified_focal_loss import FocalTverskyLoss
 # from monai.losses import DiceFocalLoss, GeneralizedDiceLoss
-from torchseg.losses import DiceLoss, FocalLoss, JaccardLoss, LovaszLoss, TverskyLoss
+# from torchseg.losses import DiceLoss, FocalLoss, JaccardLoss, LovaszLoss, TverskyLoss
+from typing import Any
 
-# class FocalDiceLoss(DiceLoss):
-#     def __init__(self, *args, gamma: float = 2, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.gamma = gamma
-#
-#     def forward(self, input: torch.Tensor, target: torch.Tensor):
-#         dice_loss = super().forward(input, target)
-#         focal_dice_loss = dice_loss ** self.gamma
-#         return focal_dice_loss
+import torch
+from segmentation_models_pytorch.losses import (
+    DiceLoss,
+    FocalLoss,
+    JaccardLoss,
+    LovaszLoss,
+    TverskyLoss,
+)
+
+
+class FocalDiceComboLoss(torch.nn.Module):
+    def __init__(self, dice_kwargs: dict[str, Any], focal_kwargs: dict[str, Any]):
+        super().__init__()
+        self.dice_loss = DiceLoss(**dice_kwargs)
+        self.focal_loss = FocalLoss(**focal_kwargs)
+
+    def forward(self, input: torch.Tensor, target: torch.Tensor):
+        dl = self.dice_loss(input, target.squeeze(dim=1))
+        fl = self.focal_loss(input, target.squeeze(dim=1))
+        return dl + fl
 
 
 __all__ = [
@@ -19,6 +31,5 @@ __all__ = [
     "FocalLoss",
     "TverskyLoss",
     "JaccardLoss",
-    # "DiceFocalLoss",
-    # "GeneralizedDiceLoss",
+    "FocalDiceComboLoss",
 ]

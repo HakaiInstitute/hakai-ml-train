@@ -7,19 +7,19 @@ tags:
 num_bands: &num_bands 3
 num_classes: &num_classes 1
 tile_size: &tile_size 1024
-batch_size: &batch_size 6
+batch_size: &batch_size 2
 max_epoch: &max_epoch 20
 
 segmentation_config:
-  architecture: "UnetPlusPlus"
-  backbone: "tu-tf_efficientnetv2_m"
+  architecture: "Segformer"
+  backbone: "mit_b3"
   freeze_encoder: false
   opts:
-    encoder_weights: true
+    encoder_weights: imagenet
   num_classes: *num_classes
   ignore_index: 2
   lr: 0.0003
-  weight_decay: 0.0001
+  weight_decay: 0.01
   num_bands: *num_bands
   tile_size: *tile_size
   batch_size: *batch_size
@@ -38,19 +38,19 @@ data_module:
   batch_size: *batch_size
   fill_value: 0
   fill_mask: 0
-  num_workers: 4
+  num_workers: 8
   pin_memory: true
   persistent_workers: true
 
 trainer:
-  accumulate_grad_batches: 32
+  accumulate_grad_batches: 8
   gradient_clip_val: 0.5
   max_epochs: *max_epoch
-  precision: "16-mixed"
+  precision: "bf16-mixed"
   deterministic: false
 
 logging:
   project: "kom-kelp-pa-rgb"
-  name: "UNetPP-efficientnetv2-m"
+  name: "Segformer-mit-b3"
   save_dir: "./checkpoints"
   log_model: true
