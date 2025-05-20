@@ -64,7 +64,6 @@ class _SegmentationModelBase(
         self.recall = fm.Recall(task=task, num_classes=self.n)
         self.precision = fm.Precision(task=task, num_classes=self.n)
         self.f1_score = fm.F1Score(task=task, num_classes=self.n)
-        self.dice = fm.Dice(num_classes=self.n)
 
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -118,7 +117,6 @@ class _SegmentationModelBase(
                 f"{phase}/recall": self.recall(probs, y),
                 f"{phase}/precision": self.precision(probs, y),
                 f"{phase}/f1": self.f1_score(probs, y),
-                f"{phase}/dice": self.dice(probs, y),
             }
         )
 
@@ -132,7 +130,6 @@ class _SegmentationModelBase(
                 "val/recall_epoch": self.recall,
                 "val/precision_epoch": self.precision,
                 "val/f1_epoch": self.f1_score,
-                "val/dice_epoch": self.dice,
             }
         )
 
