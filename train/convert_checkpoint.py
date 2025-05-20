@@ -2,6 +2,7 @@ import os.path
 from collections import OrderedDict
 from pathlib import Path
 
+import onnx
 import torch
 import wandb
 
@@ -67,8 +68,40 @@ def convert_checkpoint(
     print(f"Saved JIT model to {os.path.abspath(output_path_jit)}")
 
     # Export as ONNX
-    model.to_onnx(output_path_onnx, x, export_params=True)
-    print(f"Saved ONNX model to {os.path.abspath(output_path_onnx)}")
+
+    # Define dynamic axes for input and output
+    dynamic_axes = {
+        "input": {
+            0: "batch_size",
+            2: "height",
+            3: "width",
+        },  # Dynamic batch size, height and width
+        "output": {
+            0: "batch_size",
+            2: "height",
+            3: "width",
+        },  # Dynamic batch size, height and width
+    }
+    input_names = ["input"]
+    output_names = ["output"]
+
+    torch.onnx.export(
+        model,  # Model to export
+        x,  # Example input
+        output_path_onnx,  # Output file path
+        export_params=True,  # Store model weights in the model file
+        opset_version=13,  # ONNX opset version
+        do_constant_folding=True,  # Optimize constants
+        input_names=input_names,  # Input tensor names
+        output_names=output_names,  # Output tensor names
+        dynamic_axes=dynamic_axes,  # Dynamic axes specification
+        verbose=False,
+    )
+    onnx_model = onnx.load(output_path_onnx)
+    onnx.checker.check_model(onnx_model)
+    print(
+        f"Saved ONNX model with dynamic dimensions to {os.path.abspath(output_path_onnx)}"
+    )
 
 
 if __name__ == "__main__":
