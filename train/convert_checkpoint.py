@@ -34,7 +34,7 @@ def convert_checkpoint(
     )
 
     # Remove ._orig_mod from state dict
-    ckpt = torch.load(ckpt_file, map_location=DEVICE)
+    ckpt = torch.load(ckpt_file, map_location=DEVICE, weights_only=False)
     state_dict = ckpt["state_dict"]
     state_dict = OrderedDict(
         [(k.replace("._orig_mod", ""), v) for k, v in state_dict.items()]

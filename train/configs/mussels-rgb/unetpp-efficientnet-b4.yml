@@ -12,10 +12,10 @@ max_epoch: &max_epoch 20
 
 segmentation_config:
   architecture: "UnetPlusPlus"
-  backbone: "efficientnet_b4"
+  backbone: "efficientnet-b4"
   freeze_encoder: false
   opts:
-    encoder_weights: ImageNet
+    encoder_weights: imagenet
   num_classes: *num_classes
   lr: 0.003
   weight_decay: 0.0001
