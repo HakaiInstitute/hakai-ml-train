@@ -8,7 +8,7 @@ from pydantic import BaseModel, Extra
 
 class _BaseConfig(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = "forbid"
 
 
 class LossConfig(_BaseConfig):
@@ -42,6 +42,7 @@ class DataModuleConfig(_BaseConfig):
     pin_memory: bool = True
     persistent_workers: bool = False
     fill_value: int = 0
+    fill_mask: int = 0
     tile_size: int = 1024
     seed: int = 42
 
@@ -64,8 +65,8 @@ class LoggingConfig(_BaseConfig):
 
 class CheckpointConfig(_BaseConfig):
     dirpath: str | Path | None = "./checkpoints"
-    filename: str | None = "{val/dice_epoch:.4f}_{epoch}"
-    monitor: str = "val/dice_epoch"
+    filename: str | None = "{val/f1_epoch:.4f}_{epoch}"
+    monitor: str = "val/f1_epoch"
     mode: str = "max"
     save_top_k: int = 1
     save_last: bool = True
@@ -104,4 +105,4 @@ def load_yml_config(path: Path):
 
 if __name__ == "__main__":
     y = _load_yml("./mussels-rgb/pa-dinov2-s.yml")
-    print(Config.validate(y))
+    print(Config.model_validate(y))

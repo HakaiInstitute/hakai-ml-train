@@ -59,4 +59,3 @@ logging:
   name: "UNetPP-vit-base-patch14-reg4-dinov2"
   save_dir: "./checkpoints"
   log_model: true
-

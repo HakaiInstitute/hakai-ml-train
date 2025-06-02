@@ -38,6 +38,7 @@ data_module:
   num_classes: *num_classes
   batch_size: *batch_size
   fill_value: 0
+  fill_mask: 2
   num_workers: 4
   pin_memory: true
   persistent_workers: true
@@ -54,4 +55,3 @@ logging:
   name: "UNetPP-mobilenetv3-large-100"
   save_dir: "./checkpoints"
   log_model: true
-

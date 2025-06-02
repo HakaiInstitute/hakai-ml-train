@@ -7,7 +7,7 @@ from kelp_o_matic.models import _Model
 from tqdm.auto import tqdm
 
 from train.datamodule import DataModule
-from train.transforms import get_train_transforms, get_test_transforms
+from train.transforms import get_test_transforms, get_train_transforms
 
 DEVICE = torch.device("cuda")
 BATCH_SIZE = 6
@@ -72,7 +72,7 @@ def main():
 
     for phase, dataloader in [("test", test_dataloader), ("val", val_dataloader)]:
         # Test loop
-        for batch_idx, batch in enumerate(tqdm(dataloader, desc=phase)):
+        for _batch_idx, batch in enumerate(tqdm(dataloader, desc=phase)):
             x, y = batch
             x = x.to(DEVICE)
             y = y.to(DEVICE)

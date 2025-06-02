@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from typing import List, Optional, Union
 
 import lightning.pytorch as pl
 import numpy as np
@@ -18,9 +17,9 @@ class SegmentationDataset(VisionDataset):
         self._images = sorted(Path(root).joinpath("x").glob(f"*.{ext}"))
         self._labels = sorted(Path(root).joinpath("y").glob(f"*.{ext}"))
 
-        assert len(self._images) == len(
-            self._labels
-        ), "There are an unequal number of images and labels!"
+        assert len(self._images) == len(self._labels), (
+            "There are an unequal number of images and labels!"
+        )
 
     def __len__(self):
         return len(self._images)
@@ -76,7 +75,7 @@ class DataModule(pl.LightningDataModule):
     def prepare_data(self, *args, **kwargs):
         pass
 
-    def setup(self, stage: Optional[str] = None):
+    def setup(self, stage: str | None = None):
         self.ds_train = SegmentationDataset(
             self.train_data_dir,
             ext="tif",
@@ -93,7 +92,7 @@ class DataModule(pl.LightningDataModule):
             transforms=self.test_trans,
         )
 
-    def teardown(self, stage: Optional[str] = None) -> None:
+    def teardown(self, stage: str | None = None) -> None:
         del self.ds_train
         del self.ds_val
         del self.ds_test
@@ -109,7 +108,7 @@ class DataModule(pl.LightningDataModule):
             persistent_workers=self.persistent_workers,
         )
 
-    def val_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
+    def val_dataloader(self, *args, **kwargs) -> DataLoader | list[DataLoader]:
         return DataLoader(
             self.ds_val,
             shuffle=False,
@@ -119,7 +118,7 @@ class DataModule(pl.LightningDataModule):
             persistent_workers=self.persistent_workers,
         )
 
-    def test_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
+    def test_dataloader(self, *args, **kwargs) -> DataLoader | list[DataLoader]:
         return DataLoader(
             self.ds_test,
             shuffle=False,

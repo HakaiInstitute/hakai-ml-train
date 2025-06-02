@@ -55,4 +55,3 @@ logging:
   name: "UNetPP-convnextv2-tiny"
   save_dir: "./checkpoints"
   log_model: true
-

@@ -9,14 +9,16 @@ from tqdm.auto import tqdm
 from train.configs.config import load_yml_config
 from train.datamodule import DataModule
 from train.model import SMPSegmentationModel
+
 # from train.losses import DiceLoss
-from train.transforms import get_train_transforms, get_test_transforms, extra_transforms
+from train.transforms import get_test_transforms, get_train_transforms
 
 DEVICE = torch.device("cuda")
 BATCH_SIZE = 6
 TILE_SIZE = 1024
 IGNORE_INDEX = 2
 NUM_CLASSES = 2
+
 
 def main(
     run_id: str = "8a1r0k6h",
@@ -57,7 +59,9 @@ def main(
     # Setup metrics
     # loss_fn = DiceLoss(mode="binary", from_logits=True, smooth=1.0)
     accuracy = fm.Accuracy(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
-    jaccard_index = fm.JaccardIndex(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
+    jaccard_index = fm.JaccardIndex(task="multiclass", num_classes=NUM_CLASSES).to(
+        DEVICE
+    )
     recall = fm.Recall(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
     precision = fm.Precision(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
     f1_score = fm.F1Score(task="multiclass", num_classes=NUM_CLASSES).to(DEVICE)
@@ -65,7 +69,7 @@ def main(
 
     for phase, dataloader in [("test", test_dataloader)]:
         # Test loop
-        for batch_idx, batch in enumerate(tqdm(dataloader, desc=phase)):
+        for _batch_idx, batch in enumerate(tqdm(dataloader, desc=phase)):
             x, y = batch
             x = x.to(DEVICE)
             y = y.to(DEVICE)

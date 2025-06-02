@@ -1,0 +1,42 @@
+[project]
+name = "hakai-ml-train"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "albumentations>=2.0.5",
+    "einops>=0.8.1",
+    "finetuning-scheduler>=2.5.0",
+    "lightning>=2.5.1",
+    "monai>=1.4.0",
+    "onnx>=1.17.0",
+    "pydantic>=2.11.1",
+    "pyyaml>=6.0.2",
+    "segmentation-models-pytorch>=0.4.0",
+    "torch>=2.6.0",
+    "torchaudio>=2.6.0",
+    "torchmetrics>=1.6.1",
+    "torchseg>=0.0.1a4",
+    "torchvision>=0.21.0",
+    "tqdm>=4.67.1",
+    "wandb>=0.19.6",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+    "notebook>=7.3.2",
+    "pre-commit>=4.1.0",
+    "ruff>=0.11.2",
+]
+
+[tool.ruff.lint]
+select = [
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]

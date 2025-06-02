@@ -1,15 +1,16 @@
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Any, Literal
+from typing import Any, Literal
 
 import lightning.pytorch as pl
+import segmentation_models_pytorch as smp
 import torch
 import torchmetrics.classification as fm
-import torchseg
 from einops import rearrange
 from huggingface_hub import PyTorchModelHubMixin
 from torch import nn
 
 from . import losses
+from .models.aerial_former import AerialFormer as _AerialFormer
 
 
 class _SegmentationModelBase(
@@ -24,7 +25,7 @@ class _SegmentationModelBase(
     def __init__(
         self,
         num_classes: int = 2,
-        ignore_index: Optional[int] = None,
+        ignore_index: int | None = None,
         lr: float = 0.35,
         weight_decay: float = 0,
         max_epochs: int = 100,
@@ -53,9 +54,7 @@ class _SegmentationModelBase(
         elif task == "multiclass":
             self.activation_fn = lambda x: torch.softmax(x, dim=1).squeeze(1)
         else:
-            raise ValueError(
-                "task not supported. Must be 'binary' or 'multiclass'"
-            )
+            raise ValueError("task not supported. Must be 'binary' or 'multiclass'")
 
         self.loss_fn = losses.__dict__[loss["name"]](**(loss["opts"] or {}))
 
@@ -65,7 +64,6 @@ class _SegmentationModelBase(
         self.recall = fm.Recall(task=task, num_classes=self.n)
         self.precision = fm.Precision(task=task, num_classes=self.n)
         self.f1_score = fm.F1Score(task=task, num_classes=self.n)
-        self.dice = fm.Dice(num_classes=self.n)
 
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -119,7 +117,6 @@ class _SegmentationModelBase(
                 f"{phase}/recall": self.recall(probs, y),
                 f"{phase}/precision": self.precision(probs, y),
                 f"{phase}/f1": self.f1_score(probs, y),
-                f"{phase}/dice": self.dice(probs, y),
             }
         )
 
@@ -133,7 +130,6 @@ class _SegmentationModelBase(
                 "val/recall_epoch": self.recall,
                 "val/precision_epoch": self.precision,
                 "val/f1_epoch": self.f1_score,
-                "val/dice_epoch": self.dice,
             }
         )
 
@@ -151,7 +147,13 @@ class _SegmentationModelBase(
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer, max_lr=self.lr, total_steps=steps, pct_start=self.warmup_period
         )
-        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": lr_scheduler,
+                "interval": "step",
+            },
+        }
 
         # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
         # return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch"}]
@@ -171,7 +173,7 @@ class SMPSegmentationModel(_SegmentationModelBase):
         if opts is None:
             opts = {}
 
-        self.model = torchseg.create_model(
+        self.model = smp.create_model(
             arch=architecture,
             encoder_name=backbone,
             in_channels=self.num_bands,
@@ -270,3 +272,33 @@ class DINOv2Segmentation(_SegmentationModelBase):
             dtype=self.dtype,
             device=self.device,
         )
+
+
+class AerialFormer(_SegmentationModelBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model = self.init_model(*args, **kwargs)
+
+    @staticmethod
+    def init_model(
+        num_classes: int = 2, num_bands: int = 3, tile_size: int = 1024, **kwargs
+    ):
+        return _AerialFormer(
+            img_size=tile_size,
+            in_chans=num_bands,
+            patch_size=32,
+            num_classes=num_classes,
+            embed_dim=512,
+            depth=12,
+            num_heads=8,
+            mlp_ratio=4.0,
+            qkv_bias=True,
+            attn_drop=0.1,
+            drop_rate=0.1,
+            norm_layer=nn.LayerNorm,
+            decoder_channels=256,
+            use_overlapping_patches=False,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x)

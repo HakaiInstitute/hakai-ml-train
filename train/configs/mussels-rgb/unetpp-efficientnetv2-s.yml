@@ -52,4 +52,3 @@ logging:
   name: "UNetPP-efficientnetv2-s"
   save_dir: "./checkpoints"
   log_model: true
-
