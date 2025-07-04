@@ -1,25 +1,25 @@
 segmentation_model_cls: SMPSegmentationModel
 enable_logging: true
 tags:
-  - kp-rgb
-  - Jan2024
+  - mussels
+  - May2024
 
 num_bands: &num_bands 3
 num_classes: &num_classes 1
 tile_size: &tile_size 1024
-batch_size: &batch_size 6
+batch_size: &batch_size 3
 max_epoch: &max_epoch 20
 
 segmentation_config:
-  architecture: "Segformer"
-  backbone: "tu-mobilenetv4_conv_medium"
+  architecture: "DPT"
+  backbone: "tu-efficientvit_b3.r224_in1k"
   freeze_encoder: false
   opts:
-    encoder_weights: true
+    encoder_weights: r224_in1k
   num_classes: *num_classes
   ignore_index: 2
   lr: 0.0003
-  weight_decay: 0.0001
+  weight_decay: 0.01
   num_bands: *num_bands
   tile_size: *tile_size
   batch_size: *batch_size
@@ -32,25 +32,25 @@ segmentation_config:
       from_logits: true
 
 data_module:
-  data_dir: "/home/taylor/data/KP-RGB-Jan2024/"
+  data_dir: "/home/taylor/data/MP-RGB-May2024-1024-1024"
   tile_size: *tile_size
   num_classes: *num_classes
   batch_size: *batch_size
   fill_value: 0
   fill_mask: 0
-  num_workers: 4
+  num_workers: 8
   pin_memory: true
   persistent_workers: true
 
 trainer:
-  accumulate_grad_batches: 32
+  accumulate_grad_batches: 8
   gradient_clip_val: 0.5
   max_epochs: *max_epoch
-  precision: "16-mixed"
+  precision: "bf16-mixed"
   deterministic: false
 
 logging:
-  project: "kom-kelp-pa-rgb"
-  name: "Segformer-mobilenetv4_conv_m"
+  project: "kom-mussels-rgb"
+  name: "DPT-efficientvit-b3"
   save_dir: "./checkpoints"
   log_model: true

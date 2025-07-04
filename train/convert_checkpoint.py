@@ -113,7 +113,7 @@ def convert_checkpoint(
         x,  # Example input
         output_path_onnx,  # Output file path
         export_params=True,  # Store model weights in the model file
-        opset_version=15,  # ONNX opset version
+        opset_version=11,  # ONNX opset version
         do_constant_folding=True,  # Optimize constants
         input_names=input_names,  # Input tensor names
         output_names=output_names,  # Output tensor names
