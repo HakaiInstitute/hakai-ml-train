@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import os
 from pathlib import Path
+from typing import Any
 
 import lightning.pytorch as pl
 import numpy as np
 import torch
+from albumentations import to_dict
 from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision.datasets import VisionDataset
@@ -14,7 +18,13 @@ from src.transforms import get_test_transforms, get_train_transforms
 class SegmentationDataset(VisionDataset):
     """Load preprocessed image chips. Used during m odel train and validation phases."""
 
-    def __init__(self, root: str, *args, ext: str = "tif", **kwargs):
+    def __init__(
+        self,
+        root: str,
+        *args,
+        ext: str = "tif",
+        **kwargs,
+    ):
         super().__init__(root, *args, **kwargs)
         self._images = sorted(Path(root).joinpath("x").glob(f"*.{ext}"))
         self._labels = sorted(Path(root).joinpath("y").glob(f"*.{ext}"))
@@ -37,6 +47,33 @@ class SegmentationDataset(VisionDataset):
                 img, target = transformed["image"], transformed["mask"]
 
         return img, target
+
+
+class NpzSegmentationDataset(VisionDataset):
+    """Load preprocessed image chips. Used during model train and validation phases."""
+
+    def __init__(
+        self,
+        root: str,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(root, *args, **kwargs)
+        self.chips = sorted(Path(root).glob(f"*.npz"))
+
+    def __len__(self):
+        return len(self.chips)
+
+    # noinspection DuplicatedCode
+    def __getitem__(self, idx):
+        chip_name = self.chips[idx]
+        data = np.load(chip_name)
+        if self.transforms is not None:
+            with torch.no_grad():
+                augmented = self.transforms(image=data["image"], mask=data["label"])
+                return augmented["image"], augmented["mask"]
+
+        return data["image"], data["label"]
 
 
 # noinspection PyAbstractClass
@@ -76,19 +113,16 @@ class DataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage: str | None = None):
-        self.ds_train = SegmentationDataset(
+        self.ds_train = NpzSegmentationDataset(
             self.train_data_dir,
-            ext="tif",
             transforms=self.train_trans,
         )
-        self.ds_val = SegmentationDataset(
+        self.ds_val = NpzSegmentationDataset(
             self.val_data_dir,
-            ext="tif",
             transforms=self.test_trans,
         )
-        self.ds_test = SegmentationDataset(
+        self.ds_test = NpzSegmentationDataset(
             self.test_data_dir,
-            ext="tif",
             transforms=self.test_trans,
         )
 
@@ -127,3 +161,16 @@ class DataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers,
         )
+
+    def on_after_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
+        # This runs once at the start
+        if not hasattr(self, "_logged_transforms"):
+            if self.trainer.logger and self.train_trans:
+                self.trainer.logger.experiment.config.update(
+                    {
+                        "train_transforms": to_dict(self.train_trans),
+                        "test_transforms": to_dict(self.test_trans),
+                    }
+                )
+            self._logged_transforms = True
+        return batch

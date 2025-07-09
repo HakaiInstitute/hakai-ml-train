@@ -112,15 +112,6 @@ class SMPSegmentationModel(
 
         return loss
 
-    # def on_fit_start(self) -> None:
-    #     # Save transforms
-    #     self.trainer.logger.log_hyperparams(
-    #         {
-    #             "train_trans": self.train_dataloader().dataset.transforms.to_dict(),
-    #             "val_trans": self.val_dataloader().dataset.transforms.to_dict(),
-    #         }
-    #     )
-
     def on_validation_epoch_end(self) -> None:
         self.log_dict(
             {
@@ -157,3 +148,85 @@ class SMPSegmentationModel(
                 "interval": "step",
             },
         }
+
+
+class KelpSpeciesModel(SMPSegmentationModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.class_names = ["bg", "macro", "nereo"]
+
+        # metrics
+        self.accuracy = fm.Accuracy(
+            task="multiclass",
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+        )
+        self.jaccard_index = fm.JaccardIndex(
+            task="multiclass",
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+            average="none",
+        )
+        self.recall = fm.Recall(
+            task="multiclass",
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+            average="none",
+        )
+        self.precision = fm.Precision(
+            task="multiclass",
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+            average="none",
+        )
+        self.f1_score = fm.F1Score(
+            task="multiclass",
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+            average="none",
+        )
+
+        # Override parent's activation function to remove .squeeze(1) for multiclass
+        self.activation_fn = lambda x: torch.softmax(x, dim=1)
+
+    def on_validation_epoch_end(self) -> None:
+        self.log("val/accuracy_epoch", self.accuracy)
+
+        iou_per_class = self.jaccard_index.compute()
+        precision_per_class = self.precision.compute()
+        recall_per_class = self.recall.compute()
+        f1_per_class = self.f1_score.compute()
+
+        for i, class_name in enumerate(self.class_names):
+            self.log(f"val/iou_epoch/{class_name}", iou_per_class[i])
+            self.log(f"val/recall_epoch/{class_name}", recall_per_class[i])
+            self.log(f"val/precision_epoch/{class_name}", precision_per_class[i])
+            self.log(f"val/f1_epoch/{class_name}", f1_per_class[i])
+        self.log(f"val/iou_epoch", iou_per_class[1:].mean())
+
+    def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
+        x, y = batch
+        logits = self.forward(x)
+
+        loss = self.loss_fn(logits, y.long())
+        self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"))
+
+        probs = self.activation_fn(logits)
+        self.log(f"{phase}/accuracy", self.accuracy(probs, y))
+
+        iou_per_class = self.jaccard_index(probs, y)
+        precision_per_class = self.precision(probs, y)
+        recall_per_class = self.recall(probs, y)
+        f1_per_class = self.f1_score(probs, y)
+        for i, class_name in enumerate(self.class_names):
+            self.log_dict(
+                {
+                    f"{phase}/iou-{class_name}": iou_per_class[i],
+                    f"{phase}/recall-{class_name}": recall_per_class[i],
+                    f"{phase}/precision-{class_name}": precision_per_class[i],
+                    f"{phase}/f1-{class_name}": f1_per_class[i],
+                }
+            )
+        self.log(f"{phase}/iou", iou_per_class[1:].mean())
+
+        return loss

@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "albumentations>=2.0.8",
+    "albumentationsx>=2.0.8",
     "einops>=0.8.1",
     "lightning[pytorch-extra]>=2.5.1",
     "onnx>=1.18.0",
@@ -25,6 +25,7 @@ dev = [
     "notebook>=7.3.2",
     "pre-commit>=4.1.0",
     "ruff>=0.11.2",
+    "torchgeo>=0.7.1",
 ]
 
 [tool.ruff.lint]

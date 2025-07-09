@@ -1,0 +1,72 @@
+seed_everything: 42
+
+data:
+  train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512/train"
+  val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512/val"
+  test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512/test"
+  batch_size: 16
+  fill_value: 0
+  fill_mask: 0
+  num_workers: 8
+  pin_memory: true
+  persistent_workers: true
+
+model:
+  architecture: "Segformer"
+  backbone: "mit_b3"
+  model_opts:
+    encoder_weights: imagenet
+    in_channels: 3
+  num_classes: 3
+  ignore_index: &ignore_index -100
+  lr: 0.01
+  wd: 0.01
+  b1: 0.9
+  b2: 0.95
+  loss: "DiceLoss"
+  loss_opts:
+    mode: "multiclass"
+    classes: [1, 2]
+    ignore_index: *ignore_index
+    from_logits: true
+
+trainer:
+  accelerator: auto
+  devices: auto
+  num_nodes: 1
+#  precision: bf16-mixed
+  log_every_n_steps: 5
+  max_epochs: 20
+  accumulate_grad_batches: 4
+  gradient_clip_val: 0.5
+  detect_anomaly: false
+  default_root_dir: checkpoints/kom-kelp-rgb
+  fast_dev_run: False
+  logger:
+    - class_path: lightning.pytorch.loggers.WandbLogger
+      init_args:
+        entity: hakai
+        project: kom-kelp-rgb
+        name: segformer-b3
+        group: Jul2025
+        log_model: true
+        tags:
+          - kelp
+          - Jul2025
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: checkpoints/kom-kelp-rgb
+        auto_insert_metric_name: False
+        filename: kelp_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou:.4f}
+        monitor: val/iou_epoch
+        mode: max
+        save_last: True
+        save_top_k: 2
+        save_weights_only: True
+        verbose: True
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: step
+  plugins:
+    - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO
