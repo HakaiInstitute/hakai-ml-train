@@ -3,9 +3,9 @@ seed_everything: 42
 data:
   class_path: "src.datamodule.DataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512-v2/train"
-    val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512-v2/val"
-    test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512-v2/test"
+    train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512/train"
+    val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512/val"
+    test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512/test"
     batch_size: 16
     fill_value: 0
     fill_mask: 0
