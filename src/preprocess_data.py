@@ -153,12 +153,12 @@ def main():
         "output_dir", type=Path, help="Directory to save the output chips."
     )
     parser.add_argument(
-        "--size", type=int, default=244, help="Size of the square chips."
+        "--size", type=int, default=224, help="Size of the square chips."
     )
     parser.add_argument(
         "--num_bands", type=int, default=3, help="Number of bands in the chips."
     )
-    parser.add_argument("--stride", type=int, default=244, help="Stride for the chips.")
+    parser.add_argument("--stride", type=int, default=224, help="Stride for the chips.")
 
     args = parser.parse_args()
 
