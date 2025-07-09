@@ -27,10 +27,9 @@ model:
     wd: 0.01
     b1: 0.9
     b2: 0.95
-    loss: "DiceLoss"
+    loss: "LovaszLoss"
     loss_opts:
       mode: "multiclass"
-      classes: [1, 2]
       ignore_index: *ignore_index
       from_logits: true
 
