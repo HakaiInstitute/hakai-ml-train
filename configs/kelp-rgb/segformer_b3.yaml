@@ -43,7 +43,7 @@ trainer:
   accumulate_grad_batches: 2
   gradient_clip_val: 0.5
   detect_anomaly: false
-  default_root_dir: checkpoints/kom-kelp-rgb
+  default_root_dir: checkpoints
   fast_dev_run: False
   logger:
     - class_path: lightning.pytorch.loggers.WandbLogger
@@ -59,7 +59,6 @@ trainer:
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
-        dirpath: checkpoints/kom-kelp-rgb
         auto_insert_metric_name: False
         filename: kelp_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
