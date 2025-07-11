@@ -4,49 +4,15 @@ import os
 from pathlib import Path
 from typing import Any
 
+import albumentations as A
 import lightning.pytorch as pl
 import numpy as np
 import torch
 from albumentations import to_dict
-from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision.datasets import VisionDataset
 
 from src.transforms import get_test_transforms, get_train_transforms
-
-
-class SegmentationDataset(VisionDataset):
-    """Load preprocessed image chips. Used during m odel train and validation phases."""
-
-    def __init__(
-        self,
-        root: str,
-        *args,
-        ext: str = "tif",
-        **kwargs,
-    ):
-        super().__init__(root, *args, **kwargs)
-        self._images = sorted(Path(root).joinpath("x").glob(f"*.{ext}"))
-        self._labels = sorted(Path(root).joinpath("y").glob(f"*.{ext}"))
-
-        assert len(self._images) == len(self._labels), (
-            "There are an unequal number of images and labels!"
-        )
-
-    def __len__(self):
-        return len(self._images)
-
-    # noinspection DuplicatedCode
-    def __getitem__(self, idx):
-        img = np.array(Image.open(self._images[idx]))
-        target = np.array(Image.open(self._labels[idx]))
-
-        if self.transforms is not None:
-            with torch.no_grad():
-                transformed = self.transforms(image=img, mask=target)
-                img, target = transformed["image"], transformed["mask"]
-
-        return img, target
 
 
 class NpzSegmentationDataset(VisionDataset):
@@ -101,13 +67,23 @@ class DataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.persistent_workers = persistent_workers
+
+        self.mean = mean
+        self.std = std
         self.fill_value = fill_value
-        self.train_trans = get_train_transforms(
-            mean=mean, std=std, fill=fill_value, fill_mask=fill_mask
-        )
-        self.test_trans = get_test_transforms(mean=mean, std=std)
+        self.fill_mask = fill_mask
 
         self.ds_train, self.ds_val, self.ds_test = None, None, None
+
+    @property
+    def train_trans(self):
+        return get_train_transforms(
+            mean=self.mean, std=self.std, fill=self.fill_value, fill_mask=self.fill_mask
+        )
+
+    @property
+    def test_trans(self):
+        return get_test_transforms(mean=self.mean, std=self.std)
 
     def prepare_data(self, *args, **kwargs):
         pass
@@ -174,3 +150,20 @@ class DataModule(pl.LightningDataModule):
                 )
             self._logged_transforms = True
         return batch
+
+
+class MAEDataModule(DataModule):
+    @property
+    def train_trans(self):
+        return A.Compose(
+            [
+                A.D4(),
+                # A.RandomResizedCrop(size=(224, 224), scale=(0.6, 1.0), p=1.0),
+                A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                A.ToTensorV2(),
+            ]
+        )
+
+    @property
+    def test_trans(self):
+        return self.train_trans

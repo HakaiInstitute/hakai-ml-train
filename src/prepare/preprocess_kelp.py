@@ -2,10 +2,10 @@ r"""
 We will create chips of size `224 x 224` to feed them to the model, feel
 free to experiment with other chip sizes as well.
    Run the script as follows:
-   python preprocess_data.py <data_dir> <output_dir> <chip_size> <chip_stride? (defaults to chip_size)>
+   python preprocess_data.py <data_dir> <output_dir>
 
    Example:
-   python preprocess_data.py data/ps_8b/ data/ps_8b_tiled 224
+   python preprocess_data.py data/ps_8b/ data/ps_8b_tiled_224_full
 """
 
 import argparse
@@ -19,13 +19,13 @@ from torchgeo.datasets.utils import stack_samples
 from torchgeo.samplers import GridGeoSampler
 from tqdm.auto import tqdm
 
-LABELS = {
-    "bg": 0,
-    "unknown_kelp_species": 1,
-    "macro": 2,
-    "nereo": 3,
-    "noise": 4,
-}
+# LABELS = {
+#     "bg": 0,
+#     "unknown_kelp_species": 1,
+#     "macro": 2,
+#     "nereo": 3,
+#     "noise": 4,
+# }
 
 
 def remap_label(labels, device=None):
@@ -42,14 +42,6 @@ def remap_label(labels, device=None):
     result[mask] = lookup[labels[mask]]
 
     return result
-
-
-def noise_pixels_count(label) -> int:
-    return (label == LABELS["noise"]).sum()
-
-
-def interesting_pixels_count(label) -> int:
-    return ((label == LABELS["macro"]) | (label == LABELS["nereo"])).sum()
 
 
 class RasterMosaicDataset(RasterDataset):
@@ -97,21 +89,11 @@ def create_chips(
         img = batch["image"]
         label = batch["mask"]
 
-        interesting_pixels = interesting_pixels_count(label)
-        noise_pixels = noise_pixels_count(label)
         height = img.shape[2]
         width = img.shape[3]
-        # total_pixels = height * width
 
-        if noise_pixels > 0:
-            continue
-
-        if (
-            height < chip_size
-            or width < chip_size
-            or (name in ["train", "val"] and interesting_pixels == 0)
-            # or (name in ["train", "val"] and interesting_pixels / total_pixels < 0.002)
-        ):
+        if height < chip_size or width < chip_size:
+            # Toss chips that are smaller than the chip size
             continue
 
         # Convert to numpy arrays
@@ -140,6 +122,32 @@ def load_dataset(data_dir, img_name):
     return images & labels
 
 
+def process_split(
+    data_dir: Path,
+    split: str,
+    output_dir: Path,
+    chip_size: int = 224,
+    chip_stride: int = 224,
+    num_bands: int = 3,
+):
+    dir = data_dir / split
+    imgs = sorted(dir.glob("images/*.tif"))
+    for i, x in enumerate(imgs):
+        print(i, x.name)
+
+    for img in tqdm(imgs, desc=f"{split.capitalize()} chips"):
+        ds = load_dataset(data_dir / split, img_name=img.name)
+        create_chips(
+            out_root=output_dir,
+            name=split,
+            dset=ds,
+            img_path=img,
+            chip_size=chip_size,
+            chip_stride=chip_stride,
+            num_bands=num_bands,
+        )
+
+
 def main():
     """
     Main function to process files and create chips.
@@ -156,61 +164,20 @@ def main():
         "--size", type=int, default=224, help="Size of the square chips."
     )
     parser.add_argument(
-        "--num_bands", type=int, default=3, help="Number of bands in the chips."
+        "--num_bands", type=int, default=3, help="Number of bands in the chips to keep."
     )
     parser.add_argument("--stride", type=int, default=224, help="Stride for the chips.")
 
     args = parser.parse_args()
 
-    train_dir = args.data_dir / "train"
-    imgs = sorted(train_dir.glob("images/*.tif"))
-    for i, x in enumerate(imgs):
-        print(i, x.name)
-    for img in tqdm(imgs, desc="Training chips"):
-        print(img.name)
-        train_ds = load_dataset(args.data_dir / "train", img_name=img.name)
-        create_chips(
+    for split in ["train", "val", "test"]:
+        process_split(
+            args.data_dir,
+            split,
             args.output_dir,
-            "train",
-            train_ds,
-            img_path=img,
-            chip_size=args.size,
-            chip_stride=args.stride,
-            num_bands=args.num_bands,
-        )
-
-    val_dir = args.data_dir / "val"
-    imgs = sorted(val_dir.glob("images/*.tif"))
-    for i, x in enumerate(imgs):
-        print(i, x.name)
-    for img in tqdm(imgs, desc="Validation chips"):
-        print(img.name)
-        val_ds = load_dataset(args.data_dir / "val", img_name=img.name)
-        create_chips(
-            args.output_dir,
-            "val",
-            val_ds,
-            img_path=img,
-            chip_size=args.size,
-            chip_stride=args.stride,
-            num_bands=args.num_bands,
-        )
-
-    test_dir = args.data_dir / "test"
-    imgs = sorted(test_dir.glob("images/*.tif"))
-    for i, x in enumerate(imgs):
-        print(i, x.name)
-    for img in tqdm(imgs, desc="Test chips"):
-        print(img.name)
-        test_ds = load_dataset(args.data_dir / "test", img_name=img.name)
-        create_chips(
-            args.output_dir,
-            "test",
-            test_ds,
-            img_path=img,
-            chip_size=args.size,
-            chip_stride=args.stride,
-            num_bands=args.num_bands,
+            args.size,
+            args.stride,
+            args.num_bands,
         )
 
 

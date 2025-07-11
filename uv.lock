@@ -747,6 +747,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "albumentationsx" },
     { name = "einops" },
+    { name = "lightly", extra = ["timm"] },
     { name = "lightning", extra = ["pytorch-extra"] },
     { name = "onnx" },
     { name = "pydantic" },
@@ -772,6 +773,7 @@ dev = [
 requires-dist = [
     { name = "albumentationsx", specifier = ">=2.0.8" },
     { name = "einops", specifier = ">=0.8.1" },
+    { name = "lightly", extras = ["timm"], specifier = ">=1.5.21" },
     { name = "lightning", extras = ["pytorch-extra"], specifier = ">=2.5.1" },
     { name = "onnx", specifier = ">=1.18.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
@@ -1391,6 +1393,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/00/6e/204077130bfe3cee9513fa165a8089f795203ca9578f80dd13f0a632ff90/lightly-1.5.21.tar.gz", hash = "sha256:3f04032c1378ba79b581b7506a6d38ae580efddefbe77bd1a9b0a0d1bdf1d457", size = 410194, upload-time = "2025-06-11T15:32:31.381Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3e/c6/60075c05428aa284212801fdcb5f334419ae0b88cb2158f025514a4a7d7a/lightly-1.5.21-py3-none-any.whl", hash = "sha256:6636f95513ebb77c21d16b17467870633d1bcf811027ca3df565a9274ecda335", size = 855823, upload-time = "2025-06-11T15:32:29.771Z" },
+]
+
+[package.optional-dependencies]
+timm = [
+    { name = "timm" },
 ]
 
 [[package]]

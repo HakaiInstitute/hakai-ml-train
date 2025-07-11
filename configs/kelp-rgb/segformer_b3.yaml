@@ -1,12 +1,12 @@
 seed_everything: 42
 
 data:
-  class_path: "src.datamodule.DataModule"
+  class_path: "src.data.DataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512/train"
-    val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512/val"
-    test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-512/test"
-    batch_size: 20
+    train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-224/train"
+    val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-224-full/val"
+    test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-224-full/test"
+    batch_size: 128
     fill_value: 0
     fill_mask: 0
     num_workers: 8
@@ -14,7 +14,7 @@ data:
     persistent_workers: true
 
 model:
-  class_path: "src.module.KelpSpeciesModel"
+  class_path: "src.models.smp.KelpSpeciesModel"
   init_args:
     architecture: "Segformer"
     backbone: "mit_b3"
@@ -40,7 +40,7 @@ trainer:
   precision: bf16-mixed
   log_every_n_steps: 5
   max_epochs: 20
-  accumulate_grad_batches: 4
+  accumulate_grad_batches: 2
   gradient_clip_val: 0.5
   detect_anomaly: false
   default_root_dir: checkpoints/kom-kelp-rgb
@@ -50,7 +50,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-kelp-rgb
-        name: segformer-b3
+        name: segformer_b3
         group: Jul2025
         log_model: true
         tags:
@@ -61,7 +61,7 @@ trainer:
       init_args:
         dirpath: checkpoints/kom-kelp-rgb
         auto_insert_metric_name: False
-        filename: kelp_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou:.4f}
+        filename: kelp_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
