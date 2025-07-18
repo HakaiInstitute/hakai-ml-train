@@ -30,6 +30,7 @@ class SMPSegmentationModel(
         wd: float = 0,
         b1: float = 0.9,
         b2: float = 0.999,
+        amsgrad: bool = False,
         warmup_period: float = 0.1,
         freeze_backbone: bool = False,
     ):
@@ -138,6 +139,7 @@ class SMPSegmentationModel(
             lr=self.hparams.lr,
             weight_decay=self.hparams.wd,
             betas=(self.hparams.b1, self.hparams.b2),
+            amsgrad=self.hparams.amsgrad,
         )
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
