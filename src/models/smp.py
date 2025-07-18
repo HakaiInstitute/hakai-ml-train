@@ -29,7 +29,8 @@ class SMPSegmentationModel(
         lr: float = 0.0003,
         wd: float = 0,
         b1: float = 0.9,
-        b2: float = 0.99,
+        b2: float = 0.999,
+        warmup_period: float = 0.1,
         freeze_backbone: bool = False,
     ):
         super().__init__()
@@ -133,20 +134,17 @@ class SMPSegmentationModel(
     def configure_optimizers(self):
         """Init optimizer and scheduler"""
         optimizer = torch.optim.AdamW(
-            [
-                param
-                for name, param in self.model.named_parameters()
-                if param.requires_grad
-            ],
+            filter(lambda p: p.requires_grad, self.parameters()),
             lr=self.hparams.lr,
             weight_decay=self.hparams.wd,
             betas=(self.hparams.b1, self.hparams.b2),
+            amsgrad=True,
         )
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
             max_lr=self.hparams.lr,
             total_steps=self.trainer.estimated_stepping_batches,
-            pct_start=0.1,
+            pct_start=self.hparams.warmup_period,
         )
         return {
             "optimizer": optimizer,
