@@ -138,7 +138,6 @@ class SMPSegmentationModel(
             lr=self.hparams.lr,
             weight_decay=self.hparams.wd,
             betas=(self.hparams.b1, self.hparams.b2),
-            amsgrad=True,
         )
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
