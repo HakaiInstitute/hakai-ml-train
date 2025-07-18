@@ -53,7 +53,6 @@ def convert_checkpoint(
     # Have to deactivate SWISH for EfficientNet to export to TorchScript
     # model.model.encoder.set_swish(False)
 
-    # Export as JIT
     x = torch.rand(
         1,
         config.num_bands,
@@ -62,12 +61,6 @@ def convert_checkpoint(
         device=DEVICE,
         requires_grad=False,
     )
-
-    # save for use in production environment
-    traced_model = model.to_torchscript(method="trace", example_inputs=x)
-    torch.jit.save(traced_model, output_path_jit)
-    print(f"Saved JIT model to {os.path.abspath(output_path_jit)}")
-
     # Export as ONNX
 
     # Define dynamic axes for input and output

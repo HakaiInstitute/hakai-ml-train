@@ -141,7 +141,11 @@ class DataModule(pl.LightningDataModule):
     def on_after_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
         # This runs once at the start
         if not hasattr(self, "_logged_transforms"):
-            if self.trainer.logger and self.train_trans:
+            if (
+                self.trainer.logger
+                and self.train_trans
+                and hasattr(self.trainer.logger.experiment.config, "update")
+            ):
                 self.trainer.logger.experiment.config.update(
                     {
                         "train_transforms": to_dict(self.train_trans),

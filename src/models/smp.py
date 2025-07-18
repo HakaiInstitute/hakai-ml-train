@@ -45,6 +45,7 @@ class SMPSegmentationModel(
         for p in self.model.parameters():
             p.requires_grad = True
         if freeze_backbone:
+            print("Freezing backbone parameters")
             for p in self.model.encoder.parameters():
                 p.requires_grad = False
 
@@ -101,7 +102,7 @@ class SMPSegmentationModel(
         logits = self.forward(x)
 
         loss = self.loss_fn(logits, y.long().unsqueeze(1))
-        self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"))
+        self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"), sync_dist=True)
 
         probs = self.activation_fn(logits)
         self.log_dict(
@@ -111,7 +112,8 @@ class SMPSegmentationModel(
                 f"{phase}/recall": self.recall(probs, y),
                 f"{phase}/precision": self.precision(probs, y),
                 f"{phase}/f1": self.f1_score(probs, y),
-            }
+            },
+            sync_dist=True,
         )
 
         return loss
@@ -124,7 +126,8 @@ class SMPSegmentationModel(
                 "val/recall_epoch": self.recall,
                 "val/precision_epoch": self.precision,
                 "val/f1_epoch": self.f1_score,
-            }
+            },
+            sync_dist=True,
         )
 
     def configure_optimizers(self):
@@ -194,7 +197,7 @@ class KelpSpeciesModel(SMPSegmentationModel):
         self.activation_fn = lambda x: torch.softmax(x, dim=1)
 
     def on_validation_epoch_end(self) -> None:
-        self.log("val/accuracy_epoch", self.accuracy)
+        self.log("val/accuracy_epoch", self.accuracy, sync_dist=True)
 
         iou_per_class = self.jaccard_index.compute()
         precision_per_class = self.precision.compute()
@@ -202,21 +205,27 @@ class KelpSpeciesModel(SMPSegmentationModel):
         f1_per_class = self.f1_score.compute()
 
         for i, class_name in enumerate(self.class_names):
-            self.log(f"val/iou_epoch/{class_name}", iou_per_class[i])
-            self.log(f"val/recall_epoch/{class_name}", recall_per_class[i])
-            self.log(f"val/precision_epoch/{class_name}", precision_per_class[i])
-            self.log(f"val/f1_epoch/{class_name}", f1_per_class[i])
-        self.log(f"val/iou_epoch", iou_per_class[1:].mean())
+            self.log(f"val/iou_epoch/{class_name}", iou_per_class[i], sync_dist=True)
+            self.log(
+                f"val/recall_epoch/{class_name}", recall_per_class[i], sync_dist=True
+            )
+            self.log(
+                f"val/precision_epoch/{class_name}",
+                precision_per_class[i],
+                sync_dist=True,
+            )
+            self.log(f"val/f1_epoch/{class_name}", f1_per_class[i], sync_dist=True)
+        self.log(f"val/iou_epoch", iou_per_class[1:].mean(), sync_dist=True)
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
         logits = self.forward(x)
 
         loss = self.loss_fn(logits, y.long())
-        self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"))
+        self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"), sync_dist=True)
 
         probs = self.activation_fn(logits)
-        self.log(f"{phase}/accuracy", self.accuracy(probs, y))
+        self.log(f"{phase}/accuracy", self.accuracy(probs, y), sync_dist=True)
 
         iou_per_class = self.jaccard_index(probs, y)
         precision_per_class = self.precision(probs, y)
@@ -229,8 +238,9 @@ class KelpSpeciesModel(SMPSegmentationModel):
                     f"{phase}/recall-{class_name}": recall_per_class[i],
                     f"{phase}/precision-{class_name}": precision_per_class[i],
                     f"{phase}/f1-{class_name}": f1_per_class[i],
-                }
+                },
+                sync_dist=True,
             )
-        self.log(f"{phase}/iou", iou_per_class[1:].mean())
+        self.log(f"{phase}/iou", iou_per_class[1:].mean(), sync_dist=True)
 
         return loss
