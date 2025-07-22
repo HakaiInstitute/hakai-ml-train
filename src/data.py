@@ -8,7 +8,9 @@ import albumentations as A
 import lightning.pytorch as pl
 import numpy as np
 import torch
-from albumentations import to_dict
+import torchvision.transforms.functional as f
+from albumentations import ToTensorV2, to_dict
+from PIL.Image import Image
 from torch.utils.data import DataLoader
 from torchvision.datasets import VisionDataset
 
@@ -171,3 +173,27 @@ class MAEDataModule(DataModule):
     @property
     def test_trans(self):
         return self.train_trans
+
+
+class KOMBaselineRGBIDataModule(DataModule):
+    @staticmethod
+    def _rgbi_kelp_transform(img: torch.Tensor, *args, **kwargs) -> torch.Tensor:
+        # to float
+        x = img.to(torch.float)
+        # min-max scale
+        x_unique = x.flatten().unique()
+        min_ = x_unique[0]
+        if len(x_unique) > 1:
+            min_, _ = torch.kthvalue(x_unique, 2)
+        max_ = x.flatten().max()
+        return torch.clamp((x - min_) / (max_ - min_ + 1e-8), 0, 1)
+
+    @property
+    def test_trans(self):
+        return A.Compose(
+            [
+                ToTensorV2(),
+                A.Lambda(name="normalize", image=self._rgbi_kelp_transform),
+            ],
+            p=1,
+        )

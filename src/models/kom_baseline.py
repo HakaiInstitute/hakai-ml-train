@@ -56,7 +56,14 @@ def lazy_load_params(object_name: str):
     return local_file
 
 
-class KomSpeciesBaselineModel(pl.LightningModule):
+class KomRGBSpeciesBaselineModel(pl.LightningModule):
+    pa_params_file = lazy_load_params(
+        "UNetPlusPlus_EfficientNetV2_m_kelp_presence_rgb_jit_dice=0.8703.pt"
+    )
+    sp_params_file = lazy_load_params(
+        "UNetPlusPlus_EfficientNetV2_m_kelp_species_rgb_jit_dice=0.9881.pt"
+    )
+
     def __init__(
         self,
         loss: str,
@@ -70,15 +77,8 @@ class KomSpeciesBaselineModel(pl.LightningModule):
     ):
         super().__init__()
         self.save_hyperparameters()
-
-        pa_params_file = lazy_load_params(
-            "UNetPlusPlus_EfficientNetV2_m_kelp_presence_rgb_jit_dice=0.8703.pt"
-        )
-        sp_params_file = lazy_load_params(
-            "UNetPlusPlus_EfficientNetV2_m_kelp_species_rgb_jit_dice=0.9881.pt"
-        )
-        self.pa_model = torch.jit.load(pa_params_file, map_location=self.device)
-        self.sp_model = torch.jit.load(sp_params_file, map_location=self.device)
+        self.pa_model = torch.jit.load(self.pa_params_file, map_location=self.device)
+        self.sp_model = torch.jit.load(self.sp_params_file, map_location=self.device)
 
         for p in self.pa_model.parameters():
             p.requires_grad = False
@@ -151,21 +151,6 @@ class KomSpeciesBaselineModel(pl.LightningModule):
     def test_step(self, batch: torch.Tensor, batch_idx: int):
         return self._phase_step(batch, batch_idx, phase="test")
 
-    def on_validation_epoch_end(self) -> None:
-        self.log("val/accuracy_epoch", self.accuracy)
-
-        iou_per_class = self.jaccard_index.compute()
-        precision_per_class = self.precision.compute()
-        recall_per_class = self.recall.compute()
-        f1_per_class = self.f1_score.compute()
-
-        for i, class_name in enumerate(self.class_names):
-            self.log(f"val/iou_epoch/{class_name}", iou_per_class[i])
-            self.log(f"val/recall_epoch/{class_name}", recall_per_class[i])
-            self.log(f"val/precision_epoch/{class_name}", precision_per_class[i])
-            self.log(f"val/f1_epoch/{class_name}", f1_per_class[i])
-        self.log(f"val/iou_epoch", iou_per_class[1:].mean())
-
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
         probs = self.forward(x)
@@ -186,9 +171,11 @@ class KomSpeciesBaselineModel(pl.LightningModule):
                     f"{phase}/recall-{class_name}": recall_per_class[i],
                     f"{phase}/precision-{class_name}": precision_per_class[i],
                     f"{phase}/f1-{class_name}": f1_per_class[i],
-                }
+                },
+                on_step=True,
+                on_epoch=True,
             )
-        self.log(f"{phase}/iou", iou_per_class[1:].mean())
+        self.log(f"{phase}/iou", iou_per_class[1:].mean(), on_step=True, on_epoch=True)
 
         return loss
 
@@ -346,3 +333,31 @@ class KomMusselsBaselineModel(pl.LightningModule):
                 "interval": "step",
             },
         }
+
+
+class KomRGBISpeciesBaselineModel(KomRGBSpeciesBaselineModel):
+    pa_params_file = lazy_load_params(
+        "UNetPlusPlus_EfficientNetB4_kelp_presence_rgbi_jit_miou=0.8785.pt"
+    )
+    sp_params_file = lazy_load_params(
+        "UNetPlusPlus_EfficientNetB4_kelp_species_rgbi_jit_miou=0.8432.pt"
+    )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        presence_logits = self.pa_model(x)
+        species_logits = self.sp_model(x)
+
+        pa_probs = torch.softmax(presence_logits, dim=1)  # P(bg,kelp)
+        bg_probs = pa_probs[:, 0]  # P(bg)
+        kelp_probs = pa_probs[:, 1]  # P(kelp)
+        marginal_probs = torch.softmax(species_logits, dim=1)  # P(macro,nereo|kelp)
+
+        probs = torch.stack(
+            [
+                bg_probs,  # P(bg)
+                marginal_probs[:, 0] * kelp_probs,  # P(macro)
+                marginal_probs[:, 1] * kelp_probs,  # P(nereo)
+            ],
+            dim=1,
+        )
+        return probs

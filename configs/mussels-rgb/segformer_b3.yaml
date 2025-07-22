@@ -6,6 +6,8 @@ data:
     train_chip_dir: "/home/taylor/data/MP-RGB-Jul2025-1024-512/train"
     val_chip_dir: "/home/taylor/data/MP-RGB-Jul2025-1024-512-full/val"
     test_chip_dir: "/home/taylor/data/MP-RGB-Jul2025-1024-512-full/test"
+    mean: (0.485, 0.456, 0.406, 0.485)
+    std: (0.229, 0.224, 0.225, 0.229)
     batch_size: 3
     fill_value: 0
     fill_mask: 0

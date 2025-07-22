@@ -28,13 +28,13 @@ from tqdm.auto import tqdm
 # }
 
 
-def remap_label(labels, device=None):
+def remap_label(labels, band_remapping, device=None):
     if device is None:
         device = labels.device
 
     # Create a lookup tensor
     # Index 0->0, 1->-100, 2->1, 3->2
-    lookup = torch.tensor([0, -100, 1, 2], dtype=labels.dtype, device=device)
+    lookup = torch.tensor(band_remapping, dtype=labels.dtype, device=device)
 
     # Handle out-of-bounds values
     mask = (labels >= 0) & (labels < len(lookup))
@@ -71,7 +71,14 @@ class KomLabelsDataset(RasterDataset):
 
 
 def create_chips(
-    out_root, name, dset, img_path, chip_size=224, chip_stride=224, num_bands=3
+    out_root,
+    name,
+    dset,
+    img_path,
+    chip_size=224,
+    chip_stride=224,
+    num_bands=3,
+    band_remapping=(0, 1),
 ):
     out_dir = out_root / name
     out_dir.mkdir(exist_ok=True, parents=True)
@@ -103,7 +110,7 @@ def create_chips(
             "Image values should be in [0, 255]"
         )
         img_array = img_array.astype(np.uint8)
-        label_array = remap_label(label).numpy().astype(np.int64)
+        label_array = remap_label(label, band_remapping).numpy().astype(np.int64)
 
         # Save the image as npz
         np.savez_compressed(
@@ -129,6 +136,7 @@ def process_split(
     chip_size: int = 224,
     chip_stride: int = 224,
     num_bands: int = 3,
+    band_remapping: tuple[int] = (0, 1),
 ):
     dir = data_dir / split
     imgs = sorted(dir.glob("images/*.tif"))
@@ -145,6 +153,7 @@ def process_split(
             chip_size=chip_size,
             chip_stride=chip_stride,
             num_bands=num_bands,
+            band_remapping=band_remapping,
         )
 
 
@@ -168,6 +177,8 @@ def main():
     )
     parser.add_argument("--stride", type=int, default=224, help="Stride for the chips.")
 
+    parser.add_argument("--remap", "-r", type=int, nargs="+", default=[0, 1])
+
     args = parser.parse_args()
 
     for split in ["train", "val", "test"]:
@@ -178,6 +189,7 @@ def main():
             args.size,
             args.stride,
             args.num_bands,
+            args.remap,
         )
 
 

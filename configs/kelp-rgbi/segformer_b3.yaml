@@ -3,9 +3,9 @@ seed_everything: 42
 data:
   class_path: "src.data.DataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024/train"
-    val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-full/val"
-    test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-full/test"
+    train_chip_dir: "/home/taylor/data/KS-RGBI-Jul2025-1024-1024-train"
+    val_chip_dir: "/home/taylor/data/KS-RGBI-Jul2025-1024-1024-full/val"
+    test_chip_dir: "/home/taylor/data/KS-RGBI-Jul2025-1024-1024-full/test"
     batch_size: 3
     fill_value: 0
     fill_mask: 0
@@ -20,7 +20,7 @@ model:
     backbone: "mit_b3"
     model_opts:
       encoder_weights: imagenet
-      in_channels: 3
+      in_channels: 4
     num_classes: 3
     ignore_index: &ignore_index -100
     lr: 3e-4
@@ -48,7 +48,7 @@ trainer:
     - class_path: lightning.pytorch.loggers.WandbLogger
       init_args:
         entity: hakai
-        project: kom-kelp-rgb
+        project: kom-kelp-rgbi
         name: segformer_b3
         group: Jul2025
         log_model: true
@@ -59,7 +59,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: kelp_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: kelp_rgbi_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
