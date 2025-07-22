@@ -233,10 +233,10 @@ class KelpSpeciesModel(SMPSegmentationModel):
         for i, class_name in enumerate(self.class_names):
             self.log_dict(
                 {
-                    f"{phase}/iou-{class_name}": iou_per_class[i],
-                    f"{phase}/recall-{class_name}": recall_per_class[i],
-                    f"{phase}/precision-{class_name}": precision_per_class[i],
-                    f"{phase}/f1-{class_name}": f1_per_class[i],
+                    f"{phase}/iou_{class_name}": iou_per_class[i],
+                    f"{phase}/recall_{class_name}": recall_per_class[i],
+                    f"{phase}/precision_{class_name}": precision_per_class[i],
+                    f"{phase}/f1_{class_name}": f1_per_class[i],
                 },
                 sync_dist=True,
             )

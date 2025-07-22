@@ -151,6 +151,21 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
     def test_step(self, batch: torch.Tensor, batch_idx: int):
         return self._phase_step(batch, batch_idx, phase="test")
 
+    def on_validation_epoch_end(self) -> None:
+        self.log("val/accuracy_epoch", self.accuracy)
+
+        iou_per_class = self.jaccard_index.compute()
+        precision_per_class = self.precision.compute()
+        recall_per_class = self.recall.compute()
+        f1_per_class = self.f1_score.compute()
+
+        for i, class_name in enumerate(self.class_names):
+            self.log(f"val/iou_epoch/{class_name}", iou_per_class[i])
+            self.log(f"val/recall_epoch/{class_name}", recall_per_class[i])
+            self.log(f"val/precision_epoch/{class_name}", precision_per_class[i])
+            self.log(f"val/f1_epoch/{class_name}", f1_per_class[i])
+        self.log(f"val/iou_epoch", iou_per_class[1:].mean())
+
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
         probs = self.forward(x)
@@ -167,15 +182,13 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         for i, class_name in enumerate(self.class_names):
             self.log_dict(
                 {
-                    f"{phase}/iou-{class_name}": iou_per_class[i],
-                    f"{phase}/recall-{class_name}": recall_per_class[i],
-                    f"{phase}/precision-{class_name}": precision_per_class[i],
-                    f"{phase}/f1-{class_name}": f1_per_class[i],
-                },
-                on_step=True,
-                on_epoch=True,
+                    f"{phase}/iou_{class_name}": iou_per_class[i],
+                    f"{phase}/recall_{class_name}": recall_per_class[i],
+                    f"{phase}/precision_{class_name}": precision_per_class[i],
+                    f"{phase}/f1_{class_name}": f1_per_class[i],
+                }
             )
-        self.log(f"{phase}/iou", iou_per_class[1:].mean(), on_step=True, on_epoch=True)
+        self.log(f"{phase}/iou", iou_per_class[1:].mean())
 
         return loss
 
