@@ -1,6 +1,8 @@
 import io
 
 import albumentations as A
+import numpy as np
+import torch
 from albumentations.pytorch import ToTensorV2
 
 
@@ -91,6 +93,10 @@ if __name__ == "__main__":
     train_t = get_train_transforms(
         mean=(0.400, 0.450, 0.474, 0.448), std=(0.328, 0.303, 0.284, 0.349)
     )
+
+    x = np.random.randint(0, 255, (1024, 1024, 4), dtype=np.uint8)
+
+    train_t(image=x)
 
     with io.StringIO() as f:
         A.save(train_t, f, data_format="yaml")

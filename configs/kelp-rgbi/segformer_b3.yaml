@@ -53,27 +53,16 @@ data:
               - 0.1
             ensure_safe_range: false
             p: 0.5
-          - __class_fullname__: OneOf
+          - __class_fullname__: GaussNoise
+            mean_range:
+              - 0.0
+              - 0.0
+            noise_scale_factor: 1.0
             p: 0.3
-            transforms:
-              - __class_fullname__: GaussNoise
-                mean_range:
-                  - 0.0
-                  - 0.0
-                noise_scale_factor: 1.0
-                p: 1.0
-                per_channel: true
-                std_range:
-                  - 0.02
-                  - 0.044
-              - __class_fullname__: ISONoise
-                color_shift:
-                  - 0.01
-                  - 0.05
-                intensity:
-                  - 0.1
-                  - 0.2
-                p: 1.0
+            per_channel: true
+            std_range:
+              - 0.02
+              - 0.044
           - __class_fullname__: OneOf
             p: 0.3
             transforms:
