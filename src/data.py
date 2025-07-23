@@ -55,10 +55,8 @@ class DataModule(pl.LightningDataModule):
         num_workers: int = os.cpu_count(),
         pin_memory: bool = True,
         persistent_workers: bool = False,
-        fill_value: int = 0,
-        fill_mask: int = 0,
-        mean=(0.485, 0.456, 0.406),
-        std=(0.229, 0.224, 0.225),
+        train_transforms: Any | None = None,
+        test_transforms: Any | None = None,
     ):
         super().__init__()
         self.train_data_dir = train_chip_dir
@@ -70,22 +68,10 @@ class DataModule(pl.LightningDataModule):
         self.pin_memory = pin_memory
         self.persistent_workers = persistent_workers
 
-        self.mean = mean
-        self.std = std
-        self.fill_value = fill_value
-        self.fill_mask = fill_mask
+        self.train_trans = A.from_dict(train_transforms)
+        self.test_trans = A.from_dict(test_transforms)
 
         self.ds_train, self.ds_val, self.ds_test = None, None, None
-
-    @property
-    def train_trans(self):
-        return get_train_transforms(
-            mean=self.mean, std=self.std, fill=self.fill_value, fill_mask=self.fill_mask
-        )
-
-    @property
-    def test_trans(self):
-        return get_test_transforms(mean=self.mean, std=self.std)
 
     def prepare_data(self, *args, **kwargs):
         pass

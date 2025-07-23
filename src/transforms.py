@@ -1,3 +1,5 @@
+import io
+
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
@@ -83,3 +85,14 @@ def get_train_transforms(
         ],
         p=1,
     )
+
+
+if __name__ == "__main__":
+    train_t = get_train_transforms(
+        mean=(0.400, 0.450, 0.474, 0.448), std=(0.328, 0.303, 0.284, 0.349)
+    )
+
+    with io.StringIO() as f:
+        A.save(train_t, f, data_format="yaml")
+        f.seek(0)
+        print(f.read())
