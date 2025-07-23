@@ -177,9 +177,16 @@ def main():
     )
     parser.add_argument("--stride", type=int, default=224, help="Stride for the chips.")
 
-    parser.add_argument("--remap", "-r", type=int, nargs="+", default=[0, 1])
+    parser.add_argument("--remap", "-r", type=int, nargs="+", default=[0, -100, 1, 2])
 
     args = parser.parse_args()
+
+    print(f"Creating dataset {Path(args.output_dir).name}")
+
+    print(f"Pixel values will be remapped:")
+    for i, v in enumerate(args.remap):
+        print(f"{i} -> {v}")
+    print("All other values will be set to -100.")
 
     for split in ["train", "val", "test"]:
         process_split(

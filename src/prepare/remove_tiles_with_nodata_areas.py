@@ -17,7 +17,10 @@ def remove_tiles_with_nodata_areas(input_dir: Path, num_channels: int = 3) -> No
 
     for file in tqdm(files):
         data = np.load(file)
-        img = data["image"]
+        img = data.get("image", None)
+        if img is None:
+            print(f"Image not present in file {file}; skipping")
+            continue
 
         # The assumption is nodata areas are all black (0, 0, 0) in RGB images
         is_nodata = (img == 0).sum(axis=2) == num_channels

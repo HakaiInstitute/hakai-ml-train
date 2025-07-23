@@ -18,7 +18,10 @@ def remove_bg_only_tiles(input_dir: Path) -> None:
 
     for file in tqdm(files):
         data = np.load(file)
-        label = data["label"]
+        label = data.get("label", None)
+        if label is None:
+            print(f"Label not present in file {file}; skipping")
+            continue
 
         # The assumption is that noise is -100, bg is 0, and interesting labels are > 0
         contains_interesting_stuff = (label > 0).any()
