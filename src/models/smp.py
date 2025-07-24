@@ -9,7 +9,7 @@ from huggingface_hub import PyTorchModelHubMixin
 from .. import losses
 
 
-class SMPSegmentationModel(
+class SMPBinarySegmentationModel(
     pl.LightningModule,
     PyTorchModelHubMixin,
     library_name="kelp-o-matic",
@@ -156,10 +156,12 @@ class SMPSegmentationModel(
         }
 
 
-class KelpSpeciesModel(SMPSegmentationModel):
-    def __init__(self, *args, **kwargs):
+class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
+    def __init__(
+        self, *args, class_names: tuple[str, ...] = ("bg", "macro", "nereo"), **kwargs
+    ):
         super().__init__(*args, **kwargs)
-        self.class_names = ["bg", "macro", "nereo"]
+        self.class_names = class_names
 
         # metrics
         self.accuracy = fm.Accuracy(

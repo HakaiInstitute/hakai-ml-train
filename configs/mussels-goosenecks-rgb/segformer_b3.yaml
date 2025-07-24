@@ -3,9 +3,10 @@ seed_everything: 42
 model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
-    architecture: "UPerNet"
-    backbone: "tu-swin_base_patch4_window7_224.ms_in22k"
+    architecture: "Segformer"
+    backbone: "mit_b3"
     model_opts:
+      encoder_weights: imagenet
       in_channels: 3
     num_classes: 3
     ignore_index: &ignore_index -100
@@ -18,13 +19,17 @@ model:
       mode: "multiclass"
       ignore_index: *ignore_index
       from_logits: true
+    class_names:
+      - bg
+      - mussels
+      - goosenecks
 
 data:
   class_path: "src.data.DataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024/train"
-    val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-full/val"
-    test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-full/test"
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Jul2025-1024-1024-full/train"
+    val_chip_dir: "/home/taylor/data/MGP-RGB-Jul2025-1024-1024-full/val"
+    test_chip_dir: "/home/taylor/data/MGP-RGB-Jul2025-1024-1024-full/test"
     batch_size: 3
     num_workers: 8
     pin_memory: true
@@ -247,11 +252,10 @@ data:
 trainer:
   accelerator: auto
   devices: auto
-  num_nodes: 1
   precision: bf16-mixed
   log_every_n_steps: 5
-  max_epochs: 20
-  accumulate_grad_batches: 4
+  max_epochs: 200
+  accumulate_grad_batches: 8
   gradient_clip_val: 0.5
   detect_anomaly: false
   default_root_dir: checkpoints
@@ -260,18 +264,18 @@ trainer:
     - class_path: lightning.pytorch.loggers.WandbLogger
       init_args:
         entity: hakai
-        project: kom-kelp-rgb
-        name: upernet_swin_base_patch4_window7_224
+        project: kom-mussel-gooseneck-rgb
+        name: segformer_b3
         group: Jul2025
         log_model: true
         tags:
-          - kelp
+          - mussel_gooseneck
           - Jul2025
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: kelp_rgb_upernet_swin_base_patch4_window7_224_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
