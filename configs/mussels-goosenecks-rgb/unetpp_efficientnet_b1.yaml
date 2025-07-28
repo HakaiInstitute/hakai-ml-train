@@ -3,8 +3,8 @@ seed_everything: 42
 model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
-    architecture: "Segformer"
-    backbone: "mit_b3"
+    architecture: "UnetPlusPlus"
+    backbone: "efficientnet-b1"
     model_opts:
       encoder_weights: imagenet
       in_channels: 3
@@ -30,7 +30,7 @@ data:
     train_chip_dir: "/home/taylor/data/MGP-RGB-Jul2025-1024-512-full/train"
     val_chip_dir: "/home/taylor/data/MGP-RGB-Jul2025-1024-1024-full/val"
     test_chip_dir: "/home/taylor/data/MGP-RGB-Jul2025-1024-1024-full/test"
-    batch_size: 3
+    batch_size: 8
     num_workers: 8
     pin_memory: true
     persistent_workers: true
@@ -254,7 +254,7 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 5
-  max_epochs: 1000
+  max_epochs: 200
   accumulate_grad_batches: 8
   gradient_clip_val: 0.5
   detect_anomaly: false
@@ -265,7 +265,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: segformer_b3
+        name: unetpp_efficientnet_b1
         group: Jul2025
         log_model: true
         tags:
@@ -275,12 +275,12 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_unetpp_efficientnet_b1_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
         save_top_k: 2
-        save_weights_only: False
+        save_weights_only: True
         verbose: True
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
