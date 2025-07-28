@@ -32,6 +32,7 @@ class SMPBinarySegmentationModel(
         b2: float = 0.999,
         amsgrad: bool = False,
         warmup_period: float = 0.1,
+        ckpt_path: str | None = None,
         freeze_backbone: bool = False,
     ):
         super().__init__()
@@ -44,6 +45,11 @@ class SMPBinarySegmentationModel(
             classes=self.hparams.num_classes,
             **model_opts,
         )
+
+        if ckpt_path is not None:
+            ckpt = torch.load(self.hparams.ckpt_path)
+            self.load_state_dict(ckpt["state_dict"])
+
         for p in self.model.parameters():
             p.requires_grad = True
         if freeze_backbone:
@@ -245,3 +251,30 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
         self.log(f"{phase}/iou", iou_per_class[1:].mean(), sync_dist=True)
 
         return loss
+
+    def configure_optimizers(self):
+        """Init optimizer and scheduler"""
+        optimizer = torch.optim.AdamW(
+            filter(lambda p: p.requires_grad, self.parameters()),
+            lr=self.hparams.lr,
+            weight_decay=self.hparams.wd,
+            betas=(self.hparams.b1, self.hparams.b2),
+            amsgrad=self.hparams.amsgrad,
+        )
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="max",
+            factor=0.1,
+            patience=2,
+            threshold=0.0001,
+            cooldown=3,
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val/iou_epoch",
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }

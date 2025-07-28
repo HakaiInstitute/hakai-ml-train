@@ -138,7 +138,8 @@ class DataModule(pl.LightningDataModule):
                     {
                         "train_transforms": to_dict(self.train_trans),
                         "test_transforms": to_dict(self.test_trans),
-                    }
+                    },
+                    allow_val_change=True,
                 )
             self._logged_transforms = True
         return batch
