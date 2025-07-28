@@ -80,6 +80,9 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         self.pa_model = torch.jit.load(self.pa_params_file, map_location=self.device)
         self.sp_model = torch.jit.load(self.sp_params_file, map_location=self.device)
 
+        self.pa_model.eval()
+        self.sp_model.eval()
+
         for p in self.pa_model.parameters():
             p.requires_grad = False
 
@@ -125,22 +128,23 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         self.activation_fn = lambda x: torch.softmax(x, dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        presence_logits = self.pa_model(x)
-        species_logits = self.sp_model(x)
+        with torch.no_grad():
+            presence_logits = self.pa_model(x)
+            species_logits = self.sp_model(x)
 
-        kelp_probs = torch.sigmoid(presence_logits).squeeze(1)  # P(kelp)
-        bg_probs = 1 - kelp_probs  # P(bg)
-        marginal_probs = torch.softmax(species_logits, dim=1)  # P(macro,nereo|kelp)
+            kelp_probs = torch.sigmoid(presence_logits).squeeze(1)  # P(kelp)
+            bg_probs = 1 - kelp_probs  # P(bg)
+            marginal_probs = torch.softmax(species_logits, dim=1)  # P(macro,nereo|kelp)
 
-        probs = torch.stack(
-            [
-                bg_probs,
-                marginal_probs[:, 0] * kelp_probs,
-                marginal_probs[:, 1] * kelp_probs,
-            ],
-            dim=1,
-        )
-        return probs
+            probs = torch.stack(
+                [
+                    bg_probs,
+                    marginal_probs[:, 0] * kelp_probs,
+                    marginal_probs[:, 1] * kelp_probs,
+                ],
+                dim=1,
+            )
+            return probs
 
     def training_step(self, batch: torch.Tensor, batch_idx: int):
         return self._phase_step(batch, batch_idx, phase="train")
@@ -348,29 +352,75 @@ class KomMusselsBaselineModel(pl.LightningModule):
         }
 
 
-class KomRGBISpeciesBaselineModel(KomRGBSpeciesBaselineModel):
-    pa_params_file = lazy_load_params(
-        "UNetPlusPlus_EfficientNetB4_kelp_presence_rgbi_jit_miou=0.8785.pt"
-    )
-    sp_params_file = lazy_load_params(
-        "UNetPlusPlus_EfficientNetB4_kelp_species_rgbi_jit_miou=0.8432.pt"
-    )
+import segmentation_models_pytorch as smp
+
+
+class KomRGBISpeciesBaselineModel(torch.nn.Module):
+    def __init__(self, *args, device="cpu", **kwargs):
+        super().__init__()
+        pa_ckpt = "/Users/taylor.denouden/Documents/PycharmProjects/hakai-ml-train/artifacts/model-1kzli3zn:v0/model.ckpt"
+        sp_ckpt = "/Users/taylor.denouden/Documents/PycharmProjects/hakai-ml-train/artifacts/model-nysalr7l:v0/model.ckpt"
+        # Load JIT models
+
+        self.pa_model = smp.create_model(
+            "UnetPlusPlus",
+            "efficientnet-b4",
+            in_channels=4,
+            classes=2,
+            decoder_attention_type="scse",
+        )
+        pa_state_dict = torch.load(pa_ckpt, map_location="cpu")["state_dict"]
+        pa_state_dict = dict(
+            (k.replace("model.", ""), v) for k, v in pa_state_dict.items()
+        )
+        self.pa_model.load_state_dict(pa_state_dict)
+
+        self.sp_model = smp.create_model(
+            "UnetPlusPlus",
+            "efficientnet-b4",
+            in_channels=4,
+            classes=2,
+            decoder_attention_type="scse",
+        )
+        sp_state_dict = torch.load(sp_ckpt, map_location="cpu")["state_dict"]
+        sp_state_dict = dict(
+            (k.replace("model.", ""), v) for k, v in sp_state_dict.items()
+        )
+        self.sp_model.load_state_dict(sp_state_dict)
+
+        #     torch.jit.load(lazy_load_params(
+        #     "UNetPlusPlus_EfficientNetB4_kelp_presence_rgbi_jit_miou=0.8785.pt"
+        # ), map_location=device))
+        # self.sp_model = torch.jit.load(lazy_load_params(
+        #     "UNetPlusPlus_EfficientNetB4_kelp_species_rgbi_jit_miou=0.8432.pt"
+        # ), map_location=device)
+
+        # Set to eval mode
+        self.pa_model.eval()
+        self.sp_model.eval()
+
+        # Freeze parameters
+        for p in self.pa_model.parameters():
+            p.requires_grad = False
+        for p in self.sp_model.parameters():
+            p.requires_grad = False
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        presence_logits = self.pa_model(x)
-        species_logits = self.sp_model(x)
+        with torch.no_grad():
+            presence_logits = self.pa_model(x)
+            species_logits = self.sp_model(x)
 
-        pa_probs = torch.softmax(presence_logits, dim=1)  # P(bg,kelp)
-        bg_probs = pa_probs[:, 0]  # P(bg)
-        kelp_probs = pa_probs[:, 1]  # P(kelp)
-        marginal_probs = torch.softmax(species_logits, dim=1)  # P(macro,nereo|kelp)
+            pa_probs = torch.softmax(presence_logits, dim=1)  # P(bg,kelp)
+            bg_probs = pa_probs[:, 0]  # P(bg)
+            kelp_probs = pa_probs[:, 1]  # P(kelp)
+            marginal_probs = torch.softmax(species_logits, dim=1)  # P(macro,nereo|kelp)
 
-        probs = torch.stack(
-            [
-                bg_probs,  # P(bg)
-                marginal_probs[:, 0] * kelp_probs,  # P(macro)
-                marginal_probs[:, 1] * kelp_probs,  # P(nereo)
-            ],
-            dim=1,
-        )
-        return probs
+            probs = torch.stack(
+                [
+                    bg_probs,  # P(bg)
+                    marginal_probs[:, 0] * kelp_probs,  # P(macro)
+                    marginal_probs[:, 1] * kelp_probs,  # P(nereo)
+                ],
+                dim=1,
+            )
+            return probs
