@@ -12,16 +12,16 @@ class ONNXModel(torch.nn.Module):
         self.model = model
 
     def forward(self, x):
-        logits = self.model(x)
+        return self.model(x)
 
-        if logits.shape[1] == 1:
-            probs = torch.sigmoid(logits)
-            # If the model outputs a single channel, convert to two channels
-            probs = torch.cat([1 - probs, probs], dim=1)
-            print(probs.shape)
-            return probs
-        else:
-            return torch.softmax(logits, dim=1)
+        # if logits.shape[1] == 1:
+        #     probs = torch.sigmoid(logits)
+        #     # If the model outputs a single channel, convert to two channels
+        #     probs = torch.cat([1 - probs, probs], dim=1)
+        #     print(probs.shape)
+        #     return probs
+        # else:
+        #     return torch.softmax(logits, dim=1)
 
 
 def main(
