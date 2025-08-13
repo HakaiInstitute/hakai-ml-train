@@ -34,7 +34,7 @@ data:
       __version__: 2.0.9
       transform:
         __class_fullname__: Compose
-        additional_targets: {}
+        additional_targets: { }
         bbox_params: null
         is_check_shapes: true
         keypoint_params: null
@@ -69,13 +69,13 @@ data:
               - 8
             p: 0.5
           - __class_fullname__: RandomBrightnessContrast
-            brightness_by_max: true
+            brightness_by_max: false
             brightness_limit:
-              - -0.1
-              - 0.1
+              - -0.02
+              - 0.02
             contrast_limit:
-              - -0.05
-              - 0.05
+              - 0.0
+              - 0.0
             ensure_safe_range: false
             p: 0.3
           - __class_fullname__: GaussNoise
@@ -86,8 +86,14 @@ data:
             p: 0.2
             per_channel: true
             std_range:
-              - 0.05
-              - 0.1
+              - 0.01
+              - 0.02
+          - __class_fullname__: PixelDropout
+            drop_value: null
+            dropout_prob: 0.0001
+            mask_drop_value: null
+            p: 0.1
+            per_channel: false
           - __class_fullname__: Normalize
             max_pixel_value: 1.0
             mean:
