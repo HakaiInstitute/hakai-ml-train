@@ -78,22 +78,6 @@ data:
               - 0.0
             ensure_safe_range: false
             p: 0.3
-          - __class_fullname__: GaussNoise
-            mean_range:
-              - 0.0
-              - 0.0
-            noise_scale_factor: 1.0
-            p: 0.2
-            per_channel: true
-            std_range:
-              - 0.01
-              - 0.02
-          - __class_fullname__: PixelDropout
-            drop_value: null
-            dropout_prob: 0.0001
-            mask_drop_value: null
-            p: 0.1
-            per_channel: false
           - __class_fullname__: Normalize
             max_pixel_value: 1.0
             mean:

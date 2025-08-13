@@ -124,14 +124,6 @@ if __name__ == "__main__":
                 brightness_by_max=False,
                 p=0.3,
             ),
-            A.GaussNoise(std_range=(0.01, 0.02), per_channel=True, p=0.2),
-            A.PixelDropout(
-                dropout_prob=0.0001,  # Very few pixels
-                per_channel=False,
-                drop_value=None,  # Random values
-                mask_drop_value=None,
-                p=0.1,
-            ),
             A.Normalize(
                 max_pixel_value=1.0,
                 normalization="standard",
