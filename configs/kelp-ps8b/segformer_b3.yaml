@@ -71,11 +71,11 @@ data:
           - __class_fullname__: RandomBrightnessContrast
             brightness_by_max: true
             brightness_limit:
-              - -0.2
-              - 0.2
+              - -0.1
+              - 0.1
             contrast_limit:
-              - -0.2
-              - 0.2
+              - -0.05
+              - 0.05
             ensure_safe_range: false
             p: 0.3
           - __class_fullname__: GaussNoise
@@ -86,8 +86,8 @@ data:
             p: 0.2
             per_channel: true
             std_range:
+              - 0.05
               - 0.1
-              - 0.2
           - __class_fullname__: Normalize
             max_pixel_value: 1.0
             mean:
