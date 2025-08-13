@@ -51,7 +51,7 @@ data:
             pad_position: center
             width: 1024
           - __class_fullname__: ToFloat
-            max_value: 1.0
+            max_value: 4000.0
             p: 1.0
           - __class_fullname__: SquareSymmetry
             p: 1.0
@@ -91,25 +91,25 @@ data:
           - __class_fullname__: Normalize
             max_pixel_value: 1.0
             mean:
-              - 1720.0
-              - 1715.0
-              - 1913.0
-              - 2088.0
-              - 2274.0
-              - 2290.0
-              - 2613.0
-              - 3970.0
+              - 0.43
+              - 0.42875
+              - 0.47825
+              - 0.522
+              - 0.5685
+              - 0.5725
+              - 0.65325
+              - 0.9925
             normalization: standard
             p: 1.0
             std:
-              - 747.0
-              - 698.0
-              - 739.0
-              - 768.0
-              - 849.0
-              - 868.0
-              - 849.0
-              - 914.0
+              - 0.18675
+              - 0.1745
+              - 0.18475
+              - 0.192
+              - 0.21225
+              - 0.217
+              - 0.21225
+              - 0.2285
           - __class_fullname__: ToTensorV2
             p: 1.0
             transpose_mask: false
@@ -136,27 +136,27 @@ data:
             padding: 0
             position: center
           - __class_fullname__: Normalize
-            max_pixel_value: 1.0
+            max_pixel_value: 4000.0
             mean:
-              - 1720.0
-              - 1715.0
-              - 1913.0
-              - 2088.0
-              - 2274.0
-              - 2290.0
-              - 2613.0
-              - 3970.0
+              - 0.43
+              - 0.42875
+              - 0.47825
+              - 0.522
+              - 0.5685
+              - 0.5725
+              - 0.65325
+              - 0.9925
             normalization: standard
             p: 1.0
             std:
-              - 747.0
-              - 698.0
-              - 739.0
-              - 768.0
-              - 849.0
-              - 868.0
-              - 849.0
-              - 914.0
+              - 0.18675
+              - 0.1745
+              - 0.18475
+              - 0.192
+              - 0.21225
+              - 0.217
+              - 0.21225
+              - 0.2285
           - __class_fullname__: ToTensorV2
             p: 1.0
             transpose_mask: false

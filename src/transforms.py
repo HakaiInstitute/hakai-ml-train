@@ -94,10 +94,10 @@ if __name__ == "__main__":
         [
             A.PadIfNeeded(1024, 1024, border_mode=0, fill=0, fill_mask=0, p=1.0),
             A.Normalize(
-                max_pixel_value=1.0,
+                max_pixel_value=4000.0,
                 normalization="standard",
-                mean=[1720.0, 1715.0, 1913.0, 2088.0, 2274.0, 2290.0, 2613.0, 3970.0],
-                std=[747.0, 698.0, 739.0, 768.0, 849.0, 868.0, 849.0, 914.0],
+                mean=[0.43, 0.42875, 0.47825, 0.522, 0.5685, 0.5725, 0.65325, 0.9925],
+                std=[0.18675, 0.1745, 0.18475, 0.192, 0.21225, 0.217, 0.21225, 0.2285],
                 p=1.0,
             ),
             ToTensorV2(),
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     train_t = A.Compose(
         [
             A.RandomCrop(height=1024, width=1024, pad_if_needed=True, p=1.0),
-            A.ToFloat(max_value=1.0, p=1.0),
+            A.ToFloat(max_value=4000.0, p=1.0),
             A.SquareSymmetry(p=1.0),
             A.CoarseDropout(
                 num_holes_range=(1, 8),
@@ -123,8 +123,8 @@ if __name__ == "__main__":
             A.Normalize(
                 max_pixel_value=1.0,
                 normalization="standard",
-                mean=[1720.0, 1715.0, 1913.0, 2088.0, 2274.0, 2290.0, 2613.0, 3970.0],
-                std=[747.0, 698.0, 739.0, 768.0, 849.0, 868.0, 849.0, 914.0],
+                mean=[0.43, 0.42875, 0.47825, 0.522, 0.5685, 0.5725, 0.65325, 0.9925],
+                std=[0.18675, 0.1745, 0.18475, 0.192, 0.21225, 0.217, 0.21225, 0.2285],
                 p=1.0,
             ),
             A.ToTensorV2(p=1.0),
