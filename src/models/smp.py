@@ -261,20 +261,35 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
             betas=(self.hparams.b1, self.hparams.b2),
             amsgrad=self.hparams.amsgrad,
         )
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     optimizer,
+        #     mode="max",
+        #     factor=0.1,
+        #     patience=2,
+        #     threshold=0.0001,
+        #     cooldown=3,
+        # )
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        #     optimizer,
+        #     T_0=100,
+        #     T_mult=1,
+        #     eta_min=self.hparams.lr*100,
+        #     last_epoch=-1,
+        # )
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
-            mode="max",
-            factor=0.1,
-            patience=2,
-            threshold=0.0001,
-            cooldown=3,
+            max_lr=self.hparams.lr,
+            pct_start=0.1,
+            total_steps=self.trainer.estimated_stepping_batches,
         )
+
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "val/iou_epoch",
-                "interval": "epoch",
-                "frequency": 1,
+                # "monitor": "val/iou_epoch",
+                # "interval": "epoch",
+                # "frequency": 1,
+                "interval": "step",
             },
         }
