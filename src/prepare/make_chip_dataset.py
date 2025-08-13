@@ -47,7 +47,6 @@ def remap_label(labels, band_remapping, device=None):
 class RasterMosaicDataset(RasterDataset):
     is_image = True
     separate_files = False
-    dtype = torch.uint8
 
     def __init__(self, *args, img_name, **kwargs):
         self.img_name = img_name
@@ -79,6 +78,7 @@ def create_chips(
     chip_stride=224,
     num_bands=3,
     band_remapping=(0, 1),
+    dtype=np.uint8,
 ):
     out_dir = out_root / name
     out_dir.mkdir(exist_ok=True, parents=True)
@@ -106,10 +106,10 @@ def create_chips(
         # Convert to numpy arrays
         img_array = img[0, :num_bands].numpy()
 
-        assert img_array.max() <= 255 and img_array.min() >= 0, (
-            "Image values should be in [0, 255]"
+        assert img_array.max() <= np.iinfo(dtype).max and img_array.min() >= np.iinfo(dtype).min, (
+            f"Image values should be in [{np.iinfo(dtype).min}, {np.iinfo(dtype).max}]"
         )
-        img_array = img_array.astype(np.uint8)
+        img_array = img_array.astype(dtype)
         label_array = remap_label(label, band_remapping).numpy().astype(np.int64)
 
         # Save the image as npz
@@ -137,9 +137,10 @@ def process_split(
     chip_stride: int = 224,
     num_bands: int = 3,
     band_remapping: tuple[int] = (0, 1),
+    dtype: np.dtype = np.uint8,
 ):
     dir = data_dir / split
-    imgs = sorted(dir.glob("images/*.tif"))
+    imgs = sorted(dir.glob("images/*.tif", case_sensitive=False))
     for i, x in enumerate(imgs):
         print(i, x.name)
 
@@ -154,6 +155,7 @@ def process_split(
             chip_stride=chip_stride,
             num_bands=num_bands,
             band_remapping=band_remapping,
+            dtype=dtype,
         )
 
 
@@ -177,6 +179,8 @@ def main():
     )
     parser.add_argument("--stride", type=int, default=224, help="Stride for the chips.")
 
+    parser.add_argument("--dtype", type=np.dtype, default="uint8", help="Data type of the chips.")
+
     parser.add_argument("--remap", "-r", type=int, nargs="+", default=[0, -100, 1, 2])
 
     args = parser.parse_args()
@@ -197,6 +201,7 @@ def main():
             args.stride,
             args.num_bands,
             args.remap,
+            args.dtype,
         )
 
 
