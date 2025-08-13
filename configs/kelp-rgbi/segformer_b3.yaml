@@ -266,9 +266,9 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 50
-  max_epochs: 500
+  max_epochs: 20
   accumulate_grad_batches: 8
-  gradient_clip_val: 0.5
+  gradient_clip_val: 0.8
   detect_anomaly: false
   default_root_dir: checkpoints
   fast_dev_run: False
