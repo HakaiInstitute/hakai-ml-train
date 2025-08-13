@@ -106,9 +106,10 @@ def create_chips(
         # Convert to numpy arrays
         img_array = img[0, :num_bands].numpy()
 
-        assert img_array.max() <= np.iinfo(dtype).max and img_array.min() >= np.iinfo(dtype).min, (
-            f"Image values should be in [{np.iinfo(dtype).min}, {np.iinfo(dtype).max}]"
-        )
+        assert (
+            img_array.max() <= np.iinfo(dtype).max
+            and img_array.min() >= np.iinfo(dtype).min
+        ), f"Image values should be in [{np.iinfo(dtype).min}, {np.iinfo(dtype).max}]"
         img_array = img_array.astype(dtype)
         label_array = remap_label(label, band_remapping).numpy().astype(np.int64)
 
@@ -179,7 +180,9 @@ def main():
     )
     parser.add_argument("--stride", type=int, default=224, help="Stride for the chips.")
 
-    parser.add_argument("--dtype", type=np.dtype, default="uint8", help="Data type of the chips.")
+    parser.add_argument(
+        "--dtype", type=np.dtype, default="uint8", help="Data type of the chips."
+    )
 
     parser.add_argument("--remap", "-r", type=int, nargs="+", default=[0, -100, 1, 2])
 

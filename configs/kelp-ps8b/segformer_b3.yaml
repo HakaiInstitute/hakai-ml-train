@@ -34,7 +34,7 @@ data:
       __version__: 2.0.9
       transform:
         __class_fullname__: Compose
-        additional_targets: { }
+        additional_targets: {}
         bbox_params: null
         is_check_shapes: true
         keypoint_params: null
@@ -50,6 +50,9 @@ data:
             pad_if_needed: true
             pad_position: center
             width: 1024
+          - __class_fullname__: ToFloat
+            max_value: 1.0
+            p: 1.0
           - __class_fullname__: SquareSymmetry
             p: 1.0
           - __class_fullname__: CoarseDropout
@@ -65,6 +68,26 @@ data:
               - 1
               - 8
             p: 0.5
+          - __class_fullname__: RandomBrightnessContrast
+            brightness_by_max: true
+            brightness_limit:
+              - -0.2
+              - 0.2
+            contrast_limit:
+              - -0.2
+              - 0.2
+            ensure_safe_range: false
+            p: 0.3
+          - __class_fullname__: GaussNoise
+            mean_range:
+              - 0.0
+              - 0.0
+            noise_scale_factor: 1.0
+            p: 0.2
+            per_channel: true
+            std_range:
+              - 0.1
+              - 0.2
           - __class_fullname__: Normalize
             max_pixel_value: 1.0
             mean:

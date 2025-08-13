@@ -108,6 +108,7 @@ if __name__ == "__main__":
     train_t = A.Compose(
         [
             A.RandomCrop(height=1024, width=1024, pad_if_needed=True, p=1.0),
+            A.ToFloat(max_value=1.0, p=1.0),
             A.SquareSymmetry(p=1.0),
             A.CoarseDropout(
                 num_holes_range=(1, 8),
@@ -117,6 +118,8 @@ if __name__ == "__main__":
                 fill_mask=0.0,
                 p=0.5,
             ),
+            A.RandomBrightnessContrast(p=0.3),
+            A.GaussNoise(std_range=(0.1, 0.2), p=0.2),
             A.Normalize(
                 max_pixel_value=1.0,
                 normalization="standard",
@@ -132,9 +135,9 @@ if __name__ == "__main__":
 
     x = np.random.randint(0, 255, (1024, 1024, 4), dtype=np.uint8)
 
-    test_t(image=x)
+    train_t(image=x)
 
     with io.StringIO() as f:
-        A.save(test_t, f, data_format="yaml")
+        A.save(train_t, f, data_format="yaml")
         f.seek(0)
         print(f.read())
