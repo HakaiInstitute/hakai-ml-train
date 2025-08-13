@@ -43,46 +43,159 @@ data:
         transforms:
           - __class_fullname__: D4
             p: 1.0
-          - __class_fullname__: RandomBrightnessContrast
-            brightness_by_max: true
-            brightness_limit:
-              - -0.1
-              - 0.1
-            contrast_limit:
-              - -0.1
-              - 0.1
-            ensure_safe_range: false
-            p: 0.5
-          - __class_fullname__: GaussNoise
-            mean_range:
+          - __class_fullname__: Affine
+            scale:
+              - 0.8
+              - 1.2
+            translate_percent:
+              x:
+                - -0.0625
+                - 0.0625
+              y:
+                - -0.0625
+                - 0.0625
+            rotate:
               - 0.0
               - 0.0
-            noise_scale_factor: 1.0
+            shear:
+              - 0.0
+              - 0.0
+            interpolation: 1
+            mask_interpolation: 0
+            border_mode: 0
+            fill: 0.0
+            fill_mask: 0.0
+            fit_output: false
+            keep_ratio: false
             p: 0.3
-            per_channel: true
-            std_range:
-              - 0.02
-              - 0.044
+          - __class_fullname__: PadIfNeeded
+            border_mode: 0
+            fill: 0.0
+            fill_mask: 0.0
+            min_height: 1024
+            min_width: 1024
+            p: 1.0
+            pad_height_divisor: null
+            pad_width_divisor: null
+            position: center
+          - __class_fullname__: RandomCrop
+            border_mode: 0
+            fill: 0.0
+            fill_mask: 0.0
+            height: 1024
+            p: 1.0
+            pad_if_needed: true
+            pad_position: center
+            width: 1024
+          - __class_fullname__: MaskDropout
+            fill: 0.0
+            fill_mask: 0.0
+            max_objects:
+              - 1
+              - 3
+            p: 0.1
           - __class_fullname__: OneOf
-            p: 0.3
+            p: 0.8
             transforms:
-              - __class_fullname__: MotionBlur
-                allow_shifted: true
-                angle_range:
+              - __class_fullname__: RandomBrightnessContrast
+                brightness_by_max: true
+                brightness_limit:
+                  - -0.3
+                  - 0.3
+                contrast_limit:
+                  - -0.3
+                  - 0.3
+                ensure_safe_range: false
+                p: 1.0
+              - __class_fullname__: RandomGamma
+                gamma_limit:
+                  - 70.0
+                  - 130.0
+                p: 1.0
+          - __class_fullname__: OneOf
+            p: 0.2
+            transforms:
+              - __class_fullname__: ElasticTransform
+                alpha: 1.0
+                approximate: false
+                border_mode: 0
+                fill: 0.0
+                fill_mask: 0.0
+                interpolation: 1
+                keypoint_remapping_method: mask
+                mask_interpolation: 0
+                noise_distribution: gaussian
+                p: 1.0
+                same_dxdy: false
+                sigma: 50.0
+              - __class_fullname__: OpticalDistortion
+                border_mode: 0
+                distort_limit:
+                  - -0.05
+                  - 0.05
+                fill: 0.0
+                fill_mask: 0.0
+                interpolation: 1
+                keypoint_remapping_method: mask
+                mask_interpolation: 0
+                mode: camera
+                p: 1.0
+              - __class_fullname__: GridDistortion
+                border_mode: 0
+                distort_limit:
+                  - -0.3
+                  - 0.3
+                fill: 0.0
+                fill_mask: 0.0
+                interpolation: 1
+                keypoint_remapping_method: mask
+                mask_interpolation: 0
+                normalized: true
+                num_steps: 5
+                p: 1.0
+              - __class_fullname__: Perspective
+                border_mode: 0
+                fill: 0.0
+                fill_mask: 0.0
+                fit_output: false
+                interpolation: 1
+                keep_size: true
+                mask_interpolation: 0
+                p: 1.0
+                scale:
+                  - 0.05
+                  - 0.1
+          - __class_fullname__: OneOf
+            p: 0.2
+            transforms:
+              - __class_fullname__: GaussNoise
+                mean_range:
                   - 0.0
-                  - 360.0
-                blur_limit:
-                  - 3
-                  - 7
-                direction_range:
-                  - -1.0
+                  - 0.0
+                noise_scale_factor: 1.0
+                p: 1.0
+                per_channel: true
+                std_range:
+                  - 0.2
+                  - 0.44
+              - __class_fullname__: MultiplicativeNoise
+                elementwise: false
+                multiplier:
+                  - 0.9
+                  - 1.1
+                p: 1.0
+                per_channel: false
+              - __class_fullname__: Sharpen
+                alpha:
+                  - 0.2
+                  - 0.5
+                kernel_size: 5
+                lightness:
+                  - 0.5
                   - 1.0
+                method: kernel
                 p: 1.0
-              - __class_fullname__: MedianBlur
-                blur_limit:
-                  - 3
-                  - 7
-                p: 1.0
+                sigma: 1.0
               - __class_fullname__: GaussianBlur
                 blur_limit:
                   - 0
@@ -91,71 +204,6 @@ data:
                 sigma_limit:
                   - 0.5
                   - 3.0
-          - __class_fullname__: OneOf
-            p: 0.3
-            transforms:
-              - __class_fullname__: CoarseDropout
-                fill: 0.0
-                fill_mask: 0.0
-                hole_height_range:
-                  - 1
-                  - 5
-                hole_width_range:
-                  - 1
-                  - 5
-                num_holes_range:
-                  - 1
-                  - 64
-                p: 1.0
-              - __class_fullname__: GridDistortion
-                border_mode: 0
-                distort_limit:
-                  - -0.1
-                  - 0.1
-                fill: 0.0
-                fill_mask: 0.0
-                interpolation: 1
-                keypoint_remapping_method: mask
-                mask_interpolation: 0
-                normalized: true
-                num_steps: 10
-                p: 0.3
-          - __class_fullname__: Affine
-            balanced_scale: false
-            border_mode: 0
-            fill: 0.0
-            fill_mask: 0.0
-            fit_output: false
-            interpolation: 1
-            keep_ratio: true
-            mask_interpolation: 0
-            p: 0.3
-            rotate:
-              - -5.0
-              - 5.0
-            rotate_method: largest_box
-            scale:
-              x:
-                - 0.9
-                - 1.1
-              y:
-                - 0.9
-                - 1.1
-            shear:
-              x:
-                - 0.0
-                - 0.0
-              y:
-                - 0.0
-                - 0.0
-            translate_percent:
-              x:
-                - -0.05
-                - 0.05
-              y:
-                - -0.05
-                - 0.05
-            translate_px: null
           - __class_fullname__: Normalize
             max_pixel_value: 255.0
             mean:
@@ -163,7 +211,7 @@ data:
               - 0.45
               - 0.474
               - 0.448
-            normalization: min_max
+            normalization: standard
             p: 1.0
             std:
               - 0.328
@@ -185,6 +233,16 @@ data:
         p: 1
         seed: null
         transforms:
+          - __class_fullname__: PadIfNeeded
+            border_mode: 0
+            fill: 0.0
+            fill_mask: 0.0
+            min_height: 1024
+            min_width: 1024
+            p: 1.0
+            pad_height_divisor: null
+            pad_width_divisor: null
+            position: center
           - __class_fullname__: Normalize
             max_pixel_value: 255.0
             mean:
@@ -192,7 +250,7 @@ data:
               - 0.45
               - 0.474
               - 0.448
-            normalization: min_max
+            normalization: standard
             p: 1.0
             std:
               - 0.328
