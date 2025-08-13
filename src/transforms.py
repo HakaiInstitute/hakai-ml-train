@@ -90,15 +90,51 @@ def get_train_transforms(
 
 
 if __name__ == "__main__":
-    train_t = get_train_transforms(
-        mean=(0.400, 0.450, 0.474, 0.448), std=(0.328, 0.303, 0.284, 0.349)
+    test_t = A.Compose(
+        [
+            A.PadIfNeeded(1024, 1024, border_mode=0, fill=0, fill_mask=0, p=1.0),
+            A.Normalize(
+                max_pixel_value=1.0,
+                normalization="standard",
+                mean=[1720.0, 1715.0, 1913.0, 2088.0, 2274.0, 2290.0, 2613.0, 3970.0],
+                std=[747.0, 698.0, 739.0, 768.0, 849.0, 868.0, 849.0, 914.0],
+                p=1.0,
+            ),
+            ToTensorV2(),
+        ],
+        p=1,
+    )
+
+    train_t = A.Compose(
+        [
+            A.RandomCrop(height=1024, width=1024, pad_if_needed=True, p=1.0),
+            A.SquareSymmetry(p=1.0),
+            A.CoarseDropout(
+                num_holes_range=(1, 8),
+                hole_height_range=(0, 32),
+                hole_width_range=(0, 32),
+                fill=0.0,
+                fill_mask=0.0,
+                p=0.5,
+            ),
+            A.Normalize(
+                max_pixel_value=1.0,
+                normalization="standard",
+                mean=[1720.0, 1715.0, 1913.0, 2088.0, 2274.0, 2290.0, 2613.0, 3970.0],
+                std=[747.0, 698.0, 739.0, 768.0, 849.0, 868.0, 849.0, 914.0],
+                p=1.0,
+            ),
+            A.ToTensorV2(p=1.0),
+        ],
+        p=1.0,
+        seed=42,
     )
 
     x = np.random.randint(0, 255, (1024, 1024, 4), dtype=np.uint8)
 
-    train_t(image=x)
+    test_t(image=x)
 
     with io.StringIO() as f:
-        A.save(train_t, f, data_format="yaml")
+        A.save(test_t, f, data_format="yaml")
         f.seek(0)
         print(f.read())
