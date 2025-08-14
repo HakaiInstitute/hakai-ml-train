@@ -71,8 +71,8 @@ data:
           - __class_fullname__: RandomBrightnessContrast
             brightness_by_max: false
             brightness_limit:
-              - -0.02
-              - 0.02
+              - -0.2
+              - 0.2
             contrast_limit:
               - 0.0
               - 0.0

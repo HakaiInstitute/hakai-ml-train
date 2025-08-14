@@ -119,7 +119,7 @@ if __name__ == "__main__":
                 p=0.5,
             ),
             A.RandomBrightnessContrast(
-                brightness_limit=(-0.02, 0.02),
+                brightness_limit=(-0.2, 0.2),
                 contrast_limit=(0, 0),
                 brightness_by_max=False,
                 p=0.3,
