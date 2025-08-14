@@ -124,6 +124,7 @@ if __name__ == "__main__":
                 brightness_by_max=False,
                 p=0.3,
             ),
+            A.ChannelDropout(channel_drop_range=(1, 2), fill=0, p=0.1),
             A.Normalize(
                 max_pixel_value=1.0,
                 normalization="standard",
