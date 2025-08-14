@@ -14,6 +14,7 @@ model:
     wd: 0.01
     b1: 0.9
     b2: 0.95
+    warmup_period: 0.01
     loss: "LovaszLoss"
     loss_opts:
       mode: "binary"
