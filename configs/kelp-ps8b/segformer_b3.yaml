@@ -78,12 +78,6 @@ data:
               - 1
               - 8
             p: 0.5
-          - __class_fullname__: ChannelDropout
-            channel_drop_range:
-              - 1
-              - 1
-            fill: 0.0
-            p: 0.5
           - __class_fullname__: Normalize
             max_pixel_value: 1.0
             mean:
