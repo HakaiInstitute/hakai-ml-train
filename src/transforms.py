@@ -124,7 +124,7 @@ if __name__ == "__main__":
                 fill_mask=0.0,
                 p=0.5,
             ),
-            A.ChannelDropout(channel_drop_range=(1, 2), fill=0, p=0.1),
+            A.ChannelDropout(channel_drop_range=(1, 4), fill=0, p=0.5),
             A.Normalize(
                 max_pixel_value=1.0,
                 normalization="standard",
