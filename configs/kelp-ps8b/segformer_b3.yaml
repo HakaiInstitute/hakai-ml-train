@@ -6,7 +6,7 @@ model:
     architecture: "Segformer"
     backbone: "mit_b3"
     model_opts:
-      encoder_weights: imagenet
+      encoder_weights: null
       in_channels: 8
     num_classes: 1
     ignore_index: &ignore_index -100
