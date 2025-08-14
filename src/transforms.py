@@ -110,6 +110,12 @@ if __name__ == "__main__":
             A.RandomCrop(height=1024, width=1024, pad_if_needed=True, p=1.0),
             A.ToFloat(max_value=4000.0, p=1.0),
             A.SquareSymmetry(p=1.0),
+            A.RandomBrightnessContrast(
+                brightness_limit=(-0.2, 0.2),
+                contrast_limit=(0, 0),
+                brightness_by_max=False,
+                p=0.3,
+            ),
             A.CoarseDropout(
                 num_holes_range=(1, 8),
                 hole_height_range=(0, 32),
@@ -117,12 +123,6 @@ if __name__ == "__main__":
                 fill=0.0,
                 fill_mask=0.0,
                 p=0.5,
-            ),
-            A.RandomBrightnessContrast(
-                brightness_limit=(-0.2, 0.2),
-                contrast_limit=(0, 0),
-                brightness_by_max=False,
-                p=0.3,
             ),
             A.ChannelDropout(channel_drop_range=(1, 2), fill=0, p=0.1),
             A.Normalize(

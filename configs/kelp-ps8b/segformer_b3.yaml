@@ -55,6 +55,16 @@ data:
             p: 1.0
           - __class_fullname__: SquareSymmetry
             p: 1.0
+          - __class_fullname__: RandomBrightnessContrast
+            brightness_by_max: false
+            brightness_limit:
+              - -0.2
+              - 0.2
+            contrast_limit:
+              - 0.0
+              - 0.0
+            ensure_safe_range: false
+            p: 0.3
           - __class_fullname__: CoarseDropout
             fill: 0.0
             fill_mask: 0.0
@@ -68,16 +78,6 @@ data:
               - 1
               - 8
             p: 0.5
-          - __class_fullname__: RandomBrightnessContrast
-            brightness_by_max: false
-            brightness_limit:
-              - -0.2
-              - 0.2
-            contrast_limit:
-              - 0.0
-              - 0.0
-            ensure_safe_range: false
-            p: 0.3
           - __class_fullname__: ChannelDropout
             channel_drop_range:
               - 1
