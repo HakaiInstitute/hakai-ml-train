@@ -19,11 +19,19 @@ from torchgeo.datasets.utils import stack_samples
 from torchgeo.samplers import GridGeoSampler
 from tqdm.auto import tqdm
 
-# LABELS = {
+# HAKAI_LABELS = {
 #     "bg": 0,
 #     "unknown_kelp_species": 1,
 #     "macro": 2,
 #     "nereo": 3,
+#     "noise": 4,
+# }
+
+# KATE_LABELS = {
+#     "water": 0,
+#     "kelp": 1,
+#     "land": 2,
+#     "nodata": 3,
 #     "noise": 4,
 # }
 
@@ -49,24 +57,16 @@ class RasterMosaicDataset(RasterDataset):
     separate_files = False
 
     def __init__(self, *args, img_name, **kwargs):
-        self.img_name = img_name
+        self.filename_glob = img_name
         super().__init__(*args, **kwargs)
-
-    @property
-    def filename_glob(self):
-        return f"**/images/{self.img_name}"
 
 
 class KomLabelsDataset(RasterDataset):
     is_image = False
 
     def __init__(self, *args, img_name, **kwargs):
-        self.img_name = img_name
+        self.filename_glob = img_name
         super().__init__(*args, **kwargs)
-
-    @property
-    def filename_glob(self):
-        return f"**/labels/{self.img_name}"
 
 
 def create_chips(
@@ -111,7 +111,17 @@ def create_chips(
             and img_array.min() >= np.iinfo(dtype).min
         ), f"Image values should be in [{np.iinfo(dtype).min}, {np.iinfo(dtype).max}]"
         img_array = img_array.astype(dtype)
-        label_array = remap_label(label, band_remapping).numpy().astype(np.int64)
+        label_array = remap_label(label, band_remapping).numpy().astype(np.int64)[0]
+
+        # Skip all black images
+        empty_img = np.all(img_array == 0)
+        if empty_img:
+            continue
+
+        # Set black areas in image to 0 in label
+        is_nodata = np.all(img_array == 0, axis=0)
+        if np.any(is_nodata):
+            label_array[is_nodata] = 0
 
         # Save the image as npz
         np.savez_compressed(
@@ -119,13 +129,13 @@ def create_chips(
             image=np.moveaxis(
                 img_array, 0, -1
             ),  # Move channel dimension to last position
-            label=label_array[0],  # Ensure label is 2D
+            label=label_array,  # Ensure label is 2D
         )
 
 
 def load_dataset(data_dir, img_name):
-    images = RasterMosaicDataset(paths=[str(data_dir)], img_name=img_name)
-    labels = KomLabelsDataset(paths=[str(data_dir)], img_name=img_name)
+    images = RasterMosaicDataset(paths=[str(data_dir / "images")], img_name=img_name)
+    labels = KomLabelsDataset(paths=[str(data_dir / "labels")], img_name=img_name)
 
     return images & labels
 
