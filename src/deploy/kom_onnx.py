@@ -48,7 +48,7 @@ def main(
 
     x = torch.rand(
         1,
-        3,
+        init_args["model_opts"]["in_channels"],
         224,
         224,
         device=torch.device("cpu"),
