@@ -5,22 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "albumentations>=2.0.5",
+    "albumentationsx>=2.0.8",
     "einops>=0.8.1",
-    "finetuning-scheduler>=2.5.0",
-    "lightning>=2.5.1",
-    "monai>=1.4.0",
-    "onnx>=1.17.0",
-    "pydantic>=2.11.1",
-    "pyyaml>=6.0.2",
-    "segmentation-models-pytorch>=0.4.0",
-    "torch>=2.6.0",
+    "lightly[timm]>=1.5.21",
+    "lightning[pytorch-extra]>=2.5.1",
+    "onnx>=1.18.0",
+    "pydantic>=2.11.7",
+    "segmentation-models-pytorch>=0.5.0",
+    "torch>=2.7.1",
     "torchaudio>=2.6.0",
-    "torchmetrics>=1.6.1",
-    "torchseg>=0.0.1a4",
-    "torchvision>=0.21.0",
+    "torchmetrics>=1.7.3",
+    "torchvision>=0.22.1",
     "tqdm>=4.67.1",
-    "wandb>=0.19.6",
+    "wandb>=0.21.0",
 ]
 
 [dependency-groups]
@@ -29,6 +26,7 @@ dev = [
     "notebook>=7.3.2",
     "pre-commit>=4.1.0",
     "ruff>=0.11.2",
+    "torchgeo>=0.7.1",
 ]
 
 [tool.ruff.lint]

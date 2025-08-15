@@ -1,0 +1,59 @@
+seed_everything: 42
+
+data:
+  class_path: "src.data.KOMBaselineRGBIDataModule"
+  init_args:
+    train_chip_dir: "/home/taylor/data/KS-RGBI-Jul2025-1024-1024/train"
+    val_chip_dir: "/home/taylor/data/KS-RGBI-Jul2025-1024-1024-full/val"
+    test_chip_dir: "/home/taylor/data/KS-RGBI-Jul2025-1024-1024-full/test"
+    batch_size: 3
+    fill_value: 0
+    fill_mask: 0
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+
+model:
+  class_path: "src.models.kom_baseline.KomRGBISpeciesBaselineModel"
+  init_args:
+    num_classes: 3
+    ignore_index: &ignore_index -100
+    lr: 3e-4
+    wd: 0.01
+    b1: 0.9
+    b2: 0.95
+    loss: "LovaszLoss"
+    loss_opts:
+      mode: "multiclass"
+      ignore_index: *ignore_index
+      from_logits: false
+
+trainer:
+  accelerator: auto
+  devices: auto
+  num_nodes: 1
+  precision: bf16-mixed
+  log_every_n_steps: 50
+  max_epochs: 20
+  accumulate_grad_batches: 8
+  gradient_clip_val: 0.5
+  detect_anomaly: false
+  default_root_dir: checkpoints
+  fast_dev_run: False
+  logger:
+    - class_path: lightning.pytorch.loggers.WandbLogger
+      init_args:
+        entity: hakai
+        project: kom-kelp-rgbi
+        name: kom-baseline-v0.13.1
+        group: Jul2025
+        log_model: true
+        tags:
+          - kelp
+          - Jul2025
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: step
+  plugins:
+    - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO

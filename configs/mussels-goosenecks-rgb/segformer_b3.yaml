@@ -1,0 +1,289 @@
+seed_everything: 42
+
+model:
+  class_path: "src.models.smp.SMPMulticlassSegmentationModel"
+  init_args:
+    architecture: "Segformer"
+    backbone: "mit_b3"
+    model_opts:
+      encoder_weights: imagenet
+      in_channels: 3
+    num_classes: 3
+    ignore_index: &ignore_index -100
+    lr: 3e-4
+    wd: 0.01
+    b1: 0.9
+    b2: 0.95
+    loss: "LovaszLoss"
+    loss_opts:
+      mode: "multiclass"
+      ignore_index: *ignore_index
+      from_logits: true
+    class_names:
+      - bg
+      - mussels
+      - goosenecks
+
+data:
+  class_path: "src.data.DataModule"
+  init_args:
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Jul2025-1024-512-full/train"
+    val_chip_dir: "/home/taylor/data/MGP-RGB-Jul2025-1024-1024-full/val"
+    test_chip_dir: "/home/taylor/data/MGP-RGB-Jul2025-1024-1024-full/test"
+    batch_size: 3
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    train_transforms:
+      __version__: 2.0.9
+      transform:
+        __class_fullname__: Compose
+        additional_targets: { }
+        bbox_params: null
+        is_check_shapes: true
+        keypoint_params: null
+        p: 1
+        seed: null
+        transforms:
+          - __class_fullname__: D4
+            p: 1.0
+          - __class_fullname__: OneOf
+            p: 0.5
+            transforms:
+              - __class_fullname__: RandomBrightnessContrast
+                brightness_by_max: true
+                brightness_limit:
+                  - -0.1
+                  - 0.1
+                contrast_limit:
+                  - -0.1
+                  - 0.1
+                ensure_safe_range: false
+                p: 1.0
+              - __class_fullname__: HueSaturationValue
+                hue_shift_limit:
+                  - -5.0
+                  - 5.0
+                p: 1.0
+                sat_shift_limit:
+                  - -10.0
+                  - 10.0
+                val_shift_limit:
+                  - -15.0
+                  - 15.0
+          - __class_fullname__: OneOf
+            p: 0.3
+            transforms:
+              - __class_fullname__: GaussNoise
+                mean_range:
+                  - 0.0
+                  - 0.0
+                noise_scale_factor: 1.0
+                p: 1.0
+                per_channel: true
+                std_range:
+                  - 0.02
+                  - 0.044
+              - __class_fullname__: ISONoise
+                color_shift:
+                  - 0.01
+                  - 0.05
+                intensity:
+                  - 0.1
+                  - 0.2
+                p: 1.0
+          - __class_fullname__: OneOf
+            p: 0.3
+            transforms:
+              - __class_fullname__: MotionBlur
+                allow_shifted: true
+                angle_range:
+                  - 0.0
+                  - 360.0
+                blur_limit:
+                  - 3
+                  - 7
+                direction_range:
+                  - -1.0
+                  - 1.0
+                p: 1.0
+              - __class_fullname__: MedianBlur
+                blur_limit:
+                  - 3
+                  - 7
+                p: 1.0
+              - __class_fullname__: GaussianBlur
+                blur_limit:
+                  - 0
+                  - 0
+                p: 1.0
+                sigma_limit:
+                  - 0.5
+                  - 3.0
+          - __class_fullname__: OneOf
+            p: 0.3
+            transforms:
+              - __class_fullname__: CoarseDropout
+                fill: 0.0
+                fill_mask: 0.0
+                hole_height_range:
+                  - 1
+                  - 5
+                hole_width_range:
+                  - 1
+                  - 5
+                num_holes_range:
+                  - 1
+                  - 64
+                p: 1.0
+              - __class_fullname__: GridDistortion
+                border_mode: 0
+                distort_limit:
+                  - -0.1
+                  - 0.1
+                fill: 0.0
+                fill_mask: 0.0
+                interpolation: 1
+                keypoint_remapping_method: mask
+                mask_interpolation: 0
+                normalized: true
+                num_steps: 10
+                p: 0.3
+          - __class_fullname__: CLAHE
+            clip_limit:
+              - 1.0
+              - 2.0
+            p: 0.1
+            tile_grid_size:
+              - 8
+              - 8
+          - __class_fullname__: ColorJitter
+            brightness:
+              - 0.95
+              - 1.05
+            contrast:
+              - 0.95
+              - 1.05
+            hue:
+              - -0.05
+              - 0.05
+            p: 0.3
+            saturation:
+              - 0.95
+              - 1.05
+          - __class_fullname__: Affine
+            balanced_scale: false
+            border_mode: 0
+            fill: 0.0
+            fill_mask: 0.0
+            fit_output: false
+            interpolation: 1
+            keep_ratio: true
+            mask_interpolation: 0
+            p: 0.3
+            rotate:
+              - -5.0
+              - 5.0
+            rotate_method: largest_box
+            scale:
+              x:
+                - 0.9
+                - 1.1
+              y:
+                - 0.9
+                - 1.1
+            shear:
+              x:
+                - 0.0
+                - 0.0
+              y:
+                - 0.0
+                - 0.0
+            translate_percent:
+              x:
+                - -0.05
+                - 0.05
+              y:
+                - -0.05
+                - 0.05
+            translate_px: null
+          - __class_fullname__: Normalize
+            max_pixel_value: 255.0
+            mean:
+              - 0.485
+              - 0.456
+              - 0.406
+            normalization: standard
+            p: 1.0
+            std:
+              - 0.229
+              - 0.224
+              - 0.225
+          - __class_fullname__: ToTensorV2
+            p: 1.0
+            transpose_mask: false
+    test_transforms:
+      __version__: 2.0.9
+      transform:
+        __class_fullname__: Compose
+        additional_targets: { }
+        bbox_params: null
+        is_check_shapes: true
+        keypoint_params: null
+        p: 1
+        seed: null
+        transforms:
+          - __class_fullname__: Normalize
+            max_pixel_value: 255.0
+            mean:
+              - 0.485
+              - 0.456
+              - 0.406
+            normalization: standard
+            p: 1.0
+            std:
+              - 0.229
+              - 0.224
+              - 0.225
+          - __class_fullname__: ToTensorV2
+            p: 1.0
+            transpose_mask: false
+
+trainer:
+  accelerator: auto
+  devices: auto
+  precision: bf16-mixed
+  log_every_n_steps: 5
+  max_epochs: 1000
+  accumulate_grad_batches: 8
+  gradient_clip_val: 0.5
+  detect_anomaly: false
+  default_root_dir: checkpoints
+  fast_dev_run: False
+  logger:
+    - class_path: lightning.pytorch.loggers.WandbLogger
+      init_args:
+        entity: hakai
+        project: kom-mussel-gooseneck-rgb
+        name: segformer_b3
+        group: Jul2025
+        log_model: true
+        tags:
+          - mussel_gooseneck
+          - Jul2025
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        auto_insert_metric_name: False
+        filename: mussel_gooseneck_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        monitor: val/iou_epoch
+        mode: max
+        save_last: True
+        save_top_k: 2
+        save_weights_only: False
+        verbose: True
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: step
+  plugins:
+    - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO

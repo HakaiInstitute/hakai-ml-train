@@ -99,7 +99,7 @@ Training is controlled via YAML configuration files located in `train/configs/`.
 #### Configuration Structure
 
 ```yaml
-segmentation_model_cls: SMPSegmentationModel  # Model class
+segmentation_model_cls: SMPBinarySegmentationModel  # Model class
 enable_logging: true                          # Enable W&B logging
 
 # Anchors for parameter reuse
