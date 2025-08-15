@@ -1,0 +1,191 @@
+seed_everything: 42
+
+model:
+  class_path: "src.models.smp.SMPBinarySegmentationModel"
+  init_args:
+    architecture: "Segformer"
+    backbone: "mit_b3"
+    model_opts:
+      encoder_weights: imagenet
+      in_channels: 8
+    num_classes: 1
+    ignore_index: &ignore_index -100
+    lr: 3e-4
+    wd: 0.01
+    b1: 0.9
+    b2: 0.95
+    warmup_period: 0.3
+    loss: "LovaszLoss"
+    loss_opts:
+      mode: "binary"
+      ignore_index: *ignore_index
+      from_logits: true
+
+data:
+  class_path: "src.data.DataModule"
+  init_args:
+    train_chip_dir: /home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20250814_cali/train/
+    val_chip_dir: /home/taylor/data/PlanetScope/pre-chipped-8b/1024_20250814_cali_full/val/
+    test_chip_dir: /home/taylor/data/PlanetScope/pre-chipped-8b/1024_20250814_cali_full/test/
+    batch_size: 3
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    train_transforms:
+      __version__: 2.0.9
+      transform:
+        __class_fullname__: Compose
+        additional_targets: { }
+        bbox_params: null
+        is_check_shapes: true
+        keypoint_params: null
+        p: 1.0
+        seed: 42
+        transforms:
+          - __class_fullname__: RandomCrop
+            border_mode: 0
+            fill: 0.0
+            fill_mask: 0.0
+            height: 1024
+            p: 1.0
+            pad_if_needed: true
+            pad_position: center
+            width: 1024
+          - __class_fullname__: ToFloat
+            max_value: 4000.0
+            p: 1.0
+          - __class_fullname__: SquareSymmetry
+            p: 1.0
+          - __class_fullname__: RandomBrightnessContrast
+            brightness_by_max: false
+            brightness_limit:
+              - -0.2
+              - 0.2
+            contrast_limit:
+              - 0.0
+              - 0.0
+            ensure_safe_range: false
+            p: 0.3
+          - __class_fullname__: CoarseDropout
+            fill: 0.0
+            fill_mask: 0.0
+            hole_height_range:
+              - 0
+              - 32
+            hole_width_range:
+              - 0
+              - 32
+            num_holes_range:
+              - 1
+              - 8
+            p: 0.5
+          - __class_fullname__: Normalize
+            max_pixel_value: 1.0
+            mean:
+              - 0.43
+              - 0.42875
+              - 0.47825
+              - 0.522
+              - 0.5685
+              - 0.5725
+              - 0.65325
+              - 0.9925
+            normalization: standard
+            p: 1.0
+            std:
+              - 0.18675
+              - 0.1745
+              - 0.18475
+              - 0.192
+              - 0.21225
+              - 0.217
+              - 0.21225
+              - 0.2285
+          - __class_fullname__: ToTensorV2
+            p: 1.0
+            transpose_mask: false
+    test_transforms:
+      __version__: 2.0.9
+      transform:
+        __class_fullname__: Compose
+        additional_targets: { }
+        bbox_params: null
+        is_check_shapes: true
+        keypoint_params: null
+        p: 1
+        seed: null
+        transforms:
+          - __class_fullname__: PadIfNeeded
+            border_mode: 0
+            fill: 0.0
+            fill_mask: 0.0
+            min_height: 1024
+            min_width: 1024
+            p: 1.0
+            pad_height_divisor: null
+            pad_width_divisor: null
+            padding: 0
+            position: center
+          - __class_fullname__: Normalize
+            max_pixel_value: 4000.0
+            mean:
+              - 0.43
+              - 0.42875
+              - 0.47825
+              - 0.522
+              - 0.5685
+              - 0.5725
+              - 0.65325
+              - 0.9925
+            normalization: standard
+            p: 1.0
+            std:
+              - 0.18675
+              - 0.1745
+              - 0.18475
+              - 0.192
+              - 0.21225
+              - 0.217
+              - 0.21225
+              - 0.2285
+          - __class_fullname__: ToTensorV2
+            p: 1.0
+            transpose_mask: false
+
+trainer:
+  accelerator: auto
+  devices: auto
+  precision: bf16-mixed
+  log_every_n_steps: 50
+  max_epochs: 100
+  accumulate_grad_batches: 8
+  gradient_clip_val: 0.8
+  detect_anomaly: false
+  default_root_dir: checkpoints
+  fast_dev_run: False
+  logger:
+    - class_path: lightning.pytorch.loggers.WandbLogger
+      init_args:
+        entity: hakai
+        project: kom-kelp-ps8b-cali
+        name: segformer_b3
+        group: Aug2025
+        log_model: true
+        tags:
+          - 1024_20250814_cali_full
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        auto_insert_metric_name: False
+        filename: kelp_ps8b_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        monitor: val/iou_epoch
+        mode: max
+        save_last: True
+        save_top_k: 2
+        save_weights_only: False
+        verbose: True
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: step
+  plugins:
+    - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO
