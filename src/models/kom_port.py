@@ -75,7 +75,7 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         pa_params = {re.sub(r"^model\.", "", k): v for k, v in pa_params.items()}
 
         self.pa_model = segmentation_models_pytorch.UnetPlusPlus(
-            encoder_name="tu-efficientnetv2_m",
+            encoder_name="tu-tf_efficientnetv2_m",
             encoder_weights=None,
             in_channels=3,
             classes=1,
@@ -89,7 +89,7 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         # Remove 'model.' prefix from start of keys
         sp_params = {re.sub(r"^model\.", "", k): v for k, v in sp_params.items()}
         self.sp_model = segmentation_models_pytorch.UnetPlusPlus(
-            encoder_name="tu-efficientnetv2_m",
+            encoder_name="tu-tf_efficientnetv2_m",
             encoder_weights=None,
             in_channels=3,
             classes=2,
@@ -103,40 +103,49 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         for p in self.sp_model.parameters():
             p.requires_grad = False
 
-        self.conv = torch.nn.Conv2d(
+        self.combiner = torch.nn.Conv2d(
             in_channels=3,
             out_channels=self.hparams.num_classes,
             kernel_size=1,
-            stride=1,
-            padding=0,
             bias=True,
         )
+        self._initialize_combiner()
 
-        # Initialize weights to respect problem structure
+    def _initialize_combiner(self):
+        """Initialize to approximate intersection logic"""
         with torch.no_grad():
-            # Start with a reasonable initialization
-            self.conv.weight.data = torch.tensor(
-                [
-                    [1.0, 0.0, 0.0],  # no_kelp mainly from presence model
-                    [0.5, 0.5, 0.0],  # macro from kelp presence + macro species
-                    [0.5, 0.0, 0.5],  # nereo from kelp presence + nereo species
-                ]
-            ).reshape(3, 3, 1, 1)
-            self.conv.bias.data.zero_()
+            self.combiner.weight.zero_()
+            self.combiner.bias.zero_()
+
+            # Output 0 (no kelp): negative binary logit indicates no kelp
+            self.combiner.weight[0, 0, 0, 0] = -2.0  # negative weight on binary logit
+            self.combiner.bias[0] = (
+                1.0  # positive bias to favor this when binary is negative
+            )
+
+            # Output 1 (macro): positive binary + high macro logit
+            self.combiner.weight[1, 0, 0, 0] = 1.0  # positive binary logit
+            self.combiner.weight[1, 1, 0, 0] = 1.0  # macro logit from species
+            self.combiner.weight[1, 2, 0, 0] = -0.5  # slight negative on nereo
+
+            # Output 2 (nereo): positive binary + high nereo logit
+            self.combiner.weight[2, 0, 0, 0] = 1.0  # positive binary logit
+            self.combiner.weight[2, 1, 0, 0] = -0.5  # slight negative on macro
+            self.combiner.weight[2, 2, 0, 0] = 1.0  # nereo logit from species
 
     def forward(self, x: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         presence_logits = self.pa_model(x)
         species_logits = self.sp_model(x)
 
         cat_logits = torch.cat([presence_logits, species_logits], dim=1)
-        return self.conv(cat_logits)
+        return self.combiner(cat_logits)
 
     def _forward_train(self, x: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         presence_logits = self.pa_model(x)
         species_logits = self.sp_model(x)
 
         cat_logits = torch.cat([presence_logits, species_logits], dim=1)
-        logits = self.conv(cat_logits)
+        logits = self.combiner(cat_logits)
 
         pa_label = (torch.sigmoid(presence_logits) > 0.5).to(torch.long)
         sp_label = species_logits.argmax(dim=1, keepdim=True) + 1  # shift to 1,2
@@ -177,9 +186,9 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
             logits = self(x)
         loss = self.loss_fn(logits, y.long())
 
-        # Add L1 regularization on the conv layer weights
+        # Add L1 regularization on the combiner layer weights
         # This encourages sparsity in the weights, which can help with generalization
-        l1 = torch.sum(torch.abs(self.conv.weight))
+        l1 = torch.sum(torch.abs(self.combiner.weight))
         loss = loss + 0.01 * l1
 
         self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"))
@@ -266,7 +275,7 @@ class KomRGBISpeciesBaselineModel(KomRGBSpeciesBaselineModel):
         for p in self.sp_model.parameters():
             p.requires_grad = False
 
-        self.conv = torch.nn.Conv2d(
+        self.combiner = torch.nn.Conv2d(
             in_channels=4,
             out_channels=self.hparams.num_classes,
             kernel_size=1,
@@ -275,31 +284,39 @@ class KomRGBISpeciesBaselineModel(KomRGBSpeciesBaselineModel):
             bias=True,
         )
 
+        self._initialize_combiner()
+
+    def _initialize_combiner(self):
         # Initialize weights to respect problem structure
         with torch.no_grad():
-            # Start with a reasonable initialization
-            self.conv.weight.data = torch.tensor(
-                [
-                    [0.5, 0.5, 0.0, 0.0],  # no_kelp mainly from presence model
-                    [0.25, 0.25, 0.5, 0.0],  # macro from kelp presence + macro species
-                    [0.25, 0.25, 0.0, 0.5],  # nereo from kelp presence + nereo species
-                ]
-            ).reshape(3, 4, 1, 1)
-            self.conv.bias.data.zero_()
+            # Start with zeros
+            self.combiner.weights.zero_()
+            self.combiner.bias.zero_()
+
+            # Channel 0 (no kelp): heavily weight binary model's "no kelp" channel
+            self.combiner.weight[0, 0, 0, 0] = 2.0  # binary no_kelp
+
+            # Channel 1 (macro): combination of binary "kelp" and species "macro"
+            self.combiner.weight[1, 1, 0, 0] = 1.0  # binary kelp
+            self.combiner.weight[1, 2, 0, 0] = 1.0  # species macro
+
+            # Channel 2 (nereo): combination of binary "kelp" and species "nereo"
+            self.combiner.weight[2, 1, 0, 0] = 1.0  # binary kelp
+            self.combiner.weight[2, 3, 0, 0] = 1.0  # species nereo
 
     def forward(self, x: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         presence_logits = self.pa_model(x)
         species_logits = self.sp_model(x)
 
         cat_logits = torch.cat([presence_logits, species_logits], dim=1)
-        return self.conv(cat_logits)
+        return self.combiner(cat_logits)
 
     def _forward_train(self, x: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         presence_logits = self.pa_model(x)
         species_logits = self.sp_model(x)
 
         cat_logits = torch.cat([presence_logits, species_logits], dim=1)
-        logits = self.conv(cat_logits)
+        logits = self.combiner(cat_logits)
 
         pa_label = presence_logits.argmax(dim=1, keepdim=True).to(torch.long)
         sp_label = species_logits.argmax(dim=1, keepdim=True) + 1  # shift to 1,2
