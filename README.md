@@ -8,10 +8,11 @@ This repository provides PyTorch Lightning-based training infrastructure for com
 
 **Key Features:**
 - Configurable training pipelines via YAML configs
-- Support for multiple architectures (UNet++, SegFormer, DeepLabV3+, etc.)
+- Support for multiple architectures (UNet++, SegFormer, UperNet, etc.) via segmentation-models-pytorch
 - Integration with Weights & Biases for experiment tracking
 - Model export to ONNX and TorchScript for production deployment
-- Built-in data augmentation and preprocessing
+- Built-in data augmentation and preprocessing with Albumentations
+- Efficient preprocessing pipeline for GeoTIFF imagery
 
 ## Environment Setup
 
@@ -27,19 +28,20 @@ This repository provides PyTorch Lightning-based training infrastructure for com
    cd hakai-ml-train
    ```
 
-2. **Create and activate UV environment:**
+2. **Install dependencies with uv:**
    ```bash
-   uv venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   # Installs dependencies and creates virtual environment
+   uv sync
+
+   # For development (includes Jupyter, pre-commit, etc.)
+   uv sync --all-groups
    ```
 
-3. **Install dependencies:**
+3. **Activate the virtual environment:**
    ```bash
-   # Basic installation
-   uv pip install -e .
-
-   # Development installation (includes Jupyter, pre-commit, etc.)
-   uv pip install -e .[dev]
+   source .venv/bin/activate  # On macOS/Linux
+   # or
+   .venv\Scripts\activate  # On Windows
    ```
 
 4. **Set up pre-commit hooks (optional but recommended):**
@@ -47,230 +49,536 @@ This repository provides PyTorch Lightning-based training infrastructure for com
    pre-commit install
    ```
 
-## Data Structure
+## Dataset Preparation
 
-Training data should be organized in the following directory structure:
+The training pipeline expects preprocessed image chips in NPZ format. Follow these steps to prepare your dataset from GeoTIFF imagery.
+
+### 1. Organize Raw Data
+
+Your raw data should follow this structure:
 
 ```
-data/
+raw_data/
 ├── train/
-│   ├── x/          # Training images (.tif)
-│   └── y/          # Training labels (.tif)
+│   ├── images/
+│   │   ├── mosaic_01.tif
+│   │   ├── mosaic_02.tif
+│   │   └── ...
+│   └── labels/
+│       ├── mosaic_01.tif
+│       ├── mosaic_02.tif
+│       └── ...
 ├── val/
-│   ├── x/          # Validation images (.tif)
-│   └── y/          # Validation labels (.tif)
+│   ├── images/
+│   │   └── ...
+│   └── labels/
+│       └── ...
 └── test/
-    ├── x/          # Test images (.tif)
-    └── y/          # Test labels (.tif)
+    ├── images/
+    │   └── ...
+    └── labels/
+        └── ...
 ```
 
-**File naming convention:**
-- Images: `image_name.tif`
-- Labels: `image_name_label.tif`
+**Requirements:**
+- **Images**: GeoTIFF files (.tif) with proper georeferencing
+- **Labels**: GeoTIFF files with the same spatial extent and resolution as images
+- **Naming**: Image and label files must have matching names
+- **Pixel values**:
+  - Labels should use integer values (e.g., 0=background, 1=kelp, 2=nereo, etc.)
+  - Images can be uint8 (0-255) for RGB or uint16 for multispectral
 
-**Image specifications:**
-- Format: GeoTIFF (.tif)
-- Standard size: 1024x1024 pixels
-- Bands: 3 (RGB) for standard configs
-- Label values: 0 (background), 1 (target class), 2 (ignore/no-data)
+### 2. Create Chip Dataset
+
+Use the `make_chip_dataset.py` script to tile your GeoTIFF mosaics into smaller chips:
+
+```bash
+python -m src.prepare.make_chip_dataset <raw_data_dir> <output_dir> \
+  --size 224 \
+  --stride 224 \
+  --num_bands 3 \
+  --remap 0 -100 1 2
+```
+
+**Parameters:**
+- `<raw_data_dir>`: Path to directory containing train/val/test folders
+- `<output_dir>`: Where to save preprocessed NPZ chips
+- `--size`: Size of square chips (default: 224)
+- `--stride`: Stride for chip extraction (default: 224, equals --size for no overlap)
+- `--num_bands`: Number of image bands to keep (3 for RGB, 4 for RGBI, etc.)
+- `--remap`: Label value remapping. Format: `old_0 new_0 old_1 new_1 ...`
+  - Example: `0 0 1 -100 2 1 3 2` means: 0→0 (bg), 1→-100 (ignore), 2→1 (class 1), 3→2 (class 2)
+  - Use `-100` for pixels to ignore during training
+- `--dtype`: Data type for image values (default: uint8)
+
+**Example (Binary Kelp Detection):**
+```bash
+python -m src.prepare.make_chip_dataset \
+  /data/kelp_raw \
+  /data/kelp_chips_224 \
+  --size 224 \
+  --stride 224 \
+  --num_bands 3 \
+  --remap 0 0 1 -100 2 1
+```
+
+**Example (Multi-class Kelp Species):**
+```bash
+python -m src.prepare.make_chip_dataset \
+  /data/kelp_species_raw \
+  /data/kelp_species_chips_1024 \
+  --size 1024 \
+  --stride 1024 \
+  --num_bands 3 \
+  --remap 0 0 1 -100 2 1 3 2
+```
+
+This creates NPZ files containing compressed image and label arrays in:
+```
+output_dir/
+├── train/
+│   ├── mosaic_01_0.npz
+│   ├── mosaic_01_1.npz
+│   └── ...
+├── val/
+│   └── ...
+└── test/
+    └── ...
+```
+
+### 3. (Optional) Clean Up Dataset
+
+Remove unwanted chips to balance your dataset:
+
+**Remove background-only tiles:**
+```bash
+python -m src.prepare.remove_bg_only_tiles /data/kelp_chips_224/train
+python -m src.prepare.remove_bg_only_tiles /data/kelp_chips_224/val
+python -m src.prepare.remove_bg_only_tiles /data/kelp_chips_224/test
+```
+
+This removes chips where all pixels are background (label ≤ 0), which is useful to reduce class imbalance.
+
+**Remove tiles with nodata areas:**
+```bash
+python -m src.prepare.remove_tiles_with_nodata_areas /data/kelp_chips_224/train --num_channels 3
+python -m src.prepare.remove_tiles_with_nodata_areas /data/kelp_chips_224/val --num_channels 3
+python -m src.prepare.remove_tiles_with_nodata_areas /data/kelp_chips_224/test --num_channels 3
+```
+
+This removes chips containing all-black pixels (assumed to be nodata areas from mosaicking).
+
+### 4. (Optional) Compute Dataset Statistics
+
+For custom normalization, compute channel statistics from your training data:
+
+```bash
+python -m src.prepare.channel_stats /data/kelp_chips_224/train --max_pixel_val 255.0
+```
+
+This outputs mean and std for each channel, saved to `/data/channel_stats.npz`. Use these values in your config's normalization transform.
 
 ## Training
 
-### Running Training
+### Quick Start
 
-Train a model using a configuration file:
+Once you have prepared your dataset, training is straightforward using the PyTorch Lightning CLI:
 
 ```bash
-# Basic training command
-python -m train path/to/config.yml
-
-# Example commands
-python -m train train/configs/kelp-rgb/pa-unetpp-efficientnetv2-m.yml
-python -m train train/configs/mussels-rgb/unetpp-efficientnetv2-m.yml
+python trainer.py fit --config configs/kelp-rgb/segformer_b3.yaml
 ```
 
-### Configuration System
+### Configuring a Training Run
 
-Training is controlled via YAML configuration files located in `train/configs/`. The configs are organized by task:
+Training is controlled via YAML configuration files in the `configs/` directory. The configs use PyTorch Lightning CLI format and are organized by dataset type:
 
-- **`kelp-rgb/`**: Kelp detection models using RGB imagery
-- **`mussels-rgb/`**: Mussel detection models using RGB imagery
+- **`kelp-rgb/`**: RGB kelp detection models
+- **`kelp-rgbi/`**: 4-channel RGBI kelp detection models
+- **`kelp-ps8b/`**: 8-band PlanetScope multispectral kelp models
+- **`mussels-rgb/`**: RGB mussel detection models
+- **`mussels-goosenecks-rgb/`**: RGB mussel and gooseneck barnacle multi-class models
 
-#### Configuration Structure
+#### Configuration File Structure
+
+Here's an annotated example configuration (`configs/kelp-rgb/segformer_b3.yaml`):
 
 ```yaml
-segmentation_model_cls: SMPBinarySegmentationModel  # Model class
-enable_logging: true                          # Enable W&B logging
+seed_everything: 42
 
-# Anchors for parameter reuse
-num_bands: &num_bands 3
-num_classes: &num_classes 1
-tile_size: &tile_size 1024
-batch_size: &batch_size 6
-max_epoch: &max_epoch 20
+# Model configuration
+model:
+  class_path: "src.models.smp.SMPMulticlassSegmentationModel"
+  init_args:
+    architecture: "Segformer"        # Architecture: UnetPlusPlus, DeepLabV3Plus, FPN, MAnet, Segformer, etc.
+    backbone: "mit_b3"               # Encoder backbone (see segmentation-models-pytorch docs)
+    model_opts:
+      encoder_weights: imagenet      # Pretrained weights
+      in_channels: 3                 # Number of input channels
+    num_classes: 3                   # Number of output classes (including background)
+    ignore_index: &ignore_index -100 # Label value to ignore during training
+    lr: 3e-4                         # Learning rate
+    wd: 0.01                         # Weight decay
+    b1: 0.9                          # Adam beta1
+    b2: 0.95                         # Adam beta2
+    loss: "LovaszLoss"               # Loss function: DiceLoss, LovaszLoss, FocalLoss, etc.
+    loss_opts:
+      mode: "multiclass"             # "binary" or "multiclass"
+      ignore_index: *ignore_index
+      from_logits: true
 
-segmentation_config:     # Model-specific parameters
-  architecture: "UnetPlusPlus"
-  backbone: "tu-tf_efficientnetv2_m"
-  num_classes: *num_classes
-  lr: 0.0003
-  loss:
-    name: "LovaszLoss"
-    opts:
-      mode: "binary"
+# Data configuration
+data:
+  class_path: "src.data.DataModule"
+  init_args:
+    # UPDATE THESE PATHS TO YOUR PREPROCESSED DATA
+    train_chip_dir: "/path/to/your/chips/train"
+    val_chip_dir: "/path/to/your/chips/val"
+    test_chip_dir: "/path/to/your/chips/test"
 
-data_module:            # Data loading configuration
-  data_dir: "/path/to/data/"
-  tile_size: *tile_size
-  batch_size: *batch_size
-  num_workers: 4
+    batch_size: 3
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
 
-trainer:                # PyTorch Lightning trainer settings
-  accumulate_grad_batches: 32
-  max_epochs: *max_epoch
-  precision: "16-mixed"
+    # Training augmentations (serialized Albumentations pipeline)
+    train_transforms:
+      __version__: 2.0.9
+      transform:
+        __class_fullname__: Compose
+        transforms:
+          - __class_fullname__: D4
+            p: 1.0
+          - __class_fullname__: OneOf
+            p: 0.5
+            transforms:
+              - __class_fullname__: RandomBrightnessContrast
+                brightness_limit: [-0.1, 0.1]
+                contrast_limit: [-0.1, 0.1]
+                p: 1.0
+              - __class_fullname__: HueSaturationValue
+                hue_shift_limit: [-5.0, 5.0]
+                sat_shift_limit: [-10.0, 10.0]
+                val_shift_limit: [-15.0, 15.0]
+                p: 1.0
+          # ... more augmentations ...
+          - __class_fullname__: Normalize
+            mean: [0.485, 0.456, 0.406]
+            std: [0.229, 0.224, 0.225]
+            p: 1.0
+          - __class_fullname__: ToTensorV2
+            p: 1.0
 
-logging:                # W&B logging configuration
-  project: "kom-kelp-pa-rgb"
-  name: "UNetPP-efficientnetv2-m"
-  log_model: true
+    # Validation/test transforms (minimal, just normalization)
+    test_transforms:
+      __version__: 2.0.9
+      transform:
+        __class_fullname__: Compose
+        transforms:
+          - __class_fullname__: Normalize
+            mean: [0.485, 0.456, 0.406]
+            std: [0.229, 0.224, 0.225]
+            p: 1.0
+          - __class_fullname__: ToTensorV2
+            p: 1.0
+
+# Trainer configuration
+trainer:
+  accelerator: auto                    # "auto", "gpu", "cpu"
+  devices: auto                        # Number of GPUs (auto = all available)
+  precision: bf16-mixed                # "32", "16-mixed", "bf16-mixed"
+  log_every_n_steps: 50
+  max_epochs: 500
+  accumulate_grad_batches: 8           # Effective batch size = batch_size * accumulate_grad_batches
+  gradient_clip_val: 0.5
+  default_root_dir: checkpoints
+
+  # Weights & Biases logging
+  logger:
+    - class_path: lightning.pytorch.loggers.WandbLogger
+      init_args:
+        entity: hakai                  # W&B entity name
+        project: kom-kelp-rgb          # W&B project name
+        name: segformer_b3             # Run name
+        group: Jul2025                 # Group related runs
+        log_model: true                # Upload checkpoints to W&B
+        tags:
+          - kelp
+          - Jul2025
+
+  # Callbacks
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        filename: kelp_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        monitor: val/iou_epoch         # Metric to monitor
+        mode: max                      # "max" or "min"
+        save_last: True
+        save_top_k: 2                  # Save top 2 checkpoints
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: step
 ```
 
-#### Key Configuration Parameters
+### Steps to Launch Training
 
-- **`segmentation_model_cls`**: Model implementation (`SMPSegmentationModel`, `DINOv2Segmentation`, `AerialFormer`)
-- **Architecture options**: UnetPlusPlus, DeepLabV3Plus, FPN, MAnet, SegFormer
-- **Backbone options**: EfficientNet variants, MobileNet, Vision Transformers
-- **Loss functions**: Dice, Focal, Lovász, Tversky, combinations (see `train/losses.py`)
+1. **Choose or create a config file** in `configs/` directory based on your task
 
-## Model Conversion for Production
+2. **Edit the config file** to update these key parameters:
+   ```yaml
+   data:
+     init_args:
+       train_chip_dir: "/path/to/your/preprocessed/chips/train"
+       val_chip_dir: "/path/to/your/preprocessed/chips/val"
+       test_chip_dir: "/path/to/your/preprocessed/chips/test"
+       batch_size: 3  # Adjust based on GPU memory
 
-After training, convert PyTorch Lightning checkpoints to production formats:
+   trainer:
+     logger:
+       - class_path: lightning.pytorch.loggers.WandbLogger
+         init_args:
+           project: "your-project-name"
+           name: "your-run-name"
+   ```
 
-### Convert Checkpoint
+3. **Start training:**
+   ```bash
+   python trainer.py fit --config configs/kelp-rgb/segformer_b3.yaml
+   ```
+
+4. **Resume from checkpoint** (if training was interrupted):
+   ```bash
+   python trainer.py fit --config configs/kelp-rgb/segformer_b3.yaml \
+     --ckpt_path checkpoints/last.ckpt
+   ```
+
+5. **Test a trained model:**
+   ```bash
+   python trainer.py test --config configs/kelp-rgb/segformer_b3.yaml \
+     --ckpt_path checkpoints/best_checkpoint.ckpt
+   ```
+
+### Common Configuration Options
+
+**Model Architectures** (via `architecture` parameter):
+- `Unet`, `UnetPlusPlus` - Classic U-Net variants with skip connections
+- `DeepLabV3`, `DeepLabV3Plus` - Atrous convolution-based
+- `FPN` - Feature Pyramid Network
+- `PSPNet` - Pyramid Scene Parsing Network
+- `MAnet` - Multi-scale Attention Network
+- `Segformer` - Transformer-based (efficient for high resolution)
+- `UperNet` - Unified Perceptual Parsing
+
+**Encoder Backbones** (via `backbone` parameter):
+- ResNet: `resnet18`, `resnet34`, `resnet50`, `resnet101`
+- EfficientNet: `efficientnet-b0` through `efficientnet-b7`
+- MobileNet: `mobilenet_v2`
+- SegFormer: `mit_b0` through `mit_b5`
+- Swin Transformer: `swin_base_patch4_window7_224`
+- See [segmentation-models-pytorch docs](https://github.com/qubvel/segmentation_models.pytorch) for full list
+
+**Loss Functions** (via `loss` parameter):
+- `DiceLoss` - Good for imbalanced datasets
+- `LovaszLoss` - Optimizes IoU directly
+- `FocalLoss` - Focuses on hard examples
+- `JaccardLoss` - IoU loss
+- `TverskyLoss` - Generalization of Dice
+- `FocalDiceComboLoss` - Combination of Focal and Dice
+
+### Binary vs Multi-class Models
+
+**Binary segmentation** (background vs target):
+```yaml
+model:
+  class_path: "src.models.smp.SMPBinarySegmentationModel"
+  init_args:
+    num_classes: 1
+    loss: "LovaszLoss"
+    loss_opts:
+      mode: "binary"
+```
+
+**Multi-class segmentation** (background + multiple classes):
+```yaml
+model:
+  class_path: "src.models.smp.SMPMulticlassSegmentationModel"
+  init_args:
+    num_classes: 3  # e.g., background, macrocystis, nereocystis
+    class_names: ["bg", "macro", "nereo"]
+    loss: "LovaszLoss"
+    loss_opts:
+      mode: "multiclass"
+```
+
+## Model Export for Production
+
+After training, export PyTorch Lightning checkpoints to production-ready formats (ONNX or TorchScript) for deployment in Kelp-o-Matic.
+
+### Export to ONNX
+
+The recommended format for production deployment:
 
 ```bash
-python train/convert_checkpoint.py <wandb_artifact_url> <config_file> --model_name <name> --task <task>
+python -m src.deploy.kom_onnx <config_path> <ckpt_path> <output_path> [--opset 11]
 ```
 
 **Example:**
 ```bash
-python train/convert_checkpoint.py \
-  "hakai/kom-mussels-rgb/model-nzty80z7:v0" \
-  train/configs/mussels-rgb/unetpp-efficientnetv2-m.yml \
-  --model_name "UNetPlusPlus_EfficientNetV2M" \
-  --task "mussel_presence_rgb"
+python -m src.deploy.kom_onnx \
+  configs/kelp-rgb/segformer_b3.yaml \
+  checkpoints/best_model.ckpt \
+  models/kelp_segformer_b3.onnx \
+  --opset 14
 ```
 
-This generates:
-- **JIT model**: `inference/weights/{model_name}_{task}_jit_dice={score}.pt`
-- **ONNX model**: `inference/weights/{model_name}_{task}_dice={score}.onnx`
+**Parameters:**
+- `config_path`: Path to the YAML config used for training
+- `ckpt_path`: Path to the PyTorch Lightning checkpoint (.ckpt file)
+- `output_path`: Where to save the ONNX model
+- `--opset`: ONNX opset version (default: 11, recommend 14 for newer models)
+
+The exported ONNX model:
+- Strips the Lightning wrapper and extracts just the segmentation model
+- Supports dynamic batch size and spatial dimensions
+- Outputs raw logits (no activation function applied)
+
+### Export Legacy Models
+
+For backwards compatibility with older Kelp-o-Matic versions:
+
+**Legacy RGB Kelp Models:**
+```bash
+python -m src.deploy.kom_onnx_legacy_kelp_rgb \
+  configs/kelp-rgb/kom_baseline.yaml \
+  checkpoints/legacy_model.ckpt \
+  models/kelp_legacy_rgb.onnx
+```
+
+**Legacy RGBI Kelp Models:**
+```bash
+python -m src.deploy.kom_onnx_legacy_kelp_rgbi \
+  configs/kelp-rgbi/kom_baseline.yaml \
+  checkpoints/legacy_model.ckpt \
+  models/kelp_legacy_rgbi.onnx
+```
+
+### Export to TorchScript
+
+Alternative deployment format (less portable but may be faster in pure PyTorch environments):
+
+```bash
+python -m src.deploy.kom_torchscript \
+  configs/kelp-rgb/segformer_b3.yaml \
+  checkpoints/best_model.ckpt \
+  models/kelp_segformer_b3.pt
+```
 
 ### Deployment
 
-- **ONNX and TorchScript files** are uploaded to AWS S3 in the kelp-o-matic bucket for production use
-- **Raw checkpoint files** and training metrics are stored in Weights & Biases under the hakai-org account
+Exported models are typically:
+- Uploaded to AWS S3 in the kelp-o-matic bucket for production use
+- Integrated into the [Kelp-o-Matic inference pipeline](https://github.com/HakaiInstitute/kelp-o-matic)
+- Used via ONNX Runtime for efficient cross-platform inference
 
-## Test Inference
-
-Run inference on a single image using the included inference script:
-
-```bash
-cd inference
-python inference.py <input_image.tif> <output_segmentation.tif>
-```
-
-**Example:**
-```bash
-cd inference
-python inference.py /path/to/aerial_image.tif /path/to/output_kelp_mask.tif
-```
-
-The inference script:
-- Uses Bartlett-Hanning windowing for seamless tile processing
-- Handles images of arbitrary size with overlapping tile strategy
-- Outputs single-band GeoTIFF with pixel values: 0 (background), 1 (target class)
-- Includes preprocessing (normalization, padding) and memory-efficient processing
+Training checkpoints and experiment logs remain in Weights & Biases under the hakai entity.
 
 ## Development
 
 ### Code Quality
 
-```bash
-# Run linting
-ruff check
-
-# Run linting with auto-fix
-ruff check --fix
-```
-
-### Testing/Evaluation
-
-Evaluation scripts are located in `eval/` directory:
+Format and lint with Ruff:
 
 ```bash
-python eval/test_kom.py      # Kelp-o-Matic integration tests
-python eval/test_new_model.py   # New model validation
+# Check for issues
+ruff check .
+
+# Auto-fix issues
+ruff check --fix .
+
+# Format code
+ruff format .
 ```
 
-### Key Development Files
+Run pre-commit hooks on all files:
 
-**Core Training Components:**
-- **`train/model.py`**: Model definitions (`SMPSegmentationModel`, `DINOv2Segmentation`, `AerialFormer`)
-- **`train/datamodule.py`**: PyTorch Lightning DataModule for data loading
-- **`train/losses.py`**: Loss function implementations
-- **`train/transforms.py`**: Data augmentation and preprocessing
-- **`train/configs/config.py`**: Pydantic configuration validation
+```bash
+pre-commit run --all-files
+```
 
-**Model Architectures:**
-- **`train/models/aerial_former/`**: Custom transformer architecture for aerial imagery
+### Key Source Files
+
+**Core Components:**
+- `trainer.py` - Lightning CLI entry point
+- `src/models/smp.py` - Lightning module wrappers (SMPBinarySegmentationModel, SMPMulticlassSegmentationModel)
+- `src/data.py` - DataModule and dataset classes
+- `src/losses.py` - Loss function registry
+- `src/transforms.py` - Augmentation pipeline helpers
+
+**Data Preparation:**
+- `src/prepare/make_chip_dataset.py` - Tile GeoTIFF mosaics into chips
+- `src/prepare/remove_bg_only_tiles.py` - Filter background-only chips
+- `src/prepare/remove_tiles_with_nodata_areas.py` - Filter chips with nodata
+- `src/prepare/channel_stats.py` - Compute normalization statistics
+
+**Model Export:**
+- `src/deploy/kom_onnx.py` - Export to ONNX format
+- `src/deploy/kom_torchscript.py` - Export to TorchScript
+- `src/deploy/kom_onnx_legacy_*.py` - Export legacy model formats
 
 **Configuration:**
-- **`train/configs/kelp-rgb/`**: Kelp detection model configurations
-- **`train/configs/mussels-rgb/`**: Mussel detection model configurations
-
-**Inference:**
-- **`inference/inference.py`**: Production inference pipeline
-- **`inference/kernels.py`**: Windowing functions for tile-based processing
+- `configs/` - Training configuration files organized by dataset
 
 ### Configuration Guidelines
 
-When creating new configurations:
+When creating new configuration files:
 
-1. **Use YAML anchors** for parameter consistency:
+1. **Use YAML anchors** for parameter reuse:
    ```yaml
-   num_bands: &num_bands 3
-   segmentation_config:
-     num_bands: *num_bands
-   data_module:
-     num_bands: *num_bands
+   ignore_index: &ignore_index -100
+   model:
+     init_args:
+       ignore_index: *ignore_index
    ```
 
-2. **Follow naming conventions**:
-   - `pa-`: Presence/absence detection configurations
-   - `sp-`: Species detection configurations (for kelp)
-   - Include architecture and backbone in filename
+2. **Include descriptive metadata** in W&B logging:
+   - Use clear project names (e.g., `kom-kelp-rgb`)
+   - Include dataset version or date in the `group` field
+   - Add relevant tags for filtering experiments
 
-3. **Set appropriate batch sizes** based on model complexity and available GPU memory
+3. **Adjust batch size and gradient accumulation** based on GPU memory:
+   - Effective batch size = `batch_size` × `accumulate_grad_batches`
+   - For large models, use smaller batch_size with larger accumulate_grad_batches
 
-4. **Configure logging** with descriptive project and run names for experiment tracking
+4. **Match image normalization** to your preprocessing:
+   - RGB: Use ImageNet stats `[0.485, 0.456, 0.406]` / `[0.229, 0.224, 0.225]`
+   - Multispectral: Compute custom stats with `channel_stats.py`
 
-## Weights & Biases Integration
+## Weights & Biases
 
-**Access**: Contact Taylor Denouden for access to the hakai-org W&B account.
+Training metrics, hyperparameters, and model checkpoints are logged to Weights & Biases.
 
-**Project Organization:**
-- Training metrics, model artifacts, and hyperparameters are automatically logged
-- Raw PyTorch Lightning checkpoints are stored as W&B artifacts
-- Model performance metrics (IoU, Dice, F1) are tracked across experiments
+**Access**: Contact Taylor Denouden for access to the hakai entity.
 
-**Artifact URLs** follow the format: `hakai/<project-name>/model-<id>:v<version>`
+**Organization:**
+- Project names follow pattern: `kom-{dataset}-{modality}` (e.g., `kom-kelp-rgb`)
+- Checkpoints are uploaded as W&B artifacts when `log_model: true`
+- Metrics tracked: IoU, accuracy, precision, recall, F1, loss
 
-## Architecture Overview
+**Viewing Results:**
+- Navigate to [wandb.ai/hakai](https://wandb.ai/hakai)
+- Select your project to view runs and compare experiments
+- Download checkpoints from the Artifacts tab
 
-The training framework is built on:
-- **PyTorch Lightning**: Training orchestration and distributed training support
-- **Segmentation Models PyTorch**: Pre-trained encoder backbones and decoder architectures
-- **Albumentations**: Data augmentation pipeline
-- **Weights & Biases**: Experiment tracking and model versioning
-- **Pydantic**: Configuration validation and type safety
+## Technical Stack
+
+- **PyTorch Lightning** - Training orchestration and multi-GPU support
+- **segmentation-models-pytorch** - Model architectures and pretrained backbones
+- **Albumentations** - Data augmentation
+- **TorchGeo** - Geospatial data loading for preprocessing
+- **Weights & Biases** - Experiment tracking
+- **ONNX** - Model export for production
+- **uv** - Fast Python package management
+
+## Related Projects
+
+- [Habitat-Mapper](https://github.com/HakaiInstitute/habitat-mapper) - Production inference pipeline CLI (formerly kelp-o-matic)
+- [Hakai Institute](https://hakai.org) - Marine ecology research organization
