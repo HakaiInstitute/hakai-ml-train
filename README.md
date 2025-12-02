@@ -106,31 +106,37 @@ python -m src.prepare.make_chip_dataset <raw_data_dir> <output_dir> \
 - `--size`: Size of square chips (default: 224)
 - `--stride`: Stride for chip extraction (default: 224, equals --size for no overlap)
 - `--num_bands`: Number of image bands to keep (3 for RGB, 4 for RGBI, etc.)
-- `--remap`: Label value remapping. Format: `old_0 new_0 old_1 new_1 ...`
-  - Example: `0 0 1 -100 2 1 3 2` means: 0→0 (bg), 1→-100 (ignore), 2→1 (class 1), 3→2 (class 2)
+- `--remap`: Label value remapping as a list where **index = old value, value = new value**
+  - Format: `new_0 new_1 new_2 new_3 ...` (position in list = old label value)
+  - Example: `0 1 0 0 -100` means: 0→0 (bg), 1→1 (keep), 2→0 (remap to bg), 3→0 (remap to bg), 4→-100 (ignore)
+  - Example: `0 -100 1 2` means: 0→0 (bg), 1→-100 (ignore), 2→1 (class 1), 3→2 (class 2)
   - Use `-100` for pixels to ignore during training
 - `--dtype`: Data type for image values (default: uint8)
 
 **Example (Binary Kelp Detection):**
 ```bash
+# Assuming labels: 0=background, 1=noise, 2=kelp
+# Remap to: 0→0 (bg), 1→-100 (ignore noise), 2→1 (kelp)
 python -m src.prepare.make_chip_dataset \
   /data/kelp_raw \
   /data/kelp_chips_224 \
   --size 224 \
   --stride 224 \
   --num_bands 3 \
-  --remap 0 0 1 -100 2 1
+  --remap 0 -100 1
 ```
 
 **Example (Multi-class Kelp Species):**
 ```bash
+# Assuming labels: 0=background, 1=noise, 2=macrocystis, 3=nereocystis
+# Remap to: 0→0 (bg), 1→-100 (ignore noise), 2→1 (macro), 3→2 (nereo)
 python -m src.prepare.make_chip_dataset \
   /data/kelp_species_raw \
   /data/kelp_species_chips_1024 \
   --size 1024 \
   --stride 1024 \
   --num_bands 3 \
-  --remap 0 0 1 -100 2 1 3 2
+  --remap 0 -100 1 2
 ```
 
 This creates NPZ files containing compressed image and label arrays in:
