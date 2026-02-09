@@ -1,9 +1,13 @@
+from typing import Any
+
 import lightning.pytorch as pl
 import timm
 import torch
 from lightly.models import utils
 from lightly.models.modules import MAEDecoderTIMM, MaskedVisionTransformerTIMM
 from torch import nn
+
+from src.models import configure_optimizers as _configure_optimizers
 
 
 class MAE(pl.LightningModule):
@@ -17,10 +21,12 @@ class MAE(pl.LightningModule):
         decoder_proj_drop_rate=0.0,
         decoder_attn_drop_rate=0.0,
         mask_ratio=0.75,
-        lr=1.5e-4,
-        wd=0.05,
-        b1=0.9,
-        b2=0.95,
+        optimizer_class: str = "torch.optim.AdamW",
+        optimizer_opts: dict[str, Any] | None = None,
+        lr_scheduler_class: str = "torch.optim.lr_scheduler.OneCycleLR",
+        lr_scheduler_opts: dict[str, Any] | None = None,
+        lr_scheduler_interval: str = "step",
+        lr_scheduler_monitor: str | None = None,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -92,22 +98,4 @@ class MAE(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.AdamW(
-            [param for name, param in self.named_parameters() if param.requires_grad],
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.wd,
-        )
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.hparams.lr,
-            total_steps=self.trainer.estimated_stepping_batches,
-            pct_start=0.05,
-        )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "interval": "step",
-            },
-        }
+        return _configure_optimizers(self)

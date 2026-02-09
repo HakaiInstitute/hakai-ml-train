@@ -7,6 +7,7 @@ import torchmetrics.classification as fm
 from huggingface_hub import PyTorchModelHubMixin
 
 from .. import losses
+from . import configure_optimizers as _configure_optimizers
 
 
 class SMPBinarySegmentationModel(
@@ -26,12 +27,12 @@ class SMPBinarySegmentationModel(
         loss_opts: dict[str, Any],
         num_classes: int = 2,
         ignore_index: int | None = None,
-        lr: float = 0.0003,
-        wd: float = 0,
-        b1: float = 0.9,
-        b2: float = 0.999,
-        amsgrad: bool = False,
-        warmup_period: float = 0.1,
+        optimizer_class: str = "torch.optim.AdamW",
+        optimizer_opts: dict[str, Any] | None = None,
+        lr_scheduler_class: str = "torch.optim.lr_scheduler.OneCycleLR",
+        lr_scheduler_opts: dict[str, Any] | None = None,
+        lr_scheduler_interval: str = "step",
+        lr_scheduler_monitor: str | None = None,
         ckpt_path: str | None = None,
         freeze_backbone: bool = False,
     ):
@@ -139,27 +140,7 @@ class SMPBinarySegmentationModel(
         )
 
     def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, self.parameters()),
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.wd,
-            betas=(self.hparams.b1, self.hparams.b2),
-            amsgrad=self.hparams.amsgrad,
-        )
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.hparams.lr,
-            total_steps=self.trainer.estimated_stepping_batches,
-            pct_start=self.hparams.warmup_period,
-        )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "interval": "step",
-            },
-        }
+        return _configure_optimizers(self)
 
 
 class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
@@ -251,45 +232,3 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
         self.log(f"{phase}/iou", iou_per_class[1:].mean(), sync_dist=True)
 
         return loss
-
-    def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, self.parameters()),
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.wd,
-            betas=(self.hparams.b1, self.hparams.b2),
-            amsgrad=self.hparams.amsgrad,
-        )
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        #     optimizer,
-        #     mode="max",
-        #     factor=0.1,
-        #     patience=2,
-        #     threshold=0.0001,
-        #     cooldown=3,
-        # )
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        #     optimizer,
-        #     T_0=100,
-        #     T_mult=1,
-        #     eta_min=self.hparams.lr*100,
-        #     last_epoch=-1,
-        # )
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.hparams.lr,
-            pct_start=0.1,
-            total_steps=self.trainer.estimated_stepping_batches,
-        )
-
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                # "monitor": "val/iou_epoch",
-                # "interval": "epoch",
-                # "frequency": 1,
-                "interval": "step",
-            },
-        }

@@ -18,10 +18,18 @@ model:
   init_args:
     mask_ratio: 0.7
     model_name: "vit_base_patch16_224"
-    lr: 1e-4
-    wd: 0.05
-    b1: 0.9
-    b2: 0.999
+    optimizer_class: torch.optim.AdamW
+    optimizer_opts:
+      lr: 1e-4
+      weight_decay: 0.05
+      betas:
+        - 0.9
+        - 0.999
+    lr_scheduler_class: torch.optim.lr_scheduler.OneCycleLR
+    lr_scheduler_opts:
+      max_lr: 1e-4
+      pct_start: 0.05
+    lr_scheduler_interval: step
 
 trainer:
   accelerator: auto
