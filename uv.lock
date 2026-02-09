@@ -927,6 +927,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "albumentationsx" },
     { name = "einops" },
+    { name = "huggingface-hub" },
     { name = "lightly", extra = ["timm"] },
     { name = "lightning", extra = ["pytorch-extra"] },
     { name = "onnx" },
@@ -956,6 +957,7 @@ dev = [
 requires-dist = [
     { name = "albumentationsx", specifier = ">=2.0.8" },
     { name = "einops", specifier = ">=0.8.1" },
+    { name = "huggingface-hub", specifier = ">=1.4.1" },
     { name = "lightly", extras = ["timm"], specifier = ">=1.5.21" },
     { name = "lightning", extras = ["pytorch-extra"], specifier = ">=2.5.1" },
     { name = "onnx", specifier = ">=1.18.0" },
