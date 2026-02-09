@@ -17,6 +17,7 @@ model:
       betas:
         - 0.9
         - 0.95
+    lr_scheduler_monitor: val/iou_epoch
     lr_scheduler_class: torch.optim.lr_scheduler.ReduceLROnPlateau
     lr_scheduler_opts:
       mode: 'min'
