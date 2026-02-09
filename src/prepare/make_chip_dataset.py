@@ -194,7 +194,7 @@ def main():
         "--dtype", type=np.dtype, default="uint8", help="Data type of the chips."
     )
 
-    parser.add_argument("--remap", "-r", type=int, nargs="+", default=[0, -100, 1, 2])
+    parser.add_argument("--remap", "-r", type=int, nargs="+", default=[0, 1, 2])
 
     args = parser.parse_args()
 
