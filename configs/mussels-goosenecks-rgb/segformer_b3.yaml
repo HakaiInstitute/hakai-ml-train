@@ -19,6 +19,7 @@ model:
         - 0.95
     lr_scheduler_class: torch.optim.lr_scheduler.ReduceLROnPlateau
     lr_scheduler_opts:
+      monitor: val/iou_epoch
       mode: 'min'
       factor: 0.1
       patience: 10
