@@ -37,7 +37,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input_dir", type=Path)
     parser.add_argument(
-        "-n--num_channels",
+        "-n",
+        "--num_channels",
         type=int,
         default=3,
         help="Number of channels in the image (default: 3 for RGB)",
