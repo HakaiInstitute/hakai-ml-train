@@ -19,6 +19,7 @@ dependencies = [
     "torchmetrics>=1.7.3",
     "torchvision>=0.25.0",
     "tqdm>=4.67.1",
+    "transformers>=5.1.0",
     "wandb>=0.21.0",
 ]
 
