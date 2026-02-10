@@ -42,7 +42,7 @@ model:
 data:
   class_path: "src.data.DataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512-full/train"
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512/train"
     val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full/val"
     test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full/test"
     batch_size: 3
