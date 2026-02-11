@@ -4,9 +4,9 @@ model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "UPerNet"
-    backbone: "tu-convnextv2_base"
+    backbone: "tu-convnextv2_base.fcmae_ft_in22k_in1k"
     model_opts:
-      encoder_weights: "fcmae"
+      encoder_weights: "imagenet"
       in_channels: 3
     num_classes: 3
     ignore_index: &ignore_index -100
@@ -299,5 +299,12 @@ trainer:
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
+    - class_path: lightning.pytorch.callbacks.BackboneFinetuning
+      init_args:
+        unfreeze_backbone_at_epoch: 10
+        backbone_initial_ratio_lr: 0.1
+        should_align: true
+        train_bn: true
+        verbose: true
   plugins:
     - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO

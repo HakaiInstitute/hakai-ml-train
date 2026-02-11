@@ -94,6 +94,11 @@ class SMPBinarySegmentationModel(
             ignore_index=self.hparams.ignore_index,
         )
 
+    @property
+    def backbone(self) -> torch.nn.Module:
+        """Expose encoder for Lightning's BackboneFinetuning callback."""
+        return self.model.encoder
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 
