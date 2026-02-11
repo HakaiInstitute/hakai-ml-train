@@ -4,9 +4,9 @@ model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "UPerNet"
-    backbone: "timm-convnextv2_base.fcmae"
+    backbone: "timm-convnextv2_base"
     model_opts:
-#      encoder_weights: imagenet
+      encoder_weights: "fcmae"
       in_channels: 3
     num_classes: 3
     ignore_index: &ignore_index -100
