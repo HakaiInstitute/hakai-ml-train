@@ -17,18 +17,11 @@ model:
       betas:
         - 0.9
         - 0.95
-    lr_scheduler_monitor: val/iou_epoch
-    lr_scheduler_class: torch.optim.lr_scheduler.ReduceLROnPlateau
+    lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      mode: 'min'
-      factor: 0.1
-      patience: 10
-      threshold: 0.0001
-      threshold_mode: 'rel'
-      cooldown: 0
-      min_lr: 1e-7
-      eps: 1e-08
-    lr_scheduler_interval: epoch
+      warmup_steps: 500
+      min_lr: 1e-6
+    lr_scheduler_interval: step
     loss: "LovaszLoss"
     loss_opts:
       mode: "multiclass"
