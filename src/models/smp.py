@@ -22,7 +22,7 @@ class SMPBinarySegmentationModel(
     def __init__(
         self,
         architecture: str,
-        backbone: str,
+        encoder_name: str,
         model_opts: dict[str, Any],
         loss: str,
         loss_opts: dict[str, Any],
@@ -43,10 +43,11 @@ class SMPBinarySegmentationModel(
 
         self.model = smp.create_model(
             arch=architecture,
-            encoder_name=backbone,
+            encoder_name=encoder_name,
             classes=self.hparams.num_classes,
             **model_opts,
         )
+        self.backbone = self.model.encoder
 
         if ckpt_path is not None:
             ckpt = torch.load(self.hparams.ckpt_path)
@@ -58,6 +59,8 @@ class SMPBinarySegmentationModel(
             print("Freezing backbone parameters")
             for p in self.model.encoder.parameters():
                 p.requires_grad = False
+
+        self.model = torch.compile(self.model)
 
         self.loss_fn = losses.__dict__[loss](**loss_opts)
 
@@ -86,11 +89,6 @@ class SMPBinarySegmentationModel(
         self.train_metrics = metrics.clone(prefix="train/")
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
-
-    @property
-    def backbone(self) -> torch.nn.Module:
-        """Expose encoder for Lightning's BackboneFinetuning callback."""
-        return self.model.encoder
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)

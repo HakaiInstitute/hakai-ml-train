@@ -4,7 +4,7 @@ model:
   class_path: "src.models.smp.SMPBinarySegmentationModel"
   init_args:
     architecture: "Segformer"
-    backbone: "mit_b3"
+    encoder_name: "mit_b3"
     model_opts:
       encoder_weights: imagenet
       in_channels: 3

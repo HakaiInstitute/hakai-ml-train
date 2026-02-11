@@ -3,10 +3,10 @@ seed_everything: 42
 model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
-    architecture: "Segformer"
-    encoder_name: "mit_b3"
+    architecture: "UPerNet"
+    encoder_name: "tu-mambaout_base_plus_rw"
     model_opts:
-      encoder_weights: imagenet
+      encoder_weights: "imagenet"
       in_channels: 3
     num_classes: 3
     ignore_index: &ignore_index -100
@@ -17,23 +17,27 @@ model:
       betas:
         - 0.9
         - 0.95
-    lr_scheduler_class: torch.optim.lr_scheduler.OneCycleLR
+    lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      max_lr: 3e-4
-      pct_start: 0.1
-    lr_scheduler_interval: step
+      warmup_steps: 7
+      min_lr: 1e-6
+    lr_scheduler_interval: epoch
     loss: "LovaszLoss"
     loss_opts:
       mode: "multiclass"
       ignore_index: *ignore_index
       from_logits: true
+    class_names:
+      - bg
+      - mussels
+      - goosenecks
 
 data:
   class_path: "src.data.DataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024/train"
-    val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/val"
-    test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/test"
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512/train"
+    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full/val"
+    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full/test"
     batch_size: 3
     num_workers: 8
     pin_memory: true
@@ -51,30 +55,50 @@ data:
         transforms:
           - __class_fullname__: D4
             p: 1.0
-          - __class_fullname__: OneOf
+          - __class_fullname__: RandomBrightnessContrast
+            brightness_by_max: true
+            brightness_limit:
+              - -0.3
+              - 0.3
+            contrast_limit:
+              - -0.3
+              - 0.3
+            ensure_safe_range: false
             p: 0.5
-            transforms:
-              - __class_fullname__: RandomBrightnessContrast
-                brightness_by_max: true
-                brightness_limit:
-                  - -0.1
-                  - 0.1
-                contrast_limit:
-                  - -0.1
-                  - 0.1
-                ensure_safe_range: false
-                p: 1.0
-              - __class_fullname__: HueSaturationValue
-                hue_shift_limit:
-                  - -5.0
-                  - 5.0
-                p: 1.0
-                sat_shift_limit:
-                  - -10.0
-                  - 10.0
-                val_shift_limit:
-                  - -15.0
-                  - 15.0
+          - __class_fullname__: HueSaturationValue
+            hue_shift_limit:
+              - -10.0
+              - 10.0
+            p: 0.4
+            sat_shift_limit:
+              - -30.0
+              - 30.0
+            val_shift_limit:
+              - -40.0
+              - 40.0
+          - __class_fullname__: RandomGamma
+            gamma_limit:
+              - 60
+              - 140
+            p: 0.3
+          - __class_fullname__: RandomToneCurve
+            scale: 0.15
+            per_channel: false
+            p: 0.2
+          - __class_fullname__: RandomShadow
+            shadow_roi:
+              - 0
+              - 0
+              - 1
+              - 1
+            num_shadows_limit:
+              - 1
+              - 3
+            shadow_dimension: 5
+            shadow_intensity_range:
+              - 0.3
+              - 0.6
+            p: 0.3
           - __class_fullname__: OneOf
             p: 0.3
             transforms:
@@ -96,21 +120,21 @@ data:
                   - 0.1
                   - 0.2
                 p: 1.0
+          - __class_fullname__: MotionBlur
+            allow_shifted: true
+            angle_range:
+              - 0.0
+              - 360.0
+            blur_limit:
+              - 3
+              - 15
+            direction_range:
+              - -1.0
+              - 1.0
+            p: 0.25
           - __class_fullname__: OneOf
-            p: 0.3
+            p: 0.2
             transforms:
-              - __class_fullname__: MotionBlur
-                allow_shifted: true
-                angle_range:
-                  - 0.0
-                  - 360.0
-                blur_limit:
-                  - 3
-                  - 7
-                direction_range:
-                  - -1.0
-                  - 1.0
-                p: 1.0
               - __class_fullname__: MedianBlur
                 blur_limit:
                   - 3
@@ -156,25 +180,11 @@ data:
           - __class_fullname__: CLAHE
             clip_limit:
               - 1.0
-              - 2.0
-            p: 0.1
+              - 4.0
+            p: 0.3
             tile_grid_size:
               - 8
               - 8
-          - __class_fullname__: ColorJitter
-            brightness:
-              - 0.95
-              - 1.05
-            contrast:
-              - 0.95
-              - 1.05
-            hue:
-              - -0.05
-              - 0.05
-            p: 0.3
-            saturation:
-              - 0.95
-              - 1.05
           - __class_fullname__: Affine
             balanced_scale: false
             border_mode: 0
@@ -186,16 +196,16 @@ data:
             mask_interpolation: 0
             p: 0.3
             rotate:
-              - -5.0
-              - 5.0
+              - -15.0
+              - 15.0
             rotate_method: largest_box
             scale:
               x:
-                - 0.9
-                - 1.1
+                - 0.8
+                - 1.2
               y:
-                - 0.9
-                - 1.1
+                - 0.8
+                - 1.2
             shear:
               x:
                 - 0.0
@@ -257,8 +267,8 @@ trainer:
   accelerator: auto
   devices: auto
   precision: bf16-mixed
-  log_every_n_steps: 50
-  max_epochs: 500
+  log_every_n_steps: 5
+  max_epochs: 200
   accumulate_grad_batches: 8
   gradient_clip_val: 0.5
   detect_anomaly: false
@@ -268,18 +278,18 @@ trainer:
     - class_path: lightning.pytorch.loggers.WandbLogger
       init_args:
         entity: hakai
-        project: kom-kelp-rgb
-        name: segformer_b3
-        group: Jul2025
+        project: kom-mussel-gooseneck-rgb
+        name: upernet_mambaout_base_plus_rw
+        group: Feb2026
         log_model: true
         tags:
-          - kelp
-          - Jul2025
+          - mussel_gooseneck
+          - Feb2026
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: kelp_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_upernet_mambaout_base_plus_rw_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
@@ -289,5 +299,12 @@ trainer:
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
+    - class_path: lightning.pytorch.callbacks.BackboneFinetuning
+      init_args:
+        unfreeze_backbone_at_epoch: 100000
+        backbone_initial_ratio_lr: 0.1
+        should_align: true
+        train_bn: true
+        verbose: true
   plugins:
     - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO

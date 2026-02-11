@@ -4,7 +4,7 @@ model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "UnetPlusPlus"
-    backbone: "mobilenet_v2"
+    encoder_name: "mobilenet_v2"
     model_opts:
       encoder_weights: imagenet
       in_channels: 3
