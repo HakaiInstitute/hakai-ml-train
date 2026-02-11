@@ -19,9 +19,9 @@ model:
         - 0.95
     lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      warmup_steps: 500
+      warmup_steps: 7
       min_lr: 1e-6
-    lr_scheduler_interval: step
+    lr_scheduler_interval: epoch
     loss: "LovaszLoss"
     loss_opts:
       mode: "multiclass"
@@ -268,7 +268,7 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 5
-  max_epochs: 500
+  max_epochs: 200
   accumulate_grad_batches: 8
   gradient_clip_val: 0.5
   detect_anomaly: false
@@ -299,5 +299,12 @@ trainer:
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
+    - class_path: lightning.pytorch.callbacks.BackboneFinetuning
+      init_args:
+        unfreeze_backbone_at_epoch: 10
+        backbone_initial_ratio_lr: 0.1
+        should_align: true
+        train_bn: true
+        verbose: true
   plugins:
     - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO
