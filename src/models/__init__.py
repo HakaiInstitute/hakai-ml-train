@@ -31,11 +31,18 @@ def configure_optimizers(module):
     # Auto-inject total_steps/T_max for schedulers that need the total
     # training step count (e.g., OneCycleLR, CosineAnnealingLR).
     # Only injected when not explicitly provided in lr_scheduler_opts.
+    # For epoch-interval schedulers, use max_epochs since the scheduler
+    # is stepped once per epoch rather than once per optimization step.
+    interval = module.hparams.lr_scheduler_interval
+    if interval == "epoch":
+        total = module.trainer.max_epochs
+    else:
+        total = module.trainer.estimated_stepping_batches
     sig = inspect.signature(scheduler_cls)
     if "total_steps" in sig.parameters and "total_steps" not in scheduler_kwargs:
-        scheduler_kwargs["total_steps"] = module.trainer.estimated_stepping_batches
+        scheduler_kwargs["total_steps"] = total
     if "T_max" in sig.parameters and "T_max" not in scheduler_kwargs:
-        scheduler_kwargs["T_max"] = module.trainer.estimated_stepping_batches
+        scheduler_kwargs["T_max"] = total
 
     scheduler = scheduler_cls(optimizer, **scheduler_kwargs)
 

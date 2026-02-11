@@ -87,6 +87,11 @@ class SMPBinarySegmentationModel(
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
 
+    @property
+    def backbone(self) -> torch.nn.Module:
+        """Expose encoder for Lightning's BackboneFinetuning callback."""
+        return self.model.encoder
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 

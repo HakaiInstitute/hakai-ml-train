@@ -30,6 +30,11 @@ class LinearWarmupCosineDecayLR(LRScheduler):
         super().__init__(optimizer, last_epoch)
 
     def get_lr(self) -> list[float]:
+        # Handle dynamically added param groups (e.g., from BackboneFinetuning)
+        if len(self.optimizer.param_groups) > len(self.base_lrs):
+            for group in self.optimizer.param_groups[len(self.base_lrs) :]:
+                self.base_lrs.append(group.get("initial_lr", group["lr"]))
+
         step = self.last_epoch
         if step < self.warmup_steps:
             scale = step / max(1, self.warmup_steps)
