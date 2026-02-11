@@ -19,9 +19,9 @@ model:
         - 0.95
     lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      warmup_steps: 500
+      warmup_steps: 7
       min_lr: 1e-6
-    lr_scheduler_interval: step
+    lr_scheduler_interval: epoch
     loss: "LovaszLoss"
     loss_opts:
       mode: "multiclass"

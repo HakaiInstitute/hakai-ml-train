@@ -1,35 +1,11 @@
 import importlib
 import inspect
-from functools import wraps
 
 
 def _import_class(class_path: str):
     """Import a class from a dotted path string."""
     module_path, class_name = class_path.rsplit(".", 1)
     return getattr(importlib.import_module(module_path), class_name)
-
-
-def _patch_scheduler_for_finetuning(scheduler):
-    """Patch a scheduler so it doesn't override lr for externally managed param groups.
-
-    When BackboneFinetuning (or similar callbacks) add param groups after the
-    scheduler is created, those groups' lr should be managed by the callback,
-    not the scheduler. This patches step() to save and restore lr values for
-    any param groups added after scheduler creation.
-    """
-    n_original = len(scheduler.optimizer.param_groups)
-    original_step = scheduler.step
-
-    @wraps(original_step)
-    def _step(*args, **kwargs):
-        extra_groups = scheduler.optimizer.param_groups[n_original:]
-        saved_lrs = [g["lr"] for g in extra_groups]
-        original_step(*args, **kwargs)
-        for g, lr in zip(extra_groups, saved_lrs, strict=False):
-            g["lr"] = lr
-
-    scheduler.step = _step
-    return scheduler
 
 
 def configure_optimizers(module):
@@ -55,14 +31,20 @@ def configure_optimizers(module):
     # Auto-inject total_steps/T_max for schedulers that need the total
     # training step count (e.g., OneCycleLR, CosineAnnealingLR).
     # Only injected when not explicitly provided in lr_scheduler_opts.
+    # For epoch-interval schedulers, use max_epochs since the scheduler
+    # is stepped once per epoch rather than once per optimization step.
+    interval = module.hparams.lr_scheduler_interval
+    if interval == "epoch":
+        total = module.trainer.max_epochs
+    else:
+        total = module.trainer.estimated_stepping_batches
     sig = inspect.signature(scheduler_cls)
     if "total_steps" in sig.parameters and "total_steps" not in scheduler_kwargs:
-        scheduler_kwargs["total_steps"] = module.trainer.estimated_stepping_batches
+        scheduler_kwargs["total_steps"] = total
     if "T_max" in sig.parameters and "T_max" not in scheduler_kwargs:
-        scheduler_kwargs["T_max"] = module.trainer.estimated_stepping_batches
+        scheduler_kwargs["T_max"] = total
 
     scheduler = scheduler_cls(optimizer, **scheduler_kwargs)
-    _patch_scheduler_for_finetuning(scheduler)
 
     config = {
         "optimizer": optimizer,
