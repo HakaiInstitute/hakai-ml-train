@@ -28,7 +28,13 @@ def get_train_transforms(
     return A.Compose(
         [
             A.D4(p=1.0),
-            A.Affine(scale=(0.9, 1.1), rotate=(-15, 15), p=0.7),
+            A.Affine(
+                scale=(0.9, 1.1),
+                rotate=(-15, 15),
+                fill=fill,
+                fill_mask=fill_mask,
+                p=0.7,
+            ),
             A.OneOf(
                 [
                     A.GridDropout(ratio=0.2, fill=fill, fill_mask=fill_mask, p=1.0),
