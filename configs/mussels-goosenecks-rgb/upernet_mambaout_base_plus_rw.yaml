@@ -4,7 +4,7 @@ model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "UPerNet"
-    backbone: "tu-mambaout_base"
+    backbone: "tu-mambaout_base_plus_rw"
     model_opts:
       encoder_weights: "imagenet"
       in_channels: 3
@@ -279,7 +279,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: upernet_mambaout_base
+        name: upernet_mambaout_base_plus_rw
         group: Feb2026
         log_model: true
         tags:
@@ -289,7 +289,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_upernet_mambaout_base_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_upernet_mambaout_base_plus_rw_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
