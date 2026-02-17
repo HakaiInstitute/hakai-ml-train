@@ -19,7 +19,7 @@ model:
         - 0.95
     lr_scheduler_class: torch.optim.lr_scheduler.OneCycleLR
     lr_scheduler_opts:
-      max_lr: 3e-4
+      max_lr: 1e-3
       pct_start: 0.05
       div_factor: 10
       final_div_factor: 100
