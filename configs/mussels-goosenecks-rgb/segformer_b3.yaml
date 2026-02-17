@@ -280,11 +280,11 @@ trainer:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
         name: segformer_b3
-        group: Jul2025
+        group: Feb2026
         log_model: true
         tags:
           - mussel_gooseneck
-          - Jul2025
+          - Feb2026
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
