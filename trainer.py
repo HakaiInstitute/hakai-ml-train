@@ -1,6 +1,8 @@
+import cv2
 import torch
 from lightning.pytorch.cli import LightningCLI
 
+cv2.setNumThreads(0)
 torch.set_float32_matmul_precision("medium")
 
 
