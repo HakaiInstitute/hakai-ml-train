@@ -38,7 +38,7 @@ data:
     train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512/train"
     val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full/val"
     test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full/test"
-    batch_size: 3
+    batch_size: 9
     num_workers: 8
     pin_memory: true
     persistent_workers: true
@@ -301,7 +301,7 @@ trainer:
         logging_interval: step
     - class_path: lightning.pytorch.callbacks.BackboneFinetuning
       init_args:
-        unfreeze_backbone_at_epoch: 100000
+        unfreeze_backbone_at_epoch: 5
         backbone_initial_ratio_lr: 0.1
         should_align: true
         train_bn: true
