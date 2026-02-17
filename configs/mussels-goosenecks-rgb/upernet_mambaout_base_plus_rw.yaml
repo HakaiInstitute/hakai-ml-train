@@ -43,7 +43,7 @@ data:
     pin_memory: true
     persistent_workers: true
     train_transforms:
-      __version__: 2.0.9
+      __version__: 2.0.16
       transform:
         __class_fullname__: Compose
         additional_targets: { }
@@ -55,8 +55,71 @@ data:
         transforms:
           - __class_fullname__: D4
             p: 1.0
+          - __class_fullname__: Affine
+            balanced_scale: false
+            border_mode: 0
+            fill: 0.0
+            fill_mask: null
+            fit_output: false
+            interpolation: 1
+            keep_ratio: true
+            mask_interpolation: 0
+            p: 0.7
+            rotate:
+              - -15.0
+              - 15.0
+            rotate_method: largest_box
+            scale:
+              x:
+                - 0.9
+                - 1.1
+              y:
+                - 0.9
+                - 1.1
+            shear:
+              x:
+                - 0.0
+                - 0.0
+              y:
+                - 0.0
+                - 0.0
+            translate_percent: null
+            translate_px:
+              x:
+                - 0
+                - 0
+              y:
+                - 0
+                - 0
           - __class_fullname__: OneOf
             p: 0.5
+            transforms:
+              - __class_fullname__: GridDropout
+                fill: 0.0
+                fill_mask: 0.0
+                holes_number_xy: null
+                p: 1.0
+                random_offset: true
+                ratio: 0.2
+                shift_xy:
+                  - 0
+                  - 0
+                unit_size_range: null
+              - __class_fullname__: CoarseDropout
+                fill: 0.0
+                fill_mask: 0.0
+                hole_height_range:
+                  - 1
+                  - 5
+                hole_width_range:
+                  - 1
+                  - 5
+                num_holes_range:
+                  - 1
+                  - 64
+                p: 0.2
+          - __class_fullname__: OneOf
+            p: 0.3
             transforms:
               - __class_fullname__: RandomBrightnessContrast
                 brightness_by_max: true
@@ -80,7 +143,20 @@ data:
                   - -15.0
                   - 15.0
           - __class_fullname__: OneOf
-            p: 0.3
+            p: 0.1
+            transforms:
+              - __class_fullname__: ToGray
+                method: weighted_average
+                num_output_channels: 3
+                p: 1.0
+              - __class_fullname__: ChannelDropout
+                channel_drop_range:
+                  - 1
+                  - 1
+                fill: 0.0
+                p: 1.0
+          - __class_fullname__: OneOf
+            p: 0.2
             transforms:
               - __class_fullname__: GaussNoise
                 mean_range:
@@ -88,7 +164,7 @@ data:
                   - 0.0
                 noise_scale_factor: 1.0
                 p: 1.0
-                per_channel: true
+                per_channel: false
                 std_range:
                   - 0.02
                   - 0.044
@@ -101,7 +177,7 @@ data:
                   - 0.2
                 p: 1.0
           - __class_fullname__: OneOf
-            p: 0.3
+            p: 0.1
             transforms:
               - __class_fullname__: MotionBlur
                 allow_shifted: true
@@ -128,35 +204,6 @@ data:
                 sigma_limit:
                   - 0.5
                   - 3.0
-          - __class_fullname__: OneOf
-            p: 0.3
-            transforms:
-              - __class_fullname__: CoarseDropout
-                fill: 0.0
-                fill_mask: 0.0
-                hole_height_range:
-                  - 1
-                  - 5
-                hole_width_range:
-                  - 1
-                  - 5
-                num_holes_range:
-                  - 1
-                  - 64
-                p: 1.0
-              - __class_fullname__: GridDistortion
-                border_mode: 0
-                distort_limit:
-                  - -0.1
-                  - 0.1
-                fill: 0.0
-                fill_mask: 0.0
-                interpolation: 1
-                keypoint_remapping_method: mask
-                mask_interpolation: 0
-                normalized: true
-                num_steps: 10
-                p: 0.3
           - __class_fullname__: CLAHE
             clip_limit:
               - 1.0
