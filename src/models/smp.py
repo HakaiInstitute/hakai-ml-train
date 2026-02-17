@@ -58,6 +58,8 @@ class SMPBinarySegmentationModel(
             for p in self.model.encoder.parameters():
                 p.requires_grad = False
 
+        self.model = self.model.compile()
+
         self.loss_fn = losses.__dict__[loss](**loss_opts)
 
         if task == "binary":
