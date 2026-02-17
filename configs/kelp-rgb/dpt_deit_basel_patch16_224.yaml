@@ -4,7 +4,7 @@ model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "DPT"
-    backbone: "tu-deit_base_patch16_224.fb_in1k"
+    encoder_name: "tu-deit_base_patch16_224.fb_in1k"
     model_opts:
       in_channels: 3
     num_classes: 3

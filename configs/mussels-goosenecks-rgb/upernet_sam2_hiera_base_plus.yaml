@@ -4,7 +4,7 @@ model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "UPerNet"
-    backbone: "tu-sam2_hiera_base_plus"
+    encoder_name: "tu-sam2_hiera_base_plus"
     model_opts:
       encoder_weights: "imagenet"
       in_channels: 3

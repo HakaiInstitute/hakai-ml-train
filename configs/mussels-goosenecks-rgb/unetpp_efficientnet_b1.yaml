@@ -4,7 +4,7 @@ model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "UnetPlusPlus"
-    backbone: "efficientnet-b1"
+    encoder_name: "efficientnet-b1"
     model_opts:
       encoder_weights: imagenet
       in_channels: 3
