@@ -30,11 +30,11 @@ model:
       - goosenecks
 
 data:
-  class_path: "src.data.DataModule"
+  class_path: "src.data.WebDataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full/train"
-    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full/val"
-    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full/test"
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
+    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
+    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
     batch_size: 3
     num_workers: 8
     pin_memory: true
