@@ -63,7 +63,8 @@ class DinoBinarySegmentationModel(
         for p in self.head.parameters():
             p.requires_grad = True
 
-        self.model = torch.compile(self.model)
+        self.backbone = torch.compile(self.backbone)
+        self.head = torch.compile(self.head)
 
         self.loss_fn = losses.__dict__[loss](**loss_opts)
 
