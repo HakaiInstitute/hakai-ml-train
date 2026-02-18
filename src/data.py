@@ -179,12 +179,12 @@ class WebDataModule(DataModule):
         )
         self.ds_val = WebDataset(
             self.val_data_dir,
-            split="train",
+            split="validation",
             transforms=self.test_trans,
         )
         self.ds_test = WebDataset(
             self.test_data_dir,
-            split="train",
+            split="test",
             transforms=self.test_trans,
         )
 
