@@ -11,7 +11,7 @@ from .. import losses
 from . import configure_optimizers as _configure_optimizers
 
 
-class DPTBinarySegmentationModel(
+class DinoBinarySegmentationModel(
     pl.LightningModule,
     PyTorchModelHubMixin,
     library_name="habitat-mapper",
@@ -172,7 +172,7 @@ class DPTBinarySegmentationModel(
         return _configure_optimizers(self)
 
 
-class DPTMulticlassSegmentationModel(DPTBinarySegmentationModel):
+class DinoMulticlassSegmentationModel(DinoBinarySegmentationModel):
     def __init__(
         self, *args, class_names: tuple[str, ...] = ("bg", "macro", "nereo"), **kwargs
     ):
