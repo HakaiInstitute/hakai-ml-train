@@ -4,7 +4,7 @@ model:
   class_path: "src.models.dino.DinoMulticlassSegmentationModel"
   init_args:
     model_opts:
-      pretrained_model_name_or_path: "facebook/dinov3-vit7b16-pretrain-sat493m"
+      pretrained_model_name_or_path: "facebook/dinov3-vitl16-pretrain-sat493m"
     num_classes: 3
     ignore_index: &ignore_index -100
     optimizer_class: torch.optim.AdamW
