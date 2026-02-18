@@ -98,17 +98,6 @@ data:
               - 0.15
             ensure_safe_range: false
             p: 0.3
-          - __class_fullname__: GridDropout
-            fill: 0.0
-            fill_mask: 0.0
-            holes_number_xy: null
-            p: 0.25
-            random_offset: true
-            ratio: 0.2
-            shift_xy:
-              - 0
-              - 0
-            unit_size_range: null
           - __class_fullname__: Normalize
             max_pixel_value: 255.0
             mean:
