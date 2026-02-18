@@ -5,10 +5,11 @@ model:
   init_args:
     model_opts:
       pretrained_model_name_or_path: "facebook/dinov3-vitl16-pretrain-sat493m"
-    image_size: 1024
+    image_size: 640
     num_classes: 3
     num_queries: 100
     ignore_index: -100
+    freeze_backbone: true
     optimizer_class: torch.optim.AdamW
     optimizer_opts:
       lr: 3e-4
@@ -29,9 +30,9 @@ model:
 data:
   class_path: "src.data.WebDataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
+    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
+    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
     batch_size: 32
     num_workers: 8
     pin_memory: true
