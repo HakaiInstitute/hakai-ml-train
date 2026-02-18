@@ -2,7 +2,6 @@ import io
 
 import albumentations as A
 import numpy as np
-import torch
 from albumentations.pytorch import ToTensorV2
 
 
@@ -27,39 +26,32 @@ def get_train_transforms(
 ):
     return A.Compose(
         [
+            # Geometric
             A.D4(p=1.0),
             A.Affine(
                 scale=(0.9, 1.1),
                 rotate=(-15, 15),
                 fill=fill,
                 fill_mask=fill_mask,
-                p=0.7,
-            ),
-            A.OneOf(
-                [
-                    A.GridDropout(ratio=0.2, fill=fill, fill_mask=fill_mask, p=1.0),
-                    A.CoarseDropout(
-                        num_holes_range=(1, 64),
-                        hole_height_range=(1, 5),
-                        hole_width_range=(1, 5),
-                        fill=fill,
-                        fill_mask=fill_mask,
-                        p=0.2,
-                    ),
-                ],
                 p=0.5,
             ),
+            # Color / lighting
+            A.RandomBrightnessContrast(
+                brightness_limit=0.15, contrast_limit=0.15, p=0.3
+            ),
+            A.HueSaturationValue(
+                hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=10, p=0.25
+            ),
+            A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=0.1),
+            # Sharpness — simulates resolution variation across flights
             A.OneOf(
                 [
-                    A.RandomBrightnessContrast(
-                        brightness_limit=0.1, contrast_limit=0.1, p=1
-                    ),
-                    A.HueSaturationValue(
-                        hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=15, p=1
-                    ),
+                    A.Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=1.0),
+                    A.UnsharpMask(blur_limit=(3, 7), alpha=(0.2, 0.5), p=1.0),
                 ],
-                p=0.3,
+                p=0.15,
             ),
+            # Channel regularization
             A.OneOf(
                 [
                     A.ToGray(p=1.0),
@@ -67,34 +59,37 @@ def get_train_transforms(
                 ],
                 p=0.1,
             ),
+            # Noise regularization
             A.OneOf(
                 [
-                    A.GaussNoise(std_range=(0.02, 0.044), p=1),
-                    A.ISONoise(color_shift=(0.01, 0.05), intensity=(0.1, 0.2), p=1),
+                    A.GaussNoise(std_range=(0.02, 0.044), p=1.0),
+                    A.ISONoise(color_shift=(0.01, 0.05), intensity=(0.1, 0.2), p=1.0),
                 ],
-                p=0.2,
+                p=0.15,
             ),
+            # Blur regularization
             A.OneOf(
                 [
-                    A.MotionBlur(p=1),
-                    A.MedianBlur(p=1),
-                    A.GaussianBlur(p=1),
+                    A.MotionBlur(p=1.0),
+                    A.MedianBlur(p=1.0),
+                    A.GaussianBlur(p=1.0),
                 ],
                 p=0.1,
             ),
-            A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=0.1),
-            # Drone mosaic-specific augmentations
-            A.ColorJitter(
-                brightness=0.05, contrast=0.05, saturation=0.05, hue=0.05, p=0.3
-            ),
-            A.Affine(
-                scale=(0.9, 1.1),
-                keep_ratio=True,
-                translate_percent=(-0.05, 0.05),
-                rotate=(-5, 5),
-                fill=fill,
-                fill_mask=fill_mask,
-                p=0.3,
+            # Dropout regularization
+            A.OneOf(
+                [
+                    A.GridDropout(ratio=0.2, fill=fill, fill_mask=fill_mask, p=1.0),
+                    A.CoarseDropout(
+                        num_holes_range=(1, 8),
+                        hole_height_range=(8, 32),
+                        hole_width_range=(8, 32),
+                        fill=fill,
+                        fill_mask=fill_mask,
+                        p=1.0,
+                    ),
+                ],
+                p=0.25,
             ),
             A.Normalize(mean=mean, std=std, max_pixel_value=255.0, p=1.0),
             ToTensorV2(),
