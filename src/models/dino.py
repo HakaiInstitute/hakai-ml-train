@@ -1,0 +1,263 @@
+from typing import Any
+
+import lightning.pytorch as pl
+import torch
+import torch.nn.functional as F
+import torchmetrics.classification as fm
+from huggingface_hub import PyTorchModelHubMixin
+from transformers import AutoModel
+
+from .. import losses
+from . import configure_optimizers as _configure_optimizers
+
+
+class DPTBinarySegmentationModel(
+    pl.LightningModule,
+    PyTorchModelHubMixin,
+    library_name="habitat-mapper",
+    tags=["pytorch", "kelp", "segmentation", "drones", "remote-sensing"],
+    repo_url="https://github.com/HakaiInstitute/habitat-mapper",
+    docs_url="https://habitat-mapper.readthedocs.io/",
+):
+    def __init__(
+        self,
+        encoder_name: str,
+        model_opts: dict[str, Any],
+        loss: str,
+        loss_opts: dict[str, Any],
+        num_classes: int = 2,
+        ignore_index: int | None = None,
+        optimizer_class: str = "torch.optim.AdamW",
+        optimizer_opts: dict[str, Any] | None = None,
+        lr_scheduler_class: str = "torch.optim.lr_scheduler.OneCycleLR",
+        lr_scheduler_opts: dict[str, Any] | None = None,
+        lr_scheduler_interval: str = "step",
+        lr_scheduler_monitor: str | None = None,
+        ckpt_path: str | None = None,
+        freeze_backbone: bool = False,
+    ):
+        super().__init__()
+        self.save_hyperparameters()
+        task = "binary" if num_classes == 1 else "multiclass"
+
+        self.backbone = AutoModel.from_pretrained(encoder_name)
+        # Freeze backbone
+        self.backbone.eval()
+        for param in self.backbone.parameters():
+            param.requires_grad = False
+
+        hidden_dim = self.backbone.config.hidden_size  # e.g. 768 for ViT-B
+        self.patch_size = self.backbone.config.patch_size  # 16
+        self.num_register_tokens = self.backbone.config.num_register_tokens  # 4
+
+        # Simple segmentation head — swap for something fancier if needed
+        self.head = torch.nn.Sequential(
+            torch.nn.Conv2d(hidden_dim, 256, kernel_size=1),
+            torch.nn.GELU(),
+            torch.nn.Conv2d(256, num_classes, kernel_size=1),
+        )
+
+        if ckpt_path is not None:
+            ckpt = torch.load(self.hparams.ckpt_path)
+            self.load_state_dict(ckpt["state_dict"])
+
+        for p in self.head.parameters():
+            p.requires_grad = True
+
+        self.model = torch.compile(self.model)
+
+        self.loss_fn = losses.__dict__[loss](**loss_opts)
+
+        if task == "binary":
+            self.activation_fn = lambda x: torch.sigmoid(x).squeeze(1)
+        elif task == "multiclass":
+            self.activation_fn = lambda x: torch.softmax(x, dim=1).squeeze(1)
+        else:
+            raise ValueError("task not supported. Must be 'binary' or 'multiclass'")
+
+        # metrics
+        self.accuracy = fm.Accuracy(
+            task=task,
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+        )
+        self.jaccard_index = fm.JaccardIndex(
+            task=task,
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+        )
+        self.recall = fm.Recall(
+            task=task,
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+        )
+        self.precision = fm.Precision(
+            task=task,
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+        )
+        self.f1_score = fm.F1Score(
+            task=task,
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Reshape to spatial grid: (B, C, h, w)
+        outputs = self.backbone(pixel_values=x)
+        # last_hidden_state: (B, 1 + num_register + num_patches, hidden_dim)
+        tokens = outputs.last_hidden_state
+
+        # Strip CLS and register tokens
+        patch_tokens = tokens[:, 1 + self.num_register_tokens :, :]
+
+        B, N, C = patch_tokens.shape
+        _, _, H, W = x.shape
+        h = H // self.patch_size
+        w = W // self.patch_size
+
+        # Reshape to spatial grid: (B, C, h, w)
+        patch_tokens = patch_tokens.reshape(B, h, w, C).permute(0, 3, 1, 2)
+
+        # Apply head and upsample
+        logits = self.head(patch_tokens)
+        logits = F.interpolate(
+            logits, size=(H, W), mode="bilinear", align_corners=False
+        )
+        return logits
+
+    def training_step(self, batch: torch.Tensor, batch_idx: int):
+        return self._phase_step(batch, batch_idx, phase="train")
+
+    def validation_step(self, batch: torch.Tensor, batch_idx: int):
+        return self._phase_step(batch, batch_idx, phase="val")
+
+    def test_step(self, batch: torch.Tensor, batch_idx: int):
+        return self._phase_step(batch, batch_idx, phase="test")
+
+    def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
+        x, y = batch
+        logits = self.forward(x)
+
+        loss = self.loss_fn(logits, y.long().unsqueeze(1))
+        self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"), sync_dist=True)
+
+        probs = self.activation_fn(logits)
+        self.log_dict(
+            {
+                f"{phase}/accuracy": self.accuracy(probs, y),
+                f"{phase}/iou": self.jaccard_index(probs, y),
+                f"{phase}/recall": self.recall(probs, y),
+                f"{phase}/precision": self.precision(probs, y),
+                f"{phase}/f1": self.f1_score(probs, y),
+            },
+            sync_dist=True,
+        )
+
+        return loss
+
+    def on_validation_epoch_end(self) -> None:
+        self.log_dict(
+            {
+                "val/accuracy_epoch": self.accuracy,
+                "val/iou_epoch": self.jaccard_index,
+                "val/recall_epoch": self.recall,
+                "val/precision_epoch": self.precision,
+                "val/f1_epoch": self.f1_score,
+            },
+            sync_dist=True,
+        )
+
+    def configure_optimizers(self):
+        return _configure_optimizers(self)
+
+
+class DPTMulticlassSegmentationModel(DPTBinarySegmentationModel):
+    def __init__(
+        self, *args, class_names: tuple[str, ...] = ("bg", "macro", "nereo"), **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.class_names = class_names
+
+        # metrics
+        self.accuracy = fm.Accuracy(
+            task="multiclass",
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+        )
+        self.jaccard_index = fm.JaccardIndex(
+            task="multiclass",
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+            average="none",
+        )
+        self.recall = fm.Recall(
+            task="multiclass",
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+            average="none",
+        )
+        self.precision = fm.Precision(
+            task="multiclass",
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+            average="none",
+        )
+        self.f1_score = fm.F1Score(
+            task="multiclass",
+            num_classes=self.hparams.num_classes,
+            ignore_index=self.hparams.ignore_index,
+            average="none",
+        )
+
+        # Override parent's activation function to remove .squeeze(1) for multiclass
+        self.activation_fn = lambda x: torch.softmax(x, dim=1)
+
+    def on_validation_epoch_end(self) -> None:
+        self.log("val/accuracy_epoch", self.accuracy, sync_dist=True)
+
+        iou_per_class = self.jaccard_index.compute()
+        precision_per_class = self.precision.compute()
+        recall_per_class = self.recall.compute()
+        f1_per_class = self.f1_score.compute()
+
+        for i, class_name in enumerate(self.class_names):
+            self.log(f"val/iou_epoch/{class_name}", iou_per_class[i], sync_dist=True)
+            self.log(
+                f"val/recall_epoch/{class_name}", recall_per_class[i], sync_dist=True
+            )
+            self.log(
+                f"val/precision_epoch/{class_name}",
+                precision_per_class[i],
+                sync_dist=True,
+            )
+            self.log(f"val/f1_epoch/{class_name}", f1_per_class[i], sync_dist=True)
+        self.log(f"val/iou_epoch", iou_per_class[1:].mean(), sync_dist=True)
+
+    def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
+        x, y = batch
+        logits = self.forward(x)
+
+        loss = self.loss_fn(logits, y.long())
+        self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"), sync_dist=True)
+
+        probs = self.activation_fn(logits)
+        self.log(f"{phase}/accuracy", self.accuracy(probs, y), sync_dist=True)
+
+        iou_per_class = self.jaccard_index(probs, y)
+        precision_per_class = self.precision(probs, y)
+        recall_per_class = self.recall(probs, y)
+        f1_per_class = self.f1_score(probs, y)
+        for i, class_name in enumerate(self.class_names):
+            self.log_dict(
+                {
+                    f"{phase}/iou_{class_name}": iou_per_class[i],
+                    f"{phase}/recall_{class_name}": recall_per_class[i],
+                    f"{phase}/precision_{class_name}": precision_per_class[i],
+                    f"{phase}/f1_{class_name}": f1_per_class[i],
+                },
+                sync_dist=True,
+            )
+        self.log(f"{phase}/iou", iou_per_class[1:].mean(), sync_dist=True)
+
+        return loss
