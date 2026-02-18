@@ -51,9 +51,9 @@ class DinoBinarySegmentationModel(
 
         # Simple segmentation head — swap for something fancier if needed
         self.head = torch.nn.Sequential(
-            torch.nn.Conv2d(hidden_dim, 256, kernel_size=1),
+            torch.nn.Conv2d(hidden_dim, 4096, kernel_size=1),
             torch.nn.GELU(),
-            torch.nn.Conv2d(256, num_classes, kernel_size=1),
+            torch.nn.Conv2d(4096, num_classes, kernel_size=1),
         )
 
         if ckpt_path is not None:
