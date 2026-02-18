@@ -118,6 +118,7 @@ class DinoBinarySegmentationModel(
     def __init__(
         self,
         model_opts: dict[str, Any],
+        image_size: int = 640,
         num_classes: int = 2,
         num_queries: int = 100,
         ignore_index: int | None = None,
@@ -150,6 +151,7 @@ class DinoBinarySegmentationModel(
             layer_norm_eps=vit_config.layer_norm_eps,
             layerscale_value=vit_config.layerscale_value,
             drop_path_rate=vit_config.drop_path_rate,
+            image_size=image_size,
             num_labels=num_classes,
             num_queries=num_queries,
         )

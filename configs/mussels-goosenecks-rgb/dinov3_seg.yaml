@@ -5,6 +5,7 @@ model:
   init_args:
     model_opts:
       pretrained_model_name_or_path: "facebook/dinov3-vitl16-pretrain-sat493m"
+    image_size: 1024
     num_classes: 3
     num_queries: 100
     ignore_index: -100
