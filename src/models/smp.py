@@ -47,10 +47,8 @@ class SMPBinarySegmentationModel(
             classes=self.hparams.num_classes,
             **model_opts,
         )
-        self.backbone = self.model.encoder
-
         if ckpt_path is not None:
-            ckpt = torch.load(self.hparams.ckpt_path)
+            ckpt = torch.load(self.hparams.ckpt_path, weights_only=False)
             self.load_state_dict(ckpt["state_dict"])
 
         for p in self.model.parameters():
@@ -90,6 +88,10 @@ class SMPBinarySegmentationModel(
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
 
+    @property
+    def backbone(self):
+        return self.model.encoder
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 
@@ -115,12 +117,16 @@ class SMPBinarySegmentationModel(
 
         return loss
 
+    def on_train_epoch_end(self) -> None:
+        self.train_metrics.reset()
+
     def on_validation_epoch_end(self) -> None:
         computed = self.val_metrics.compute()
         self.log_dict(
             {f"{k}_epoch": v for k, v in computed.items()},
             sync_dist=True,
         )
+        self.val_metrics.reset()
 
     def configure_optimizers(self):
         return _configure_optimizers(self)
@@ -176,6 +182,7 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
             )
             self.log(f"val/f1_epoch/{class_name}", f1_per_class[i], sync_dist=True)
         self.log("val/iou_epoch", iou_per_class[1:].mean(), sync_dist=True)
+        self.val_metrics.reset()
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
