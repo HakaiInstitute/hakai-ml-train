@@ -5,10 +5,106 @@ import torch
 import torch.nn.functional as F
 import torchmetrics.classification as fm
 from huggingface_hub import PyTorchModelHubMixin
-from transformers import AutoModel
+from transformers import (
+    DINOv3ViTConfig,
+    DINOv3ViTModel,
+    EomtDinov3Config,
+    EomtDinov3ForUniversalSegmentation,
+)
 
-from .. import losses
 from . import configure_optimizers as _configure_optimizers
+
+
+def _load_dinov3_backbone_weights(
+    model: EomtDinov3ForUniversalSegmentation,
+    pretrained_model_name_or_path: str,
+) -> None:
+    """Load DINOv3ViT backbone weights into an EomtDinov3 model.
+
+    The DINOv3ViT and EomtDinov3 have nearly identical backbone param names
+    differing only by pluralization: layer.N.* -> layers.N.*, norm.* -> layernorm.*.
+    """
+    vit = DINOv3ViTModel.from_pretrained(pretrained_model_name_or_path)
+    vit_state = vit.state_dict()
+
+    renamed = {}
+    for key, value in vit_state.items():
+        if key == "embeddings.mask_token":
+            continue
+        new_key = key.replace("layer.", "layers.").replace("norm.", "layernorm.")
+        renamed[new_key] = value
+
+    missing, unexpected = model.load_state_dict(renamed, strict=False)
+    # We expect missing keys for the segmentation head (query, class_predictor, etc.)
+    # and unexpected should be empty
+    if unexpected:
+        raise RuntimeError(
+            f"Unexpected keys when loading backbone weights: {unexpected}"
+        )
+
+
+def _convert_semantic_labels(
+    y: torch.Tensor,
+    num_classes: int,
+    ignore_index: int | None = None,
+) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
+    """Convert (B, H, W) class-index labels to EoMT format.
+
+    Returns:
+        mask_labels: list of B tensors, each (K, H, W) binary masks
+        class_labels: list of B tensors, each (K,) class indices
+    """
+    B, H, W = y.shape
+    mask_labels = []
+    class_labels = []
+
+    for i in range(B):
+        yi = y[i]  # (H, W)
+        masks = []
+        classes = []
+
+        for c in range(num_classes):
+            mask = (yi == c).float()  # (H, W)
+            if ignore_index is not None:
+                mask[yi == ignore_index] = 0.0
+            masks.append(mask)
+            classes.append(c)
+
+        mask_labels.append(torch.stack(masks))  # (K, H, W)
+        class_labels.append(torch.tensor(classes, dtype=torch.long, device=y.device))
+
+    return mask_labels, class_labels
+
+
+def _get_semantic_probs(
+    outputs,
+    num_classes: int,
+    target_size: tuple[int, int],
+) -> torch.Tensor:
+    """Post-process EoMT outputs into (B, C, H, W) semantic probability maps.
+
+    Reproduces the EoMT post-processing: class_probs @ mask_probs -> semantic map.
+    """
+    # class_queries_logits: (B, Q, num_classes+1) — last class is no-object
+    # masks_queries_logits: (B, Q, h, w) — low-res mask logits
+    class_logits = outputs.class_queries_logits  # (B, Q, C+1)
+    mask_logits = outputs.masks_queries_logits  # (B, Q, h, w)
+
+    # Get class probabilities, excluding the no-object class
+    class_probs = class_logits.softmax(dim=-1)[..., :-1]  # (B, Q, C)
+
+    # Get mask probabilities
+    mask_probs = mask_logits.sigmoid()  # (B, Q, h, w)
+
+    # Combine: (B, Q, C) x (B, Q, h, w) -> (B, C, h, w)
+    semantic = torch.einsum("bqc,bqhw->bchw", class_probs, mask_probs)
+
+    # Interpolate to target size
+    semantic = F.interpolate(
+        semantic, size=target_size, mode="bilinear", align_corners=False
+    )
+
+    return semantic
 
 
 class DinoBinarySegmentationModel(
@@ -22,9 +118,8 @@ class DinoBinarySegmentationModel(
     def __init__(
         self,
         model_opts: dict[str, Any],
-        loss: str,
-        loss_opts: dict[str, Any],
         num_classes: int = 2,
+        num_queries: int = 100,
         ignore_index: int | None = None,
         optimizer_class: str = "torch.optim.AdamW",
         optimizer_opts: dict[str, Any] | None = None,
@@ -39,92 +134,70 @@ class DinoBinarySegmentationModel(
         self.save_hyperparameters()
         task = "binary" if num_classes == 1 else "multiclass"
 
-        self.backbone = AutoModel.from_pretrained(**model_opts)
-        # Freeze backbone
-        self.backbone.eval()
-        for param in self.backbone.parameters():
-            param.requires_grad = False
+        pretrained_path = model_opts["pretrained_model_name_or_path"]
 
-        hidden_dim = self.backbone.config.hidden_size  # e.g. 768 for ViT-B
-        self.patch_size = self.backbone.config.patch_size  # 16
-        self.num_register_tokens = self.backbone.config.num_register_tokens  # 4
-
-        # Simple segmentation head — swap for something fancier if needed
-        self.head = torch.nn.Sequential(
-            torch.nn.Conv2d(hidden_dim, 4096, kernel_size=1),
-            torch.nn.GELU(),
-            torch.nn.Conv2d(4096, num_classes, kernel_size=1),
+        # Build EomtDinov3Config from the DINOv3ViT pretrained config
+        vit_config = DINOv3ViTConfig.from_pretrained(pretrained_path)
+        eomt_config = EomtDinov3Config(
+            hidden_size=vit_config.hidden_size,
+            intermediate_size=vit_config.intermediate_size,
+            num_hidden_layers=vit_config.num_hidden_layers,
+            num_attention_heads=vit_config.num_attention_heads,
+            patch_size=vit_config.patch_size,
+            num_channels=vit_config.num_channels,
+            num_register_tokens=vit_config.num_register_tokens,
+            hidden_act=vit_config.hidden_act,
+            layer_norm_eps=vit_config.layer_norm_eps,
+            layerscale_value=vit_config.layerscale_value,
+            drop_path_rate=vit_config.drop_path_rate,
+            num_labels=num_classes,
+            num_queries=num_queries,
         )
 
+        # Create model with random init, then load backbone weights
+        self.model = EomtDinov3ForUniversalSegmentation(eomt_config)
+        _load_dinov3_backbone_weights(self.model, pretrained_path)
+
         if ckpt_path is not None:
-            ckpt = torch.load(self.hparams.ckpt_path)
+            ckpt = torch.load(ckpt_path)
             self.load_state_dict(ckpt["state_dict"])
 
-        for p in self.head.parameters():
-            p.requires_grad = True
+        if freeze_backbone:
+            for name, param in self.model.named_parameters():
+                if name.startswith(("embeddings.", "layers.", "layernorm.")):
+                    param.requires_grad = False
 
-        self.backbone = torch.compile(self.backbone)
-        self.head = torch.compile(self.head)
+        self.model = torch.compile(self.model)
 
-        self.loss_fn = losses.__dict__[loss](**loss_opts)
-
-        if task == "binary":
-            self.activation_fn = lambda x: torch.sigmoid(x).squeeze(1)
-        elif task == "multiclass":
-            self.activation_fn = lambda x: torch.softmax(x, dim=1).squeeze(1)
-        else:
-            raise ValueError("task not supported. Must be 'binary' or 'multiclass'")
-
-        # metrics
+        # Metrics
         self.accuracy = fm.Accuracy(
             task=task,
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
+            num_classes=num_classes,
+            ignore_index=ignore_index,
         )
         self.jaccard_index = fm.JaccardIndex(
             task=task,
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
+            num_classes=num_classes,
+            ignore_index=ignore_index,
         )
         self.recall = fm.Recall(
             task=task,
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
+            num_classes=num_classes,
+            ignore_index=ignore_index,
         )
         self.precision = fm.Precision(
             task=task,
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
+            num_classes=num_classes,
+            ignore_index=ignore_index,
         )
         self.f1_score = fm.F1Score(
             task=task,
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
+            num_classes=num_classes,
+            ignore_index=ignore_index,
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Reshape to spatial grid: (B, C, h, w)
-        outputs = self.backbone(pixel_values=x)
-        # last_hidden_state: (B, 1 + num_register + num_patches, hidden_dim)
-        tokens = outputs.last_hidden_state
-
-        # Strip CLS and register tokens
-        patch_tokens = tokens[:, 1 + self.num_register_tokens :, :]
-
-        B, N, C = patch_tokens.shape
-        _, _, H, W = x.shape
-        h = H // self.patch_size
-        w = W // self.patch_size
-
-        # Reshape to spatial grid: (B, C, h, w)
-        patch_tokens = patch_tokens.reshape(B, h, w, C).permute(0, 3, 1, 2)
-
-        # Apply head and upsample
-        logits = self.head(patch_tokens)
-        logits = F.interpolate(
-            logits, size=(H, W), mode="bilinear", align_corners=False
-        )
-        return logits
+    def forward(self, x: torch.Tensor):
+        return self.model(pixel_values=x)
 
     def training_step(self, batch: torch.Tensor, batch_idx: int):
         return self._phase_step(batch, batch_idx, phase="train")
@@ -137,12 +210,23 @@ class DinoBinarySegmentationModel(
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
-        logits = self.forward(x)
+        _, _, H, W = x.shape
 
-        loss = self.loss_fn(logits, y.long().unsqueeze(1))
+        mask_labels, class_labels = _convert_semantic_labels(
+            y, self.hparams.num_classes, self.hparams.ignore_index
+        )
+
+        outputs = self.model(
+            pixel_values=x,
+            mask_labels=mask_labels,
+            class_labels=class_labels,
+        )
+
+        loss = outputs.loss
         self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"), sync_dist=True)
 
-        probs = self.activation_fn(logits)
+        probs = _get_semantic_probs(outputs, self.hparams.num_classes, (H, W))
+
         self.log_dict(
             {
                 f"{phase}/accuracy": self.accuracy(probs, y),
@@ -179,7 +263,7 @@ class DinoMulticlassSegmentationModel(DinoBinarySegmentationModel):
         super().__init__(*args, **kwargs)
         self.class_names = class_names
 
-        # metrics
+        # Override metrics with per-class (average="none") variants
         self.accuracy = fm.Accuracy(
             task="multiclass",
             num_classes=self.hparams.num_classes,
@@ -210,9 +294,6 @@ class DinoMulticlassSegmentationModel(DinoBinarySegmentationModel):
             average="none",
         )
 
-        # Override parent's activation function to remove .squeeze(1) for multiclass
-        self.activation_fn = lambda x: torch.softmax(x, dim=1)
-
     def on_validation_epoch_end(self) -> None:
         self.log("val/accuracy_epoch", self.accuracy, sync_dist=True)
 
@@ -232,16 +313,27 @@ class DinoMulticlassSegmentationModel(DinoBinarySegmentationModel):
                 sync_dist=True,
             )
             self.log(f"val/f1_epoch/{class_name}", f1_per_class[i], sync_dist=True)
-        self.log(f"val/iou_epoch", iou_per_class[1:].mean(), sync_dist=True)
+        self.log("val/iou_epoch", iou_per_class[1:].mean(), sync_dist=True)
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
-        logits = self.forward(x)
+        _, _, H, W = x.shape
 
-        loss = self.loss_fn(logits, y.long())
+        mask_labels, class_labels = _convert_semantic_labels(
+            y, self.hparams.num_classes, self.hparams.ignore_index
+        )
+
+        outputs = self.model(
+            pixel_values=x,
+            mask_labels=mask_labels,
+            class_labels=class_labels,
+        )
+
+        loss = outputs.loss
         self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"), sync_dist=True)
 
-        probs = self.activation_fn(logits)
+        probs = _get_semantic_probs(outputs, self.hparams.num_classes, (H, W))
+
         self.log(f"{phase}/accuracy", self.accuracy(probs, y), sync_dist=True)
 
         iou_per_class = self.jaccard_index(probs, y)

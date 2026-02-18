@@ -6,7 +6,8 @@ model:
     model_opts:
       pretrained_model_name_or_path: "facebook/dinov3-vitl16-pretrain-sat493m"
     num_classes: 3
-    ignore_index: &ignore_index -100
+    num_queries: 100
+    ignore_index: -100
     optimizer_class: torch.optim.AdamW
     optimizer_opts:
       lr: 3e-4
@@ -19,11 +20,6 @@ model:
       max_lr: 3e-4
       pct_start: 0.1
     lr_scheduler_interval: step
-    loss: "LovaszLoss"
-    loss_opts:
-      mode: "multiclass"
-      ignore_index: *ignore_index
-      from_logits: true
     class_names:
       - bg
       - mussels
