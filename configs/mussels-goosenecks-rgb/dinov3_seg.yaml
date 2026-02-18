@@ -152,7 +152,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: dinov3_vit7b16_pretrain_sat493m
+        name: eomt_dinov3_vitl16_pretrain_sat493m
         group: Feb2026
         log_model: true
         tags:
@@ -162,7 +162,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_dinov3_vit7b16_pretrain_sat493m_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_eomt_dinov3_vitl16_pretrain_sat493m_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
