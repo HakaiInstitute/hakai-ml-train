@@ -35,7 +35,7 @@ data:
     train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
     val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
     test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    batch_size: 32
+    batch_size: 64
     num_workers: 8
     pin_memory: true
     persistent_workers: true
