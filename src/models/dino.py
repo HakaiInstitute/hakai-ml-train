@@ -21,7 +21,6 @@ class DinoBinarySegmentationModel(
 ):
     def __init__(
         self,
-        encoder_name: str,
         model_opts: dict[str, Any],
         loss: str,
         loss_opts: dict[str, Any],
@@ -40,7 +39,7 @@ class DinoBinarySegmentationModel(
         self.save_hyperparameters()
         task = "binary" if num_classes == 1 else "multiclass"
 
-        self.backbone = AutoModel.from_pretrained(encoder_name)
+        self.backbone = AutoModel.from_pretrained(**model_opts)
         # Freeze backbone
         self.backbone.eval()
         for param in self.backbone.parameters():

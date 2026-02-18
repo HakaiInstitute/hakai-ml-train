@@ -3,7 +3,8 @@ seed_everything: 42
 model:
   class_path: "src.models.dino.DinoMulticlassSegmentationModel"
   init_args:
-    encoder_name: "facebook/dinov3-vit7b16-pretrain-sat493m"
+    model_opts:
+      pretrained_model_name: "facebook/dinov3-vit7b16-pretrain-sat493m"
     num_classes: 3
     ignore_index: &ignore_index -100
     optimizer_class: torch.optim.AdamW
