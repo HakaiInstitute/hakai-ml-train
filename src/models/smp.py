@@ -3,6 +3,7 @@ from typing import Any
 import lightning.pytorch as pl
 import segmentation_models_pytorch as smp
 import torch
+import torchmetrics as tm
 import torchmetrics.classification as fm
 from huggingface_hub import PyTorchModelHubMixin
 
@@ -46,10 +47,8 @@ class SMPBinarySegmentationModel(
             classes=self.hparams.num_classes,
             **model_opts,
         )
-        self.backbone = self.model.encoder
-
         if ckpt_path is not None:
-            ckpt = torch.load(self.hparams.ckpt_path)
+            ckpt = torch.load(self.hparams.ckpt_path, weights_only=False)
             self.load_state_dict(ckpt["state_dict"])
 
         for p in self.model.parameters():
@@ -71,31 +70,23 @@ class SMPBinarySegmentationModel(
             raise ValueError("task not supported. Must be 'binary' or 'multiclass'")
 
         # metrics
-        self.accuracy = fm.Accuracy(
+        metric_kwargs = dict(
             task=task,
             num_classes=self.hparams.num_classes,
             ignore_index=self.hparams.ignore_index,
         )
-        self.jaccard_index = fm.JaccardIndex(
-            task=task,
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
+        metrics = tm.MetricCollection(
+            {
+                "accuracy": fm.Accuracy(**metric_kwargs),
+                "iou": fm.JaccardIndex(**metric_kwargs),
+                "recall": fm.Recall(**metric_kwargs),
+                "precision": fm.Precision(**metric_kwargs),
+                "f1": fm.F1Score(**metric_kwargs),
+            }
         )
-        self.recall = fm.Recall(
-            task=task,
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-        )
-        self.precision = fm.Precision(
-            task=task,
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-        )
-        self.f1_score = fm.F1Score(
-            task=task,
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-        )
+        self.train_metrics = metrics.clone(prefix="train/")
+        self.val_metrics = metrics.clone(prefix="val/")
+        self.test_metrics = metrics.clone(prefix="test/")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
@@ -117,35 +108,15 @@ class SMPBinarySegmentationModel(
         self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"), sync_dist=True)
 
         probs = self.activation_fn(logits)
-        self.log_dict(
-            {
-                f"{phase}/accuracy": self.accuracy(probs, y),
-                f"{phase}/iou": self.jaccard_index(probs, y),
-                f"{phase}/recall": self.recall(probs, y),
-                f"{phase}/precision": self.precision(probs, y),
-                f"{phase}/f1": self.f1_score(probs, y),
-            },
-            sync_dist=True,
-        )
+        metrics = getattr(self, f"{phase}_metrics")
+        self.log_dict(metrics(probs, y), sync_dist=True)
 
         return loss
 
-    def on_train_epoch_end(self) -> None:
-        self.accuracy.reset()
-        self.jaccard_index.reset()
-        self.recall.reset()
-        self.precision.reset()
-        self.f1_score.reset()
-
     def on_validation_epoch_end(self) -> None:
+        computed = self.val_metrics.compute()
         self.log_dict(
-            {
-                "val/accuracy_epoch": self.accuracy,
-                "val/iou_epoch": self.jaccard_index,
-                "val/recall_epoch": self.recall,
-                "val/precision_epoch": self.precision,
-                "val/f1_epoch": self.f1_score,
-            },
+            {f"{k}_epoch": v for k, v in computed.items()},
             sync_dist=True,
         )
 
@@ -160,47 +131,36 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
         super().__init__(*args, **kwargs)
         self.class_names = class_names
 
-        # metrics
-        self.accuracy = fm.Accuracy(
+        # metrics — override parent with per-class (average="none") variants
+        metric_kwargs = dict(
             task="multiclass",
             num_classes=self.hparams.num_classes,
             ignore_index=self.hparams.ignore_index,
         )
-        self.jaccard_index = fm.JaccardIndex(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
+        metrics = tm.MetricCollection(
+            {
+                "accuracy": fm.Accuracy(**metric_kwargs),
+                "iou": fm.JaccardIndex(**metric_kwargs, average="none"),
+                "recall": fm.Recall(**metric_kwargs, average="none"),
+                "precision": fm.Precision(**metric_kwargs, average="none"),
+                "f1": fm.F1Score(**metric_kwargs, average="none"),
+            }
         )
-        self.recall = fm.Recall(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
-        )
-        self.precision = fm.Precision(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
-        )
-        self.f1_score = fm.F1Score(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
-        )
+        self.train_metrics = metrics.clone(prefix="train/")
+        self.val_metrics = metrics.clone(prefix="val/")
+        self.test_metrics = metrics.clone(prefix="test/")
 
         # Override parent's activation function to remove .squeeze(1) for multiclass
         self.activation_fn = lambda x: torch.softmax(x, dim=1)
 
     def on_validation_epoch_end(self) -> None:
-        self.log("val/accuracy_epoch", self.accuracy, sync_dist=True)
+        computed = self.val_metrics.compute()
+        self.log("val/accuracy_epoch", computed["val/accuracy"], sync_dist=True)
 
-        iou_per_class = self.jaccard_index.compute()
-        precision_per_class = self.precision.compute()
-        recall_per_class = self.recall.compute()
-        f1_per_class = self.f1_score.compute()
+        iou_per_class = computed["val/iou"]
+        precision_per_class = computed["val/precision"]
+        recall_per_class = computed["val/recall"]
+        f1_per_class = computed["val/f1"]
 
         for i, class_name in enumerate(self.class_names):
             self.log(f"val/iou_epoch/{class_name}", iou_per_class[i], sync_dist=True)
@@ -213,7 +173,7 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
                 sync_dist=True,
             )
             self.log(f"val/f1_epoch/{class_name}", f1_per_class[i], sync_dist=True)
-        self.log(f"val/iou_epoch", iou_per_class[1:].mean(), sync_dist=True)
+        self.log("val/iou_epoch", iou_per_class[1:].mean(), sync_dist=True)
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
@@ -223,12 +183,15 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
         self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"), sync_dist=True)
 
         probs = self.activation_fn(logits)
-        self.log(f"{phase}/accuracy", self.accuracy(probs, y), sync_dist=True)
+        metrics = getattr(self, f"{phase}_metrics")
+        step_values = metrics(probs, y)
 
-        iou_per_class = self.jaccard_index(probs, y)
-        precision_per_class = self.precision(probs, y)
-        recall_per_class = self.recall(probs, y)
-        f1_per_class = self.f1_score(probs, y)
+        self.log(f"{phase}/accuracy", step_values[f"{phase}/accuracy"], sync_dist=True)
+
+        iou_per_class = step_values[f"{phase}/iou"]
+        precision_per_class = step_values[f"{phase}/precision"]
+        recall_per_class = step_values[f"{phase}/recall"]
+        f1_per_class = step_values[f"{phase}/f1"]
         for i, class_name in enumerate(self.class_names):
             self.log_dict(
                 {

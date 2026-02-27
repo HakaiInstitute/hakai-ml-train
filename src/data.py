@@ -77,7 +77,7 @@ class DataModule(pl.LightningDataModule):
         val_chip_dir: str,
         test_chip_dir: str,
         batch_size: int,
-        num_workers: int = os.cpu_count(),
+        num_workers: int = os.cpu_count() or 0,
         pin_memory: bool = True,
         persistent_workers: bool = False,
         train_transforms: Any | None = None,
@@ -93,8 +93,12 @@ class DataModule(pl.LightningDataModule):
         self.pin_memory = pin_memory
         self.persistent_workers = persistent_workers
 
-        self.train_trans = A.from_dict(train_transforms)
-        self.test_trans = A.from_dict(test_transforms)
+        self.train_trans = (
+            A.from_dict(train_transforms) if train_transforms is not None else None
+        )
+        self.test_trans = (
+            A.from_dict(test_transforms) if test_transforms is not None else None
+        )
 
         self.ds_train, self.ds_val, self.ds_test = None, None, None
 
@@ -190,9 +194,11 @@ class WebDataModule(DataModule):
 
 
 class MAEDataModule(DataModule):
-    @property
-    def train_trans(self):
-        return A.Compose(
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("train_transforms", None)
+        kwargs.pop("test_transforms", None)
+        super().__init__(*args, **kwargs)
+        self.train_trans = A.Compose(
             [
                 A.D4(),
                 # A.RandomResizedCrop(size=(224, 224), scale=(0.6, 1.0), p=1.0),
@@ -200,10 +206,7 @@ class MAEDataModule(DataModule):
                 A.ToTensorV2(),
             ]
         )
-
-    @property
-    def test_trans(self):
-        return self.train_trans
+        self.test_trans = self.train_trans
 
 
 class KOMBaselineRGBIDataModule(DataModule):
@@ -219,9 +222,10 @@ class KOMBaselineRGBIDataModule(DataModule):
         max_ = x.flatten().max()
         return torch.clamp((x - min_) / (max_ - min_ + 1e-8), 0, 1)
 
-    @property
-    def test_trans(self):
-        return A.Compose(
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("test_transforms", None)
+        super().__init__(*args, **kwargs)
+        self.test_trans = A.Compose(
             [
                 ToTensorV2(),
                 A.Lambda(name="normalize", image=self._rgbi_kelp_transform),
