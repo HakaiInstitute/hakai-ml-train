@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 import lightning.pytorch as pl
 import torch
@@ -133,7 +133,9 @@ class DinoBinarySegmentationModel(
     ):
         super().__init__()
         self.save_hyperparameters()
-        task = "binary" if num_classes == 1 else "multiclass"
+        task: Literal["binary", "multiclass", "multilabel"] = (
+            "binary" if num_classes == 1 else "multiclass"
+        )
 
         pretrained_path = model_opts["pretrained_model_name_or_path"]
 
@@ -242,6 +244,13 @@ class DinoBinarySegmentationModel(
 
         return loss
 
+    def on_train_epoch_end(self) -> None:
+        self.accuracy.reset()
+        self.jaccard_index.reset()
+        self.recall.reset()
+        self.precision.reset()
+        self.f1_score.reset()
+
     def on_validation_epoch_end(self) -> None:
         self.log_dict(
             {
@@ -316,6 +325,11 @@ class DinoMulticlassSegmentationModel(DinoBinarySegmentationModel):
             )
             self.log(f"val/f1_epoch/{class_name}", f1_per_class[i], sync_dist=True)
         self.log("val/iou_epoch", iou_per_class[1:].mean(), sync_dist=True)
+
+        self.jaccard_index.reset()
+        self.precision.reset()
+        self.recall.reset()
+        self.f1_score.reset()
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch

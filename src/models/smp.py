@@ -130,6 +130,13 @@ class SMPBinarySegmentationModel(
 
         return loss
 
+    def on_train_epoch_end(self) -> None:
+        self.accuracy.reset()
+        self.jaccard_index.reset()
+        self.recall.reset()
+        self.precision.reset()
+        self.f1_score.reset()
+
     def on_validation_epoch_end(self) -> None:
         self.log_dict(
             {
