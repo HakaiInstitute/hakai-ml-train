@@ -143,6 +143,9 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
     def test_step(self, batch: torch.Tensor, batch_idx: int):
         return self._phase_step(batch, batch_idx, phase="test")
 
+    def on_train_epoch_end(self) -> None:
+        self.train_metrics.reset()
+
     def on_validation_epoch_end(self) -> None:
         computed = self.val_metrics.compute()
         self.log("val/accuracy_epoch", computed["val/accuracy"])
@@ -158,6 +161,7 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
             self.log(f"val/precision_epoch/{class_name}", precision_per_class[i])
             self.log(f"val/f1_epoch/{class_name}", f1_per_class[i])
         self.log("val/iou_epoch", iou_per_class[1:].mean())
+        self.val_metrics.reset()
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
@@ -255,11 +259,15 @@ class KomMusselsBaselineModel(pl.LightningModule):
     def test_step(self, batch: torch.Tensor, batch_idx: int):
         return self._phase_step(batch, batch_idx, phase="test")
 
+    def on_train_epoch_end(self) -> None:
+        self.train_metrics.reset()
+
     def on_validation_epoch_end(self) -> None:
         computed = self.val_metrics.compute()
         self.log_dict(
             {f"{k}_epoch": v for k, v in computed.items()},
         )
+        self.val_metrics.reset()
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
