@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+import torchmetrics as tm
 from lightning import pytorch as pl
 from torchmetrics import classification as fm
 
@@ -91,35 +92,23 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         self.class_names = ["bg", "macro", "nereo"]
 
         # metrics
-        self.accuracy = fm.Accuracy(
+        metric_kwargs = dict(
             task="multiclass",
             num_classes=self.hparams.num_classes,
             ignore_index=self.hparams.ignore_index,
         )
-        self.jaccard_index = fm.JaccardIndex(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
+        metrics = tm.MetricCollection(
+            {
+                "accuracy": fm.Accuracy(**metric_kwargs),
+                "iou": fm.JaccardIndex(**metric_kwargs, average="none"),
+                "recall": fm.Recall(**metric_kwargs, average="none"),
+                "precision": fm.Precision(**metric_kwargs, average="none"),
+                "f1": fm.F1Score(**metric_kwargs, average="none"),
+            }
         )
-        self.recall = fm.Recall(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
-        )
-        self.precision = fm.Precision(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
-        )
-        self.f1_score = fm.F1Score(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
-        )
+        self.train_metrics = metrics.clone(prefix="train/")
+        self.val_metrics = metrics.clone(prefix="val/")
+        self.test_metrics = metrics.clone(prefix="test/")
 
         # Override parent's activation function to remove .squeeze(1) for multiclass
         self.activation_fn = lambda x: torch.softmax(x, dim=1)
@@ -152,19 +141,20 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         return self._phase_step(batch, batch_idx, phase="test")
 
     def on_validation_epoch_end(self) -> None:
-        self.log("val/accuracy_epoch", self.accuracy)
+        computed = self.val_metrics.compute()
+        self.log("val/accuracy_epoch", computed["val/accuracy"])
 
-        iou_per_class = self.jaccard_index.compute()
-        precision_per_class = self.precision.compute()
-        recall_per_class = self.recall.compute()
-        f1_per_class = self.f1_score.compute()
+        iou_per_class = computed["val/iou"]
+        precision_per_class = computed["val/precision"]
+        recall_per_class = computed["val/recall"]
+        f1_per_class = computed["val/f1"]
 
         for i, class_name in enumerate(self.class_names):
             self.log(f"val/iou_epoch/{class_name}", iou_per_class[i])
             self.log(f"val/recall_epoch/{class_name}", recall_per_class[i])
             self.log(f"val/precision_epoch/{class_name}", precision_per_class[i])
             self.log(f"val/f1_epoch/{class_name}", f1_per_class[i])
-        self.log(f"val/iou_epoch", iou_per_class[1:].mean())
+        self.log("val/iou_epoch", iou_per_class[1:].mean())
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
@@ -173,12 +163,15 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         loss = self.loss_fn(probs, y.long())
         self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"))
 
-        self.log(f"{phase}/accuracy", self.accuracy(probs, y))
+        metrics = getattr(self, f"{phase}_metrics")
+        step_values = metrics(probs, y)
 
-        iou_per_class = self.jaccard_index(probs, y)
-        precision_per_class = self.precision(probs, y)
-        recall_per_class = self.recall(probs, y)
-        f1_per_class = self.f1_score(probs, y)
+        self.log(f"{phase}/accuracy", step_values[f"{phase}/accuracy"])
+
+        iou_per_class = step_values[f"{phase}/iou"]
+        precision_per_class = step_values[f"{phase}/precision"]
+        recall_per_class = step_values[f"{phase}/recall"]
+        f1_per_class = step_values[f"{phase}/f1"]
         for i, class_name in enumerate(self.class_names):
             self.log_dict(
                 {
@@ -252,31 +245,23 @@ class KomMusselsBaselineModel(pl.LightningModule):
         self.class_names = ["bg", "mussels"]
 
         # metrics
-        self.accuracy = fm.Accuracy(
+        metric_kwargs = dict(
             task="binary",
             num_classes=self.hparams.num_classes,
             ignore_index=self.hparams.ignore_index,
         )
-        self.jaccard_index = fm.JaccardIndex(
-            task="binary",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
+        metrics = tm.MetricCollection(
+            {
+                "accuracy": fm.Accuracy(**metric_kwargs),
+                "iou": fm.JaccardIndex(**metric_kwargs),
+                "recall": fm.Recall(**metric_kwargs),
+                "precision": fm.Precision(**metric_kwargs),
+                "f1": fm.F1Score(**metric_kwargs),
+            }
         )
-        self.recall = fm.Recall(
-            task="binary",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-        )
-        self.precision = fm.Precision(
-            task="binary",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-        )
-        self.f1_score = fm.F1Score(
-            task="binary",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-        )
+        self.train_metrics = metrics.clone(prefix="train/")
+        self.val_metrics = metrics.clone(prefix="val/")
+        self.test_metrics = metrics.clone(prefix="test/")
 
         # Override parent's activation function to remove .squeeze(1) for binary
         self.activation_fn = lambda x: torch.sigmoid(x).squeeze(1)
@@ -294,11 +279,10 @@ class KomMusselsBaselineModel(pl.LightningModule):
         return self._phase_step(batch, batch_idx, phase="test")
 
     def on_validation_epoch_end(self) -> None:
-        self.log("val/accuracy_epoch", self.accuracy)
-        self.log(f"val/iou_epoch", self.jaccard_index)
-        self.log(f"val/recall_epoch", self.recall)
-        self.log(f"val/precision_epoch", self.precision)
-        self.log(f"val/f1_epoch", self.f1_score)
+        computed = self.val_metrics.compute()
+        self.log_dict(
+            {f"{k}_epoch": v for k, v in computed.items()},
+        )
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
@@ -308,16 +292,8 @@ class KomMusselsBaselineModel(pl.LightningModule):
         loss = self.loss_fn(logits, y.long())
         self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"))
 
-        self.log(f"{phase}/accuracy", self.accuracy(probs, y))
-
-        self.log_dict(
-            {
-                f"{phase}/iou": (self.jaccard_index(probs, y)),
-                f"{phase}/recall": (self.recall(probs, y)),
-                f"{phase}/precision": (self.precision(probs, y)),
-                f"{phase}/f1": (self.f1_score(probs, y)),
-            }
-        )
+        metrics = getattr(self, f"{phase}_metrics")
+        self.log_dict(metrics(probs, y))
 
         return loss
 
