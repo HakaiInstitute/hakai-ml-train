@@ -17,10 +17,10 @@ model:
       betas:
         - 0.9
         - 0.95
-    lr_scheduler_class: torch.optim.lr_scheduler.OneCycleLR
+    lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      max_lr: 3e-4
-      pct_start: 0.1
+      warmup_steps: 200
+      min_lr: 1e-6
     lr_scheduler_interval: step
     class_names:
       - bg
@@ -144,7 +144,7 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 5
-  max_epochs: 200
+  max_epochs: 500
   accumulate_grad_batches: 8
   gradient_clip_val: 1.0
   detect_anomaly: false
@@ -171,6 +171,12 @@ trainer:
         save_last: True
         save_top_k: 2
         save_weights_only: False
+        verbose: True
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val/iou_epoch
+        mode: max
+        patience: 30
         verbose: True
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
