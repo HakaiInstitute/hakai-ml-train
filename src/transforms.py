@@ -26,24 +26,46 @@ def get_train_transforms(
 ):
     return A.Compose(
         [
-            # Geometric
+            # --- Geometric ---
             A.D4(p=1.0),
             A.Affine(
-                scale=(0.9, 1.1),
-                rotate=(-15, 15),
+                scale=(0.75, 1.25),
+                rotate=(-45, 45),
                 fill=fill,
                 fill_mask=fill_mask,
                 p=0.5,
             ),
-            # Color / lighting
-            A.RandomBrightnessContrast(
-                brightness_limit=0.15, contrast_limit=0.15, p=0.3
+            A.Perspective(
+                scale=(0.02, 0.05),
+                fill=fill,
+                fill_mask=fill_mask,
+                p=0.15,
             ),
-            A.HueSaturationValue(
-                hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=10, p=0.25
+            # --- Color / Lighting ---
+            A.OneOf(
+                [
+                    A.RandomBrightnessContrast(
+                        brightness_limit=0.2, contrast_limit=0.2, p=1.0
+                    ),
+                    A.HueSaturationValue(
+                        hue_shift_limit=10,
+                        sat_shift_limit=20,
+                        val_shift_limit=15,
+                        p=1.0,
+                    ),
+                    A.ColorJitter(
+                        brightness=0.15,
+                        contrast=0.15,
+                        saturation=0.2,
+                        hue=0.05,
+                        p=1.0,
+                    ),
+                ],
+                p=0.5,
             ),
-            A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=0.1),
-            # Sharpness — simulates resolution variation across flights
+            A.RandomToneCurve(scale=0.15, p=0.2),
+            A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=0.15),
+            # --- Sharpness — resolution/focus variation across flights ---
             A.OneOf(
                 [
                     A.Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=1.0),
@@ -51,45 +73,36 @@ def get_train_transforms(
                 ],
                 p=0.15,
             ),
-            # Channel regularization
+            # --- Noise — sensor noise simulation ---
             A.OneOf(
                 [
-                    A.ToGray(p=1.0),
-                    A.ChannelDropout(p=1.0),
+                    A.GaussNoise(std_range=(0.02, 0.05), p=1.0),
+                    A.ISONoise(color_shift=(0.01, 0.05), intensity=(0.1, 0.3), p=1.0),
+                ],
+                p=0.2,
+            ),
+            # --- Blur — low probability since capture avoids blur ---
+            A.OneOf(
+                [
+                    A.GaussianBlur(blur_limit=(3, 5), p=1.0),
+                    A.MedianBlur(blur_limit=(3, 5), p=1.0),
                 ],
                 p=0.1,
             ),
-            # Noise regularization
+            # --- Dropout regularization — strong for small dataset ---
             A.OneOf(
                 [
-                    A.GaussNoise(std_range=(0.02, 0.044), p=1.0),
-                    A.ISONoise(color_shift=(0.01, 0.05), intensity=(0.1, 0.2), p=1.0),
-                ],
-                p=0.15,
-            ),
-            # Blur regularization
-            A.OneOf(
-                [
-                    A.MotionBlur(p=1.0),
-                    A.MedianBlur(p=1.0),
-                    A.GaussianBlur(p=1.0),
-                ],
-                p=0.1,
-            ),
-            # Dropout regularization
-            A.OneOf(
-                [
-                    A.GridDropout(ratio=0.2, fill=fill, fill_mask=fill_mask, p=1.0),
+                    A.GridDropout(ratio=0.3, fill=fill, fill_mask=fill_mask, p=1.0),
                     A.CoarseDropout(
-                        num_holes_range=(1, 8),
-                        hole_height_range=(8, 32),
-                        hole_width_range=(8, 32),
+                        num_holes_range=(3, 12),
+                        hole_height_range=(16, 48),
+                        hole_width_range=(16, 48),
                         fill=fill,
                         fill_mask=fill_mask,
                         p=1.0,
                     ),
                 ],
-                p=0.25,
+                p=0.3,
             ),
             A.Normalize(mean=mean, std=std, max_pixel_value=255.0, p=1.0),
             ToTensorV2(),

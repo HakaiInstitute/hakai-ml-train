@@ -61,16 +61,16 @@ data:
             mask_interpolation: 0
             p: 0.5
             rotate:
-              - -15.0
-              - 15.0
+              - -45.0
+              - 45.0
             rotate_method: largest_box
             scale:
               x:
-                - 0.9
-                - 1.1
+                - 0.75
+                - 1.25
               y:
-                - 0.9
-                - 1.1
+                - 0.75
+                - 1.25
             shear:
               x:
                 - 0.0
@@ -86,16 +86,158 @@ data:
               y:
                 - 0
                 - 0
-          - __class_fullname__: RandomBrightnessContrast
-            brightness_by_max: true
-            brightness_limit:
-              - -0.15
-              - 0.15
-            contrast_limit:
-              - -0.15
-              - 0.15
-            ensure_safe_range: false
+          - __class_fullname__: Perspective
+            border_mode: 0
+            fill: 0.0
+            fill_mask: 0.0
+            fit_output: false
+            interpolation: 1
+            keep_size: true
+            mask_interpolation: 0
+            p: 0.15
+            scale:
+              - 0.02
+              - 0.05
+          - __class_fullname__: OneOf
+            p: 0.5
+            transforms:
+              - __class_fullname__: RandomBrightnessContrast
+                brightness_by_max: true
+                brightness_limit:
+                  - -0.2
+                  - 0.2
+                contrast_limit:
+                  - -0.2
+                  - 0.2
+                ensure_safe_range: false
+                p: 1.0
+              - __class_fullname__: HueSaturationValue
+                hue_shift_limit:
+                  - -10.0
+                  - 10.0
+                p: 1.0
+                sat_shift_limit:
+                  - -20.0
+                  - 20.0
+                val_shift_limit:
+                  - -15.0
+                  - 15.0
+              - __class_fullname__: ColorJitter
+                brightness:
+                  - 0.85
+                  - 1.15
+                contrast:
+                  - 0.85
+                  - 1.15
+                hue:
+                  - -0.05
+                  - 0.05
+                p: 1.0
+                saturation:
+                  - 0.8
+                  - 1.2
+          - __class_fullname__: RandomToneCurve
+            p: 0.2
+            per_channel: false
+            scale: 0.15
+          - __class_fullname__: CLAHE
+            clip_limit:
+              - 1.0
+              - 2.0
+            p: 0.15
+            tile_grid_size:
+              - 8
+              - 8
+          - __class_fullname__: OneOf
+            p: 0.15
+            transforms:
+              - __class_fullname__: Sharpen
+                alpha:
+                  - 0.2
+                  - 0.5
+                kernel_size: 5
+                lightness:
+                  - 0.5
+                  - 1.0
+                method: kernel
+                p: 1.0
+                sigma: 1.0
+              - __class_fullname__: UnsharpMask
+                alpha:
+                  - 0.2
+                  - 0.5
+                blur_limit:
+                  - 3
+                  - 7
+                p: 1.0
+                sigma_limit:
+                  - 0.0
+                  - 0.0
+                threshold: 10
+          - __class_fullname__: OneOf
+            p: 0.2
+            transforms:
+              - __class_fullname__: GaussNoise
+                mean_range:
+                  - 0.0
+                  - 0.0
+                noise_scale_factor: 1.0
+                p: 1.0
+                per_channel: false
+                std_range:
+                  - 0.02
+                  - 0.05
+              - __class_fullname__: ISONoise
+                color_shift:
+                  - 0.01
+                  - 0.05
+                intensity:
+                  - 0.1
+                  - 0.3
+                p: 1.0
+          - __class_fullname__: OneOf
+            p: 0.1
+            transforms:
+              - __class_fullname__: GaussianBlur
+                blur_limit:
+                  - 3
+                  - 5
+                p: 1.0
+                sigma_limit:
+                  - 0.5
+                  - 3.0
+              - __class_fullname__: MedianBlur
+                blur_limit:
+                  - 3
+                  - 5
+                p: 1.0
+          - __class_fullname__: OneOf
             p: 0.3
+            transforms:
+              - __class_fullname__: GridDropout
+                fill: 0.0
+                fill_mask: 0.0
+                holes_number_xy: null
+                p: 1.0
+                random_offset: true
+                ratio: 0.3
+                shift_xy:
+                  - 0
+                  - 0
+                unit_size_range: null
+              - __class_fullname__: CoarseDropout
+                fill: 0.0
+                fill_mask: 0.0
+                hole_height_range:
+                  - 16
+                  - 48
+                hole_width_range:
+                  - 16
+                  - 48
+                num_holes_range:
+                  - 3
+                  - 12
+                p: 1.0
           - __class_fullname__: Normalize
             max_pixel_value: 255.0
             mean:
