@@ -3,8 +3,8 @@ seed_everything: 42
 model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
-    architecture: "Segformer"
-    encoder_name: "mit_b3"
+    architecture: "UperNet"
+    encoder_name: "tu-eva02_large_patch14_448.mim_m38m_ft_in22k_in1k"
     model_opts:
       encoder_weights: imagenet
       in_channels: 3
@@ -35,9 +35,9 @@ model:
 data:
   class_path: "src.data.WebDataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512-full-webds"
-    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-448-224-full-webds"
+    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-448-448-full-webds"
+    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-448-448-full-webds"
     batch_size: 3
     num_workers: 8
     pin_memory: true
@@ -149,7 +149,7 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 5
-  max_epochs: 500
+  max_epochs: 200
   accumulate_grad_batches: 8
   gradient_clip_val: 1.0
   detect_anomaly: false
@@ -160,7 +160,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: segformer_b3
+        name: upernet_eva0_large_patch14_448
         group: Feb2026
         log_model: true
         tags:
@@ -170,12 +170,18 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_upernet_eva0_large_patch14_448_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
         save_top_k: 2
         save_weights_only: False
+        verbose: True
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val/iou_epoch
+        mode: max
+        patience: 50
         verbose: True
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
