@@ -1,0 +1,185 @@
+seed_everything: 42
+
+model:
+  class_path: "src.models.dino.DinoMulticlassSegmentationModel"
+  init_args:
+    model_opts:
+      pretrained_model_name_or_path: "facebook/dinov3-vitl16-pretrain-sat493m"
+    image_size: 640
+    num_classes: 3
+    num_queries: 100
+    ignore_index: -100
+    freeze_backbone: true
+    optimizer_class: torch.optim.AdamW
+    optimizer_opts:
+      lr: 3e-4
+      weight_decay: 0.01
+      betas:
+        - 0.9
+        - 0.95
+    lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
+    lr_scheduler_opts:
+      warmup_steps: 200
+      min_lr: 1e-6
+    lr_scheduler_interval: step
+    class_names:
+      - bg
+      - mussels
+      - goosenecks
+
+data:
+  class_path: "src.data.WebDataModule"
+  init_args:
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
+    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
+    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
+    batch_size: 6
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    train_transforms:
+      __version__: 2.0.16
+      transform:
+        __class_fullname__: Compose
+        additional_targets: { }
+        bbox_params: null
+        is_check_shapes: true
+        keypoint_params: null
+        p: 1
+        seed: null
+        transforms:
+          - __class_fullname__: D4
+            p: 1.0
+          - __class_fullname__: Affine
+            balanced_scale: false
+            border_mode: 0
+            fill: 0.0
+            fill_mask: 0.0
+            fit_output: false
+            interpolation: 1
+            keep_ratio: true
+            mask_interpolation: 0
+            p: 0.5
+            rotate:
+              - -15.0
+              - 15.0
+            rotate_method: largest_box
+            scale:
+              x:
+                - 0.9
+                - 1.1
+              y:
+                - 0.9
+                - 1.1
+            shear:
+              x:
+                - 0.0
+                - 0.0
+              y:
+                - 0.0
+                - 0.0
+            translate_percent: null
+            translate_px:
+              x:
+                - 0
+                - 0
+              y:
+                - 0
+                - 0
+          - __class_fullname__: RandomBrightnessContrast
+            brightness_by_max: true
+            brightness_limit:
+              - -0.15
+              - 0.15
+            contrast_limit:
+              - -0.15
+              - 0.15
+            ensure_safe_range: false
+            p: 0.3
+          - __class_fullname__: Normalize
+            max_pixel_value: 255.0
+            mean:
+              - 0.485
+              - 0.456
+              - 0.406
+            normalization: standard
+            p: 1.0
+            std:
+              - 0.229
+              - 0.224
+              - 0.225
+          - __class_fullname__: ToTensorV2
+            p: 1.0
+            transpose_mask: false
+
+    test_transforms:
+      __version__: 2.0.9
+      transform:
+        __class_fullname__: Compose
+        additional_targets: { }
+        bbox_params: null
+        is_check_shapes: true
+        keypoint_params: null
+        p: 1
+        seed: null
+        transforms:
+          - __class_fullname__: Normalize
+            max_pixel_value: 255.0
+            mean:
+              - 0.485
+              - 0.456
+              - 0.406
+            normalization: standard
+            p: 1.0
+            std:
+              - 0.229
+              - 0.224
+              - 0.225
+          - __class_fullname__: ToTensorV2
+            p: 1.0
+            transpose_mask: false
+
+trainer:
+  accelerator: auto
+  devices: auto
+  precision: bf16-mixed
+  log_every_n_steps: 5
+  max_epochs: 500
+  accumulate_grad_batches: 8
+  gradient_clip_val: 1.0
+  detect_anomaly: false
+  default_root_dir: checkpoints
+  fast_dev_run: False
+  logger:
+    - class_path: lightning.pytorch.loggers.WandbLogger
+      init_args:
+        entity: hakai
+        project: kom-mussel-gooseneck-rgb
+        name: eomt_dinov3_vitl16_pretrain_sat493m
+        group: Feb2026
+        log_model: true
+        tags:
+          - mussel_gooseneck
+          - Feb2026
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        auto_insert_metric_name: False
+        filename: mussel_gooseneck_rgb_eomt_dinov3_vitl16_pretrain_sat493m_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        monitor: val/iou_epoch
+        mode: max
+        save_last: True
+        save_top_k: 2
+        save_weights_only: False
+        verbose: True
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val/iou_epoch
+        mode: max
+        patience: 30
+        verbose: True
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: step
+  plugins:
+    - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO

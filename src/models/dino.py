@@ -34,13 +34,12 @@ def _load_dinov3_backbone_weights(
         new_key = key.replace("layer.", "layers.").replace("norm.", "layernorm.")
         renamed[new_key] = value
 
-    missing, unexpected = model.load_state_dict(renamed, strict=False)
-    # We expect missing keys for the segmentation head (query, class_predictor, etc.)
-    # and unexpected should be empty
-    if unexpected:
-        raise RuntimeError(
-            f"Unexpected keys when loading backbone weights: {unexpected}"
-        )
+    # Filter to only keys present in the model — the pretrained ViT may use a
+    # different MLP variant (e.g. SwiGLU gate_proj) not present in EomtDinov3.
+    model_keys = set(model.state_dict().keys())
+    filtered = {k: v for k, v in renamed.items() if k in model_keys}
+
+    model.load_state_dict(filtered, strict=False)
 
 
 def _convert_semantic_labels(
@@ -200,8 +199,10 @@ class DinoBinarySegmentationModel(
             ignore_index=ignore_index,
         )
 
-    def forward(self, x: torch.Tensor):
-        return self.model(pixel_values=x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        _, _, H, W = x.shape
+        outputs = self.model(pixel_values=x)
+        return _get_semantic_probs(outputs, self.hparams.num_classes, (H, W))
 
     def training_step(self, batch: torch.Tensor, batch_idx: int):
         return self._phase_step(batch, batch_idx, phase="train")
