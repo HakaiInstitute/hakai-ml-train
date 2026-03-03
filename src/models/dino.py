@@ -3,6 +3,7 @@ from typing import Any, Literal
 import lightning.pytorch as pl
 import torch
 import torch.nn.functional as F
+import torchmetrics as tm
 import torchmetrics.classification as fm
 from huggingface_hub import PyTorchModelHubMixin
 from transformers import (
@@ -173,31 +174,23 @@ class DinoBinarySegmentationModel(
         self.model = torch.compile(self.model)
 
         # Metrics
-        self.accuracy = fm.Accuracy(
+        metric_kwargs = dict(
             task=task,
             num_classes=num_classes,
             ignore_index=ignore_index,
         )
-        self.jaccard_index = fm.JaccardIndex(
-            task=task,
-            num_classes=num_classes,
-            ignore_index=ignore_index,
+        metrics = tm.MetricCollection(
+            {
+                "accuracy": fm.Accuracy(**metric_kwargs),
+                "iou": fm.JaccardIndex(**metric_kwargs),
+                "recall": fm.Recall(**metric_kwargs),
+                "precision": fm.Precision(**metric_kwargs),
+                "f1": fm.F1Score(**metric_kwargs),
+            }
         )
-        self.recall = fm.Recall(
-            task=task,
-            num_classes=num_classes,
-            ignore_index=ignore_index,
-        )
-        self.precision = fm.Precision(
-            task=task,
-            num_classes=num_classes,
-            ignore_index=ignore_index,
-        )
-        self.f1_score = fm.F1Score(
-            task=task,
-            num_classes=num_classes,
-            ignore_index=ignore_index,
-        )
+        self.train_metrics = metrics.clone(prefix="train/")
+        self.val_metrics = metrics.clone(prefix="val/")
+        self.test_metrics = metrics.clone(prefix="test/")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         _, _, H, W = x.shape
@@ -232,37 +225,21 @@ class DinoBinarySegmentationModel(
 
         probs = _get_semantic_probs(outputs, self.hparams.num_classes, (H, W))
 
-        self.log_dict(
-            {
-                f"{phase}/accuracy": self.accuracy(probs, y),
-                f"{phase}/iou": self.jaccard_index(probs, y),
-                f"{phase}/recall": self.recall(probs, y),
-                f"{phase}/precision": self.precision(probs, y),
-                f"{phase}/f1": self.f1_score(probs, y),
-            },
-            sync_dist=True,
-        )
+        metrics = getattr(self, f"{phase}_metrics")
+        self.log_dict(metrics(probs, y), sync_dist=True)
 
         return loss
 
     def on_train_epoch_end(self) -> None:
-        self.accuracy.reset()
-        self.jaccard_index.reset()
-        self.recall.reset()
-        self.precision.reset()
-        self.f1_score.reset()
+        self.train_metrics.reset()
 
     def on_validation_epoch_end(self) -> None:
+        computed = self.val_metrics.compute()
         self.log_dict(
-            {
-                "val/accuracy_epoch": self.accuracy,
-                "val/iou_epoch": self.jaccard_index,
-                "val/recall_epoch": self.recall,
-                "val/precision_epoch": self.precision,
-                "val/f1_epoch": self.f1_score,
-            },
+            {f"{k}_epoch": v for k, v in computed.items()},
             sync_dist=True,
         )
+        self.val_metrics.reset()
 
     def configure_optimizers(self):
         return _configure_optimizers(self)
@@ -276,43 +253,32 @@ class DinoMulticlassSegmentationModel(DinoBinarySegmentationModel):
         self.class_names = class_names
 
         # Override metrics with per-class (average="none") variants
-        self.accuracy = fm.Accuracy(
+        metric_kwargs = dict(
             task="multiclass",
             num_classes=self.hparams.num_classes,
             ignore_index=self.hparams.ignore_index,
         )
-        self.jaccard_index = fm.JaccardIndex(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
+        metrics = tm.MetricCollection(
+            {
+                "accuracy": fm.Accuracy(**metric_kwargs),
+                "iou": fm.JaccardIndex(**metric_kwargs, average="none"),
+                "recall": fm.Recall(**metric_kwargs, average="none"),
+                "precision": fm.Precision(**metric_kwargs, average="none"),
+                "f1": fm.F1Score(**metric_kwargs, average="none"),
+            }
         )
-        self.recall = fm.Recall(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
-        )
-        self.precision = fm.Precision(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
-        )
-        self.f1_score = fm.F1Score(
-            task="multiclass",
-            num_classes=self.hparams.num_classes,
-            ignore_index=self.hparams.ignore_index,
-            average="none",
-        )
+        self.train_metrics = metrics.clone(prefix="train/")
+        self.val_metrics = metrics.clone(prefix="val/")
+        self.test_metrics = metrics.clone(prefix="test/")
 
     def on_validation_epoch_end(self) -> None:
-        self.log("val/accuracy_epoch", self.accuracy, sync_dist=True)
+        computed = self.val_metrics.compute()
+        self.log("val/accuracy_epoch", computed["val/accuracy"], sync_dist=True)
 
-        iou_per_class = self.jaccard_index.compute()
-        precision_per_class = self.precision.compute()
-        recall_per_class = self.recall.compute()
-        f1_per_class = self.f1_score.compute()
+        iou_per_class = computed["val/iou"]
+        precision_per_class = computed["val/precision"]
+        recall_per_class = computed["val/recall"]
+        f1_per_class = computed["val/f1"]
 
         for i, class_name in enumerate(self.class_names):
             self.log(f"val/iou_epoch/{class_name}", iou_per_class[i], sync_dist=True)
@@ -326,11 +292,7 @@ class DinoMulticlassSegmentationModel(DinoBinarySegmentationModel):
             )
             self.log(f"val/f1_epoch/{class_name}", f1_per_class[i], sync_dist=True)
         self.log("val/iou_epoch", iou_per_class[1:].mean(), sync_dist=True)
-
-        self.jaccard_index.reset()
-        self.precision.reset()
-        self.recall.reset()
-        self.f1_score.reset()
+        self.val_metrics.reset()
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
@@ -351,12 +313,15 @@ class DinoMulticlassSegmentationModel(DinoBinarySegmentationModel):
 
         probs = _get_semantic_probs(outputs, self.hparams.num_classes, (H, W))
 
-        self.log(f"{phase}/accuracy", self.accuracy(probs, y), sync_dist=True)
+        metrics = getattr(self, f"{phase}_metrics")
+        step_values = metrics(probs, y)
 
-        iou_per_class = self.jaccard_index(probs, y)
-        precision_per_class = self.precision(probs, y)
-        recall_per_class = self.recall(probs, y)
-        f1_per_class = self.f1_score(probs, y)
+        self.log(f"{phase}/accuracy", step_values[f"{phase}/accuracy"], sync_dist=True)
+
+        iou_per_class = step_values[f"{phase}/iou"]
+        precision_per_class = step_values[f"{phase}/precision"]
+        recall_per_class = step_values[f"{phase}/recall"]
+        f1_per_class = step_values[f"{phase}/f1"]
         for i, class_name in enumerate(self.class_names):
             self.log_dict(
                 {
