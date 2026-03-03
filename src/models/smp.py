@@ -8,6 +8,7 @@ import torchmetrics.classification as fm
 from huggingface_hub import PyTorchModelHubMixin
 
 from .. import losses
+from . import configure_optimizers as _configure_optimizers
 
 
 class SMPBinarySegmentationModel(
@@ -21,18 +22,18 @@ class SMPBinarySegmentationModel(
     def __init__(
         self,
         architecture: str,
-        backbone: str,
+        encoder_name: str,
         model_opts: dict[str, Any],
         loss: str,
         loss_opts: dict[str, Any],
         num_classes: int = 2,
         ignore_index: int | None = None,
-        lr: float = 0.0003,
-        wd: float = 0,
-        b1: float = 0.9,
-        b2: float = 0.999,
-        amsgrad: bool = False,
-        warmup_period: float = 0.1,
+        optimizer_class: str = "torch.optim.AdamW",
+        optimizer_opts: dict[str, Any] | None = None,
+        lr_scheduler_class: str = "torch.optim.lr_scheduler.OneCycleLR",
+        lr_scheduler_opts: dict[str, Any] | None = None,
+        lr_scheduler_interval: str = "step",
+        lr_scheduler_monitor: str | None = None,
         ckpt_path: str | None = None,
         freeze_backbone: bool = False,
     ):
@@ -42,13 +43,12 @@ class SMPBinarySegmentationModel(
 
         self.model = smp.create_model(
             arch=architecture,
-            encoder_name=backbone,
+            encoder_name=encoder_name,
             classes=self.hparams.num_classes,
             **model_opts,
         )
-
         if ckpt_path is not None:
-            ckpt = torch.load(self.hparams.ckpt_path)
+            ckpt = torch.load(self.hparams.ckpt_path, weights_only=False)
             self.load_state_dict(ckpt["state_dict"])
 
         for p in self.model.parameters():
@@ -57,6 +57,8 @@ class SMPBinarySegmentationModel(
             print("Freezing backbone parameters")
             for p in self.model.encoder.parameters():
                 p.requires_grad = False
+
+        self.model = torch.compile(self.model)
 
         self.loss_fn = losses.__dict__[loss](**loss_opts)
 
@@ -86,6 +88,10 @@ class SMPBinarySegmentationModel(
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
 
+    @property
+    def backbone(self):
+        return self.model.encoder
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 
@@ -111,35 +117,19 @@ class SMPBinarySegmentationModel(
 
         return loss
 
+    def on_train_epoch_end(self) -> None:
+        self.train_metrics.reset()
+
     def on_validation_epoch_end(self) -> None:
         computed = self.val_metrics.compute()
         self.log_dict(
             {f"{k}_epoch": v for k, v in computed.items()},
             sync_dist=True,
         )
+        self.val_metrics.reset()
 
     def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, self.parameters()),
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.wd,
-            betas=(self.hparams.b1, self.hparams.b2),
-            amsgrad=self.hparams.amsgrad,
-        )
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.hparams.lr,
-            total_steps=self.trainer.estimated_stepping_batches,
-            pct_start=self.hparams.warmup_period,
-        )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "interval": "step",
-            },
-        }
+        return _configure_optimizers(self)
 
 
 class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
@@ -192,6 +182,7 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
             )
             self.log(f"val/f1_epoch/{class_name}", f1_per_class[i], sync_dist=True)
         self.log("val/iou_epoch", iou_per_class[1:].mean(), sync_dist=True)
+        self.val_metrics.reset()
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
@@ -223,45 +214,3 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
         self.log(f"{phase}/iou", iou_per_class[1:].mean(), sync_dist=True)
 
         return loss
-
-    def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, self.parameters()),
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.wd,
-            betas=(self.hparams.b1, self.hparams.b2),
-            amsgrad=self.hparams.amsgrad,
-        )
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        #     optimizer,
-        #     mode="max",
-        #     factor=0.1,
-        #     patience=2,
-        #     threshold=0.0001,
-        #     cooldown=3,
-        # )
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        #     optimizer,
-        #     T_0=100,
-        #     T_mult=1,
-        #     eta_min=self.hparams.lr*100,
-        #     last_epoch=-1,
-        # )
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.hparams.lr,
-            pct_start=0.1,
-            total_steps=self.trainer.estimated_stepping_batches,
-        )
-
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                # "monitor": "val/iou_epoch",
-                # "interval": "epoch",
-                # "frequency": 1,
-                "interval": "step",
-            },
-        }

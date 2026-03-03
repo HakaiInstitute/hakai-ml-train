@@ -1,15 +1,15 @@
 seed_everything: 42
 
 model:
-  class_path: "src.models.smp.SMPMulticlassSegmentationModel"
+  class_path: "src.models.dino.DinoMulticlassSegmentationModel"
   init_args:
-    architecture: "UnetPlusPlus"
-    encoder_name: "efficientnet-b1"
     model_opts:
-      encoder_weights: imagenet
-      in_channels: 3
+      pretrained_model_name_or_path: "facebook/dinov3-vits16plus-pretrain-lvd1689m"
+    image_size: 640
     num_classes: 3
-    ignore_index: &ignore_index -100
+    num_queries: 100
+    ignore_index: -100
+    freeze_backbone: true
     optimizer_class: torch.optim.AdamW
     optimizer_opts:
       lr: 3e-4
@@ -22,11 +22,6 @@ model:
       warmup_steps: 200
       min_lr: 1e-6
     lr_scheduler_interval: step
-    loss: "LovaszLoss"
-    loss_opts:
-      mode: "multiclass"
-      ignore_index: *ignore_index
-      from_logits: true
     class_names:
       - bg
       - mussels
@@ -35,10 +30,10 @@ model:
 data:
   class_path: "src.data.WebDataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512-full-webds"
-    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    batch_size: 3
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
+    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
+    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
+    batch_size: 6
     num_workers: 8
     pin_memory: true
     persistent_workers: true
@@ -160,7 +155,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: unetpp_efficientnet_b1
+        name: eomt_dinov3_vits16plus_pretrain_lvd1689m
         group: Feb2026
         log_model: true
         tags:
@@ -170,7 +165,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_unetpp_efficientnet_b1_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_eomt_dinov3_vits16plus_pretrain_lvd1689m_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True

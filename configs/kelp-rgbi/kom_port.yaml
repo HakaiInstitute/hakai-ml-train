@@ -100,10 +100,15 @@ model:
   init_args:
     num_classes: 3
     ignore_index: &ignore_index -100
-    lr: 3e-1
-    wd: 0.01
-    b1: 0.9
-    b2: 0.95
+    optimizer_class: torch.optim.AdamW
+    optimizer_opts:
+      lr: 3e-1
+      weight_decay: 0.01
+      betas:
+        - 0.9
+        - 0.95
+    lr_scheduler_class: torch.optim.lr_scheduler.CosineAnnealingLR
+    lr_scheduler_interval: step
     loss: "LovaszLoss"
     loss_opts:
       mode: "multiclass"

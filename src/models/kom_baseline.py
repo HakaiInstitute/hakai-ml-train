@@ -11,6 +11,7 @@ from lightning import pytorch as pl
 from torchmetrics import classification as fm
 
 from src import losses
+from src.models import configure_optimizers as _configure_optimizers
 
 S3_BUCKET = "https://kelp-o-matic.s3.amazonaws.com/pt_jit"
 CACHE_DIR = Path("~/.cache/kelp_o_matic").expanduser()
@@ -71,10 +72,12 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         loss_opts: dict[str, Any],
         num_classes: int = 2,
         ignore_index: int | None = None,
-        lr: float = 0.0003,
-        wd: float = 0,
-        b1: float = 0.9,
-        b2: float = 0.99,
+        optimizer_class: str = "torch.optim.AdamW",
+        optimizer_opts: dict[str, Any] | None = None,
+        lr_scheduler_class: str = "torch.optim.lr_scheduler.OneCycleLR",
+        lr_scheduler_opts: dict[str, Any] | None = None,
+        lr_scheduler_interval: str = "step",
+        lr_scheduler_monitor: str | None = None,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -140,6 +143,9 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
     def test_step(self, batch: torch.Tensor, batch_idx: int):
         return self._phase_step(batch, batch_idx, phase="test")
 
+    def on_train_epoch_end(self) -> None:
+        self.train_metrics.reset()
+
     def on_validation_epoch_end(self) -> None:
         computed = self.val_metrics.compute()
         self.log("val/accuracy_epoch", computed["val/accuracy"])
@@ -155,6 +161,7 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
             self.log(f"val/precision_epoch/{class_name}", precision_per_class[i])
             self.log(f"val/f1_epoch/{class_name}", f1_per_class[i])
         self.log("val/iou_epoch", iou_per_class[1:].mean())
+        self.val_metrics.reset()
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
@@ -186,35 +193,7 @@ class KomRGBSpeciesBaselineModel(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.AdamW(
-            [
-                param
-                for name, param in self.pa_model.named_parameters()
-                if param.requires_grad
-            ]
-            + [
-                param
-                for name, param in self.sp_model.named_parameters()
-                if param.requires_grad
-            ],
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.wd,
-            betas=(self.hparams.b1, self.hparams.b2),
-        )
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.hparams.lr,
-            total_steps=self.trainer.estimated_stepping_batches,
-            pct_start=0.1,
-        )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "interval": "step",
-            },
-        }
+        return _configure_optimizers(self)
 
 
 class KomMusselsBaselineModel(pl.LightningModule):
@@ -224,10 +203,12 @@ class KomMusselsBaselineModel(pl.LightningModule):
         loss_opts: dict[str, Any],
         num_classes: int = 1,
         ignore_index: int | None = None,
-        lr: float = 0.0003,
-        wd: float = 0,
-        b1: float = 0.9,
-        b2: float = 0.99,
+        optimizer_class: str = "torch.optim.AdamW",
+        optimizer_opts: dict[str, Any] | None = None,
+        lr_scheduler_class: str = "torch.optim.lr_scheduler.OneCycleLR",
+        lr_scheduler_opts: dict[str, Any] | None = None,
+        lr_scheduler_interval: str = "step",
+        lr_scheduler_monitor: str | None = None,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -278,11 +259,15 @@ class KomMusselsBaselineModel(pl.LightningModule):
     def test_step(self, batch: torch.Tensor, batch_idx: int):
         return self._phase_step(batch, batch_idx, phase="test")
 
+    def on_train_epoch_end(self) -> None:
+        self.train_metrics.reset()
+
     def on_validation_epoch_end(self) -> None:
         computed = self.val_metrics.compute()
         self.log_dict(
             {f"{k}_epoch": v for k, v in computed.items()},
         )
+        self.val_metrics.reset()
 
     def _phase_step(self, batch: torch.Tensor, batch_idx: int, phase: str):
         x, y = batch
@@ -298,30 +283,7 @@ class KomMusselsBaselineModel(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        """Init optimizer and scheduler"""
-        optimizer = torch.optim.AdamW(
-            [
-                param
-                for name, param in self.model.named_parameters()
-                if param.requires_grad
-            ],
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.wd,
-            betas=(self.hparams.b1, self.hparams.b2),
-        )
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.hparams.lr,
-            total_steps=self.trainer.estimated_stepping_batches,
-            pct_start=0.1,
-        )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "interval": "step",
-            },
-        }
+        return _configure_optimizers(self)
 
 
 class KomRGBISpeciesBaselineModel(KomRGBSpeciesBaselineModel):

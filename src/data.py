@@ -5,16 +5,13 @@ from pathlib import Path
 from typing import Any
 
 import albumentations as A
+import datasets as hf_datasets
 import lightning.pytorch as pl
 import numpy as np
 import torch
-import torchvision.transforms.functional as f
 from albumentations import ToTensorV2, to_dict
-from PIL.Image import Image
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import VisionDataset
-
-from src.transforms import get_test_transforms, get_train_transforms
 
 
 class NpzSegmentationDataset(VisionDataset):
@@ -44,6 +41,34 @@ class NpzSegmentationDataset(VisionDataset):
         return data["image"], data["label"]
 
 
+class WebDataset(Dataset):
+    """Load preprocessed image chips from a HuggingFace dataset.
+
+    Expects the dataset to have "image.tif" and "label.tif" columns containing
+    PIL images or numpy arrays.
+    """
+
+    def __init__(self, root: str, split: str = "train", transforms=None):
+        super().__init__()
+        self.transforms = transforms
+        self._dataset = hf_datasets.load_dataset(root, split=split)
+
+    def __len__(self):
+        return len(self._dataset)
+
+    def __getitem__(self, idx):
+        sample = self._dataset[idx]
+        image = np.array(sample["image.tif"])
+        mask = np.array(sample["label.tif"])
+
+        if self.transforms is not None:
+            with torch.no_grad():
+                augmented = self.transforms(image=image, mask=mask)
+                return augmented["image"], augmented["mask"]
+
+        return image, mask
+
+
 # noinspection PyAbstractClass
 class DataModule(pl.LightningDataModule):
     def __init__(
@@ -52,7 +77,7 @@ class DataModule(pl.LightningDataModule):
         val_chip_dir: str,
         test_chip_dir: str,
         batch_size: int,
-        num_workers: int = os.cpu_count(),
+        num_workers: int = os.cpu_count() or 0,
         pin_memory: bool = True,
         persistent_workers: bool = False,
         train_transforms: Any | None = None,
@@ -68,8 +93,12 @@ class DataModule(pl.LightningDataModule):
         self.pin_memory = pin_memory
         self.persistent_workers = persistent_workers
 
-        self.train_trans = A.from_dict(train_transforms)
-        self.test_trans = A.from_dict(test_transforms)
+        self.train_trans = (
+            A.from_dict(train_transforms) if train_transforms is not None else None
+        )
+        self.test_trans = (
+            A.from_dict(test_transforms) if test_transforms is not None else None
+        )
 
         self.ds_train, self.ds_val, self.ds_test = None, None, None
 
@@ -145,10 +174,31 @@ class DataModule(pl.LightningDataModule):
         return batch
 
 
+class WebDataModule(DataModule):
+    def setup(self, stage: str | None = None):
+        self.ds_train = WebDataset(
+            self.train_data_dir,
+            split="train",
+            transforms=self.train_trans,
+        )
+        self.ds_val = WebDataset(
+            self.val_data_dir,
+            split="validation",
+            transforms=self.test_trans,
+        )
+        self.ds_test = WebDataset(
+            self.test_data_dir,
+            split="test",
+            transforms=self.test_trans,
+        )
+
+
 class MAEDataModule(DataModule):
-    @property
-    def train_trans(self):
-        return A.Compose(
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("train_transforms", None)
+        kwargs.pop("test_transforms", None)
+        super().__init__(*args, **kwargs)
+        self.train_trans = A.Compose(
             [
                 A.D4(),
                 # A.RandomResizedCrop(size=(224, 224), scale=(0.6, 1.0), p=1.0),
@@ -156,10 +206,7 @@ class MAEDataModule(DataModule):
                 A.ToTensorV2(),
             ]
         )
-
-    @property
-    def test_trans(self):
-        return self.train_trans
+        self.test_trans = self.train_trans
 
 
 class KOMBaselineRGBIDataModule(DataModule):
@@ -175,9 +222,10 @@ class KOMBaselineRGBIDataModule(DataModule):
         max_ = x.flatten().max()
         return torch.clamp((x - min_) / (max_ - min_ + 1e-8), 0, 1)
 
-    @property
-    def test_trans(self):
-        return A.Compose(
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("test_transforms", None)
+        super().__init__(*args, **kwargs)
+        self.test_trans = A.Compose(
             [
                 ToTensorV2(),
                 A.Lambda(name="normalize", image=self._rgbi_kelp_transform),

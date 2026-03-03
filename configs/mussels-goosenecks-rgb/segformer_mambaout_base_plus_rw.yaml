@@ -4,9 +4,9 @@ model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "Segformer"
-    encoder_name: "mit_b3"
+    encoder_name: "tu-mambaout_base_plus_rw"
     model_opts:
-      encoder_weights: imagenet
+      encoder_weights: "imagenet"
       in_channels: 3
     num_classes: 3
     ignore_index: &ignore_index -100
@@ -17,24 +17,28 @@ model:
       betas:
         - 0.9
         - 0.95
-    lr_scheduler_class: torch.optim.lr_scheduler.OneCycleLR
+    lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      max_lr: 3e-4
-      pct_start: 0.1
-    lr_scheduler_interval: step
+      warmup_steps: 7
+      min_lr: 1e-6
+    lr_scheduler_interval: epoch
     loss: "LovaszLoss"
     loss_opts:
       mode: "multiclass"
       ignore_index: *ignore_index
       from_logits: true
+    class_names:
+      - bg
+      - mussels
+      - goosenecks
 
 data:
-  class_path: "src.data.DataModule"
+  class_path: "src.data.WebDataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024/train"
-    val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/val"
-    test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/test"
-    batch_size: 3
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512-full-webds"
+    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
+    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
+    batch_size: 9
     num_workers: 8
     pin_memory: true
     persistent_workers: true
@@ -257,8 +261,8 @@ trainer:
   accelerator: auto
   devices: auto
   precision: bf16-mixed
-  log_every_n_steps: 50
-  max_epochs: 500
+  log_every_n_steps: 5
+  max_epochs: 200
   accumulate_grad_batches: 8
   gradient_clip_val: 0.5
   detect_anomaly: false
@@ -268,18 +272,18 @@ trainer:
     - class_path: lightning.pytorch.loggers.WandbLogger
       init_args:
         entity: hakai
-        project: kom-kelp-rgb
-        name: segformer_b3
-        group: Jul2025
+        project: kom-mussel-gooseneck-rgb
+        name: segformer_mambaout_base_plus_rw
+        group: Feb2026
         log_model: true
         tags:
-          - kelp
-          - Jul2025
+          - mussel_gooseneck
+          - Feb2026
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: kelp_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_segformer_mambaout_base_plus_rw_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
@@ -289,5 +293,12 @@ trainer:
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
+    - class_path: lightning.pytorch.callbacks.BackboneFinetuning
+      init_args:
+        unfreeze_backbone_at_epoch: 5
+        backbone_initial_ratio_lr: 0.1
+        should_align: true
+        train_bn: true
+        verbose: true
   plugins:
     - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO
