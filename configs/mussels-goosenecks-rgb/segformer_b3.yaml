@@ -306,6 +306,12 @@ trainer:
         save_top_k: 2
         save_weights_only: False
         verbose: True
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val/iou_epoch
+        mode: max
+        patience: 50
+        verbose: True
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
