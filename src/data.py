@@ -106,18 +106,21 @@ class DataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage: str | None = None):
-        self.ds_train = NpzSegmentationDataset(
-            self.train_data_dir,
-            transforms=self.train_trans,
-        )
-        self.ds_val = NpzSegmentationDataset(
-            self.val_data_dir,
-            transforms=self.test_trans,
-        )
-        self.ds_test = NpzSegmentationDataset(
-            self.test_data_dir,
-            transforms=self.test_trans,
-        )
+        if stage == "fit" or stage is None:
+            self.ds_train = NpzSegmentationDataset(
+                self.train_data_dir,
+                transforms=self.train_trans,
+            )
+        if stage in ["fit", "validate"] or stage is None:
+            self.ds_val = NpzSegmentationDataset(
+                self.val_data_dir,
+                transforms=self.test_trans,
+            )
+        if stage == "test":
+            self.ds_test = NpzSegmentationDataset(
+                self.test_data_dir,
+                transforms=self.test_trans,
+            )
 
     def teardown(self, stage: str | None = None) -> None:
         del self.ds_train
@@ -176,21 +179,24 @@ class DataModule(pl.LightningDataModule):
 
 class WebDataModule(DataModule):
     def setup(self, stage: str | None = None):
-        self.ds_train = WebDataset(
-            self.train_data_dir,
-            split="train",
-            transforms=self.train_trans,
-        )
-        self.ds_val = WebDataset(
-            self.val_data_dir,
-            split="validation",
-            transforms=self.test_trans,
-        )
-        self.ds_test = WebDataset(
-            self.test_data_dir,
-            split="test",
-            transforms=self.test_trans,
-        )
+        if stage == "fit" or stage is None:
+            self.ds_train = WebDataset(
+                self.train_data_dir,
+                split="train",
+                transforms=self.train_trans,
+            )
+        if stage in ["fit", "validate"] or stage is None:
+            self.ds_val = WebDataset(
+                self.val_data_dir,
+                split="validation",
+                transforms=self.test_trans,
+            )
+        if stage == "test":
+            self.ds_test = WebDataset(
+                self.test_data_dir,
+                split="test",
+                transforms=self.test_trans,
+            )
 
 
 class MAEDataModule(DataModule):
