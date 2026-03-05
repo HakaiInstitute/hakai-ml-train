@@ -20,7 +20,7 @@ model:
     lr_scheduler_class: torch.optim.lr_scheduler.OneCycleLR
     lr_scheduler_opts:
       max_lr: 1e-3
-      warmup_epochs: 0.1
+      pct_start: 0.1
     lr_scheduler_interval: step
     loss: "LovaszLoss"
     loss_opts:
