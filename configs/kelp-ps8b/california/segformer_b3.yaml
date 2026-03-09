@@ -164,7 +164,7 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 20
-  max_epochs: 500
+  max_epochs: 250
   accumulate_grad_batches: 8
   gradient_clip_val: 0.8
   detect_anomaly: false
