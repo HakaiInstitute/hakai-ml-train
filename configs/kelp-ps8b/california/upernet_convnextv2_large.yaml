@@ -3,10 +3,10 @@ seed_everything: 42
 model:
   class_path: "src.models.smp.SMPBinarySegmentationModel"
   init_args:
-    architecture: "Segformer"
-    encoder_name: "mit_b3"
+    architecture: "UPerNet"
+    encoder_name: "tu-convnextv2_large.fcmae_ft_in22k_in1k_384"
     model_opts:
-      encoder_weights: imagenet
+      encoder_weights: fcmae_ft_in22k_in1k_384
       in_channels: 8
     num_classes: 1
     ignore_index: &ignore_index -100
@@ -175,7 +175,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-kelp-ps8b-cali
-        name: segformer_b3
+        name: upernet_convnextv2_large
         group: Mar2026
         log_model: true
         tags:
@@ -184,7 +184,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: kelp_ps8b_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: kelp_ps8b_upernet_convnextv2_large_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
