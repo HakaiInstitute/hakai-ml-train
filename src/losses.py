@@ -27,12 +27,15 @@ class LabelSmoothingCrossEntropy(nn.Module):
         """
         Args:
             logits: (B, C, H, W) for multiclass or (B, 1, H, W) for binary
-            targets: (B, H, W) integer class labels
+            targets: (B, H, W) or (B, 1, H, W) integer class labels
         """
+        if self.mode == "binary":
+            logits = logits.squeeze(1)
+            targets = targets.squeeze(1)
+
         valid = targets != self.ignore_index
 
         if self.mode == "binary":
-            logits = logits.squeeze(1)  # (B, H, W)
             targets_smooth = targets.float()
             targets_smooth = (
                 targets_smooth * (1 - self.smoothing) + 0.5 * self.smoothing
