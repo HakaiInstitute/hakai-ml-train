@@ -36,7 +36,8 @@ class LabelSmoothingCrossEntropy(nn.Module):
         valid = targets != self.ignore_index
 
         if self.mode == "binary":
-            targets_smooth = targets.float()
+            targets_smooth = targets.float().clone()
+            targets_smooth[~valid] = 0  # zero out ignore pixels before smoothing
             targets_smooth = (
                 targets_smooth * (1 - self.smoothing) + 0.5 * self.smoothing
             )
