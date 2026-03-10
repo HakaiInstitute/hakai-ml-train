@@ -31,7 +31,7 @@ class LabelSmoothingCrossEntropy(nn.Module):
         """
         if self.mode == "binary":
             logits = logits.squeeze(1)
-            targets = targets.squeeze(1)
+            targets = targets.squeeze(1).float()
 
         valid = targets != self.ignore_index
 
