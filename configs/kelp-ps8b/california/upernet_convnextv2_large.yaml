@@ -22,11 +22,10 @@ model:
       max_lr: 3e-4
       pct_start: 0.3
     lr_scheduler_interval: step
-    loss: "LovaszLoss"
+    loss: "LabelSmoothingLovasz"
     loss_opts:
       mode: "binary"
       ignore_index: *ignore_index
-      from_logits: true
 
 data:
   class_path: "src.data.DataModule"
