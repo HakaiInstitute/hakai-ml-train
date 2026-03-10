@@ -66,7 +66,9 @@ class LabelSmoothingLovasz(nn.Module):
         super().__init__()
         assert mode in ("binary", "multiclass")
         self.ce = LabelSmoothingCrossEntropy(mode, smoothing, ignore_index)
-        self.lovasz = smp.losses.LovaszLoss(mode=mode, from_logits=True)
+        self.lovasz = smp.losses.LovaszLoss(
+            mode=mode, from_logits=True, ignore_index=ignore_index
+        )
         self.lovasz_weight = lovasz_weight
 
     def forward(self, logits, targets):
