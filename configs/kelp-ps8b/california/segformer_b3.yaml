@@ -194,7 +194,7 @@ trainer:
       init_args:
         monitor: val/iou_epoch
         mode: max
-        patience: 30
+        patience: 80
         verbose: True
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
