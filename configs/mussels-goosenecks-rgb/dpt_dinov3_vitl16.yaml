@@ -8,6 +8,7 @@ model:
     model_opts:
       encoder_weights: "imagenet"
       in_channels: 3
+      decoder_intermediate_channels: [128, 256, 512, 1024]
     num_classes: 3
     ignore_index: &ignore_index -100
     optimizer_class: torch.optim.AdamW
