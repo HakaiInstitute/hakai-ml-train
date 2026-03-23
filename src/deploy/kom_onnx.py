@@ -94,7 +94,7 @@ if __name__ == "__main__":
         "ckpt_path", type=Path, help="Path to PyTorch Lightning checkpoint"
     )
     parser.add_argument("output_path", type=Path, help="Path to save the ONNX model")
-    parser.add_argument("--opset", type=int, default=11, help="ONNX opset version")
+    parser.add_argument("--opset", type=int, default=17, help="ONNX opset version")
     parser.add_argument(
         "--no-dynamic-spatial",
         action="store_true",
