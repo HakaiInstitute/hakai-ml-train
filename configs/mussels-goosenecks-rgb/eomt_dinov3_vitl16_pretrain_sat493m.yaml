@@ -308,6 +308,9 @@ trainer:
         mode: max
         patience: 30
         verbose: true
+    - class_path: src.callbacks.MaskAnnealingCallback
+      init_args:
+        annealing_epochs: 20
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
