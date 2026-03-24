@@ -42,7 +42,7 @@ data:
     train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512-full-webds"
     val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
     test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    batch_size: 6
+    batch_size: 16
     num_workers: 8
     pin_memory: true
     persistent_workers: true
@@ -294,7 +294,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: dpt_dinov3_vitl16
+        name: eomt_dinov3_vitl16_sat493m
         group: Mar2026
         log_model: true
         tags:
@@ -304,7 +304,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_dpt_dinov3_vitl16_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_eomt_dinov3_vitl16_sat493m_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
