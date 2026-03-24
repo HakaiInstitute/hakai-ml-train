@@ -42,7 +42,6 @@ torch = [
 torchvision = [
     { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
-segmentation-models-pytorch = { git = "https://github.com/tayden/segmentation_models.pytorch.git" }
 
 [[tool.uv.index]]
 name = "pytorch-cu130"
