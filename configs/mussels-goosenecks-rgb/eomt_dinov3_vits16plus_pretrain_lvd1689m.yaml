@@ -45,8 +45,8 @@ data:
         bbox_params: null
         is_check_shapes: true
         keypoint_params: null
+        seed: 42
         p: 1
-        seed: null
         transforms:
           - __class_fullname__: D4
             p: 1.0
@@ -121,7 +121,7 @@ data:
         is_check_shapes: true
         keypoint_params: null
         p: 1
-        seed: null
+        seed: 42
         transforms:
           - __class_fullname__: Normalize
             max_pixel_value: 255.0
