@@ -20,7 +20,7 @@ model:
         - 0.95
     lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      warmup_steps: 7
+      warmup_steps: 500
       min_lr: 1e-6
     lr_scheduler_interval: epoch
     loss: "LabelSmoothingLovasz"
