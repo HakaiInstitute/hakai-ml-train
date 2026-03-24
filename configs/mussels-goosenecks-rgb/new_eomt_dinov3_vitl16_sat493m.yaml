@@ -172,7 +172,7 @@ data:
                   - 0.0
                 threshold: 10
           - __class_fullname__: OneOf
-            p: 0.25
+            p: 0.2
             transforms:
               - __class_fullname__: GaussNoise
                 mean_range:
@@ -193,7 +193,7 @@ data:
                   - 0.3
                 p: 1.0
           - __class_fullname__: OneOf
-            p: 0.15
+            p: 0.1
             transforms:
               - __class_fullname__: GaussianBlur
                 blur_limit:
@@ -209,7 +209,7 @@ data:
                   - 5
                 p: 1.0
           - __class_fullname__: OneOf
-            p: 0.2
+            p: 0.1
             transforms:
               - __class_fullname__: GridDropout
                 fill: 0.0
@@ -217,7 +217,7 @@ data:
                 holes_number_xy: null
                 p: 1.0
                 random_offset: true
-                ratio: 0.3
+                ratio: 0.2
                 shift_xy:
                   - 0
                   - 0
@@ -226,25 +226,14 @@ data:
                 fill: 0.0
                 fill_mask: 0.0
                 hole_height_range:
-                  - 24
-                  - 48
+                  - 16
+                  - 32
                 hole_width_range:
-                  - 24
-                  - 48
+                  - 16
+                  - 32
                 num_holes_range:
-                  - 3
-                  - 8
-                p: 1.0
-          - __class_fullname__: OneOf
-            p: 0.15
-            transforms:
-              - __class_fullname__: ElasticTransform
-                alpha: 1.0
-                sigma: 50.0
-                p: 1.0
-              - __class_fullname__: GridDistortion
-                num_steps: 5
-                distort_limit: 0.3
+                  - 2
+                  - 6
                 p: 1.0
           - __class_fullname__: Normalize
             max_pixel_value: 255.0
