@@ -107,7 +107,7 @@ def _get_semantic_probs(
     return semantic
 
 
-class DinoBinarySegmentationModel(
+class EomtDinoBinarySegmentationModel(
     pl.LightningModule,
     PyTorchModelHubMixin,
     library_name="habitat-mapper",
@@ -245,7 +245,7 @@ class DinoBinarySegmentationModel(
         return _configure_optimizers(self)
 
 
-class DinoMulticlassSegmentationModel(DinoBinarySegmentationModel):
+class EomtDinoMulticlassSegmentationModel(EomtDinoBinarySegmentationModel):
     def __init__(
         self, *args, class_names: tuple[str, ...] = ("bg", "macro", "nereo"), **kwargs
     ):
