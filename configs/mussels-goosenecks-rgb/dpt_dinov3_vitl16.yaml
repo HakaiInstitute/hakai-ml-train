@@ -64,7 +64,7 @@ data:
             fill_mask: 0.0
             fit_output: false
             interpolation: 1
-            keep_ratio: false
+            keep_ratio: true
             mask_interpolation: 0
             p: 0.5
             rotate:
