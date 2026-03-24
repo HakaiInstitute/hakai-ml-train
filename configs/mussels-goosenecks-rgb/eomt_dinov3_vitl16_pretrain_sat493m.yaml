@@ -13,7 +13,7 @@ model:
     optimizer_class: torch.optim.AdamW
     optimizer_opts:
       lr: 3e-4
-      weight_decay: 0.01
+      weight_decay: 0.03
       betas:
         - 0.9
         - 0.95
@@ -33,7 +33,7 @@ data:
     train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-320-full-webds"
     val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
     test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
-    batch_size: 6
+    batch_size: 16
     num_workers: 8
     pin_memory: true
     persistent_workers: true
@@ -286,11 +286,11 @@ trainer:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
         name: eomt_dinov3_vitl16_pretrain_sat493m
-        group: Feb2026
+        group: Mar2026
         log_model: true
         tags:
           - mussel_gooseneck
-          - Feb2026
+          - Mar2026
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
@@ -306,8 +306,8 @@ trainer:
       init_args:
         monitor: val/iou_epoch
         mode: max
-        patience: 50
-        verbose: True
+        patience: 30
+        verbose: true
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
