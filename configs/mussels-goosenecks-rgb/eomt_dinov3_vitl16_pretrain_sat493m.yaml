@@ -13,7 +13,7 @@ model:
     optimizer_class: torch.optim.AdamW
     optimizer_opts:
       lr: 3e-4
-      weight_decay: 0.01
+      weight_decay: 0.03
       betas:
         - 0.9
         - 0.95
@@ -46,6 +46,7 @@ data:
         is_check_shapes: true
         keypoint_params: null
         p: 1
+        seed: 42
         transforms:
           - __class_fullname__: D4
             p: 1.0

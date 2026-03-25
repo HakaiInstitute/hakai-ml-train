@@ -6,7 +6,7 @@ model:
     architecture: "DPT"
     encoder_name: "tu-vit_large_patch16_dinov3.sat493m"
     model_opts:
-      encoder_weights: "imagenet"
+      encoder_weights: true
       in_channels: 3
       decoder_intermediate_channels: [128, 256, 512, 1024]
     num_classes: 3
@@ -20,13 +20,13 @@ model:
         - 0.95
     lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      warmup_steps: 2
+      warmup_steps: 500
       min_lr: 1e-6
-    lr_scheduler_interval: epoch
+    lr_scheduler_interval: step
     loss: "LabelSmoothingLovasz"
     loss_opts:
       mode: "multiclass"
-      smoothing: 0.2
+      smoothing: 0.15
       lovasz_weight: 0.5
       ignore_index: *ignore_index
     class_names:
@@ -40,7 +40,7 @@ data:
     train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-320-full-webds"
     val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
     test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
-    batch_size: 16
+    batch_size: 6
     num_workers: 8
     pin_memory: true
     persistent_workers: true
@@ -48,7 +48,7 @@ data:
       __version__: 2.0.8
       transform:
         __class_fullname__: Compose
-        additional_targets: { }
+        additional_targets: {}
         bbox_params: null
         is_check_shapes: true
         keypoint_params: null
@@ -281,9 +281,9 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 5
-  max_epochs: 200
+  max_epochs: 100
   accumulate_grad_batches: 8
-  gradient_clip_val: 0.5
+  gradient_clip_val: 1.0
   detect_anomaly: false
   default_root_dir: checkpoints
   fast_dev_run: False
