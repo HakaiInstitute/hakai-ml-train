@@ -6,27 +6,28 @@ model:
     architecture: "UPerNet"
     encoder_name: "tu-convnext_large.dinov3_lvd1689m"
     model_opts:
-      encoder_weights: "imagenet"
+      encoder_weights: true
       in_channels: 3
     num_classes: 3
     ignore_index: &ignore_index -100
     optimizer_class: torch.optim.AdamW
     optimizer_opts:
       lr: 3e-4
-      weight_decay: 0.01
+      weight_decay: 0.03
       betas:
         - 0.9
         - 0.95
     lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      warmup_steps: 7
+      warmup_steps: 500
       min_lr: 1e-6
-    lr_scheduler_interval: epoch
-    loss: "LovaszLoss"
+    lr_scheduler_interval: step
+    loss: "LabelSmoothingLovasz"
     loss_opts:
       mode: "multiclass"
+      smoothing: 0.1
+      lovasz_weight: 0.5
       ignore_index: *ignore_index
-      from_logits: true
     class_names:
       - bg
       - mussels
@@ -35,10 +36,10 @@ model:
 data:
   class_path: "src.data.WebDataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512-full-webds"
-    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    batch_size: 3
+    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-320-full-webds"
+    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
+    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-640-640-full-webds"
+    batch_size: 6
     num_workers: 8
     pin_memory: true
     persistent_workers: true
@@ -46,7 +47,7 @@ data:
       __version__: 2.0.8
       transform:
         __class_fullname__: Compose
-        additional_targets: { }
+        additional_targets: {}
         bbox_params: null
         is_check_shapes: true
         keypoint_params: null
@@ -279,9 +280,9 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 5
-  max_epochs: 200
+  max_epochs: 100
   accumulate_grad_batches: 8
-  gradient_clip_val: 0.5
+  gradient_clip_val: 1.0
   detect_anomaly: false
   default_root_dir: checkpoints
   fast_dev_run: False
@@ -290,17 +291,17 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: upernet_dinov3_convnext_large
-        group: Feb2026
+        name: upernet_convnextv2_large_dinov3
+        group: Mar2026
         log_model: true
         tags:
           - mussel_gooseneck
-          - Feb2026
+          - Mar2026
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_upernet_dinov3_convnext_large_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_upernet_convnextv2_large_dinov3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True

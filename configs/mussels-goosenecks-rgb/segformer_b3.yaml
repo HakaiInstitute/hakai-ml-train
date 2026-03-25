@@ -25,7 +25,7 @@ model:
     loss: "LabelSmoothingLovasz"
     loss_opts:
       mode: "multiclass"
-      smoothing: 0.15
+      smoothing: 0.1
       lovasz_weight: 0.5
       ignore_index: *ignore_index
     class_names:

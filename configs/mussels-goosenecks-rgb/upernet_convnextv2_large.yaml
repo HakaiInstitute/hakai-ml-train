@@ -6,7 +6,7 @@ model:
     architecture: "UPerNet"
     encoder_name: "tu-convnextv2_large.fcmae_ft_in22k_in1k_384"
     model_opts:
-      encoder_weights: fcmae_ft_in22k_in1k_384
+      encoder_weights: true
       in_channels: 3
     num_classes: 3
     ignore_index: &ignore_index -100
