@@ -26,4 +26,4 @@ class MaskAnnealingCallback(pl.Callback):
 
         model.attn_mask_probs.fill_(prob)
 
-        pl_module.log("mask_anneal/prob", prob)
+        pl_module.log("mask_anneal_prob", prob)
