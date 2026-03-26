@@ -8,12 +8,13 @@ model:
     model_opts:
       encoder_weights: true
       in_channels: 3
+      drop_path_rate: 0.4
     num_classes: 3
     ignore_index: &ignore_index -100
     optimizer_class: torch.optim.AdamW
     optimizer_opts:
       lr: 3e-4
-      weight_decay: 0.03
+      weight_decay: 0.05
       betas:
         - 0.9
         - 0.95
@@ -206,7 +207,7 @@ data:
                   - 5
                 p: 1.0
           - __class_fullname__: OneOf
-            p: 0.1
+            p: 0.35
             transforms:
               - __class_fullname__: GridDropout
                 fill: 0.0
@@ -221,14 +222,14 @@ data:
               - __class_fullname__: CoarseDropout
                 fill: 0.0
                 hole_height_range:
-                  - 16
-                  - 32
+                  - 24
+                  - 64
                 hole_width_range:
-                  - 16
-                  - 32
+                  - 24
+                  - 64
                 num_holes_range:
-                  - 2
-                  - 6
+                  - 4
+                  - 10
                 p: 1.0
           - __class_fullname__: Normalize
             max_pixel_value: 255.0
