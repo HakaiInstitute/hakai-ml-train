@@ -13,7 +13,7 @@ model:
     optimizer_class: torch.optim.AdamW
     optimizer_opts:
       lr: 3e-4
-      weight_decay: 0.1
+      weight_decay: 0.03
       betas:
         - 0.9
         - 0.95
@@ -210,7 +210,6 @@ data:
             transforms:
               - __class_fullname__: GridDropout
                 fill: 0.0
-                fill_mask: 0.0
                 holes_number_xy: null
                 p: 1.0
                 random_offset: true
@@ -221,7 +220,6 @@ data:
                 unit_size_range: null
               - __class_fullname__: CoarseDropout
                 fill: 0.0
-                fill_mask: 0.0
                 hole_height_range:
                   - 16
                   - 32
