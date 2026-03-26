@@ -51,7 +51,7 @@ def main(
     onnx_model.eval()
 
     x = torch.rand(
-        1,
+        2,
         num_channels,
         image_size,
         image_size,
