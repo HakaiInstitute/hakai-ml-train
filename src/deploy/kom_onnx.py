@@ -61,9 +61,9 @@ def main(
 
     if dynamo:
         if dynamic_spatial:
-            img_shape = (Dim("batch"), Dim.STATIC, Dim("height"), Dim("width"))
+            img_shape = (Dim("batch", min=1), Dim.STATIC, Dim("height"), Dim("width"))
         else:
-            img_shape = (Dim("batch"), Dim.STATIC, Dim.STATIC, Dim.STATIC)
+            img_shape = (Dim("batch", min=1), Dim.STATIC, Dim.STATIC, Dim.STATIC)
         extra_kwargs = dict(dynamic_shapes={"x": img_shape}, dynamo=True)
     else:
         img_dynamic_axes = {0: "batch_size"}
