@@ -3,7 +3,7 @@ seed_everything: 42
 model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
-    architecture: "UPerNet"
+    architecture: "Unet"
     encoder_name: "tu-convnext_large.dinov3_lvd1689m"
     model_opts:
       encoder_weights: true
@@ -290,7 +290,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: upernet_convnextv2_large
+        name: unet_convnextv2_large
         group: Apr2026
         log_model: true
         tags:
@@ -300,7 +300,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_upernet_convnextv2_large_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_unet_convnextv2_large_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
