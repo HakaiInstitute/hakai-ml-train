@@ -322,5 +322,3 @@ trainer:
         should_align: true
         train_bn: true
         verbose: true
-  plugins:
-    - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO
