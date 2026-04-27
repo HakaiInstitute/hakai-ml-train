@@ -216,3 +216,9 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
         self.log(f"{phase}/iou", iou_per_class[1:].mean(), sync_dist=True)
 
         return loss
+
+    def predict_step(self, batch: torch.Tensor, batch_idx: int):
+        x, _ = batch
+        logits = self.forward(x)
+        probs = torch.softmax(logits, dim=1)
+        return probs.to(torch.float16).cpu()
