@@ -33,6 +33,7 @@ def aggregate_fold_probs(
     num_classes: int,
     height: int,
     width: int,
+    chunk_size: int = 16,
 ) -> None:
     """Concatenate per-fold probs.zarr into one OOF probs.zarr.
 
@@ -42,9 +43,13 @@ def aggregate_fold_probs(
         fold_dirs: mapping fold_idx -> directory containing probs.zarr.
         output_zarr_path: destination zarr path for the combined OOF tensor.
         num_classes, height, width: dimensions for the output array.
+        chunk_size: zarr chunk size along axis 0; also the inner write block
+            size. Keeping these aligned avoids misaligned I/O.
     """
     n_total = len(fold_assignments)
-    out = open_oof_probs_writer(output_zarr_path, n_total, num_classes, height, width)
+    out = open_oof_probs_writer(
+        output_zarr_path, n_total, num_classes, height, width, chunk_size
+    )
 
     for fold_idx, fold_dir in sorted(fold_dirs.items()):
         fold_df = fold_assignments[fold_assignments["fold_idx"] == fold_idx]
@@ -61,8 +66,6 @@ def aggregate_fold_probs(
                 f"expected {len(target_rows)}"
             )
 
-        # Write in chunks to control memory.
-        chunk = 16
-        for start in range(0, len(target_rows), chunk):
-            end = min(start + chunk, len(target_rows))
+        for start in range(0, len(target_rows), chunk_size):
+            end = min(start + chunk_size, len(target_rows))
             out[target_rows[start:end]] = fold_probs[start:end]
