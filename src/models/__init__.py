@@ -54,10 +54,11 @@ def configure_optimizers(module):
     - lr_scheduler_monitor: metric name or None (required for ReduceLROnPlateau)
     """
     optimizer_cls = _import_class(module.hparams.optimizer_class)
-    optimizer = optimizer_cls(
-        _param_groups(module),
-        **(module.hparams.optimizer_opts or {}),
-    )
+    optimizer_opts = module.hparams.optimizer_opts or {}
+    if getattr(optimizer_cls, "_TAKES_MODULE", False):
+        optimizer = optimizer_cls(module, **optimizer_opts)
+    else:
+        optimizer = optimizer_cls(_param_groups(module), **optimizer_opts)
 
     scheduler_cls = _import_class(module.hparams.lr_scheduler_class)
     scheduler_kwargs = dict(module.hparams.lr_scheduler_opts or {})
