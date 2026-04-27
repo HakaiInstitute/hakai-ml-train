@@ -319,6 +319,11 @@ class WebDataModule(DataModule):
             raise ValueError(f"Unknown fold_mode: {self.fold_mode}")
 
     def predict_dataloader(self, *args, **kwargs):
+        if self.ds_predict is None:
+            raise RuntimeError(
+                "ds_predict is not initialized; call setup() with "
+                "fold_mode='predict' before predict_dataloader()."
+            )
         return DataLoader(
             self.ds_predict,
             shuffle=False,
