@@ -12,7 +12,7 @@ model:
     ignore_index: &ignore_index -100
     optimizer_class: src.optimizers.MuonAdamWAux
     optimizer_opts:
-      muon_lr: 0.02/
+      muon_lr: 0.02
       muon_weight_decay: 0.03
       muon_momentum: 0.95
       muon_nesterov: true
