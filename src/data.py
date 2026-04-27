@@ -178,25 +178,178 @@ class DataModule(pl.LightningDataModule):
 
 
 class WebDataModule(DataModule):
+    def __init__(
+        self,
+        *args,
+        fold_idx: int | None = None,
+        num_folds: int = 5,
+        pool_splits: tuple[str, ...] = ("train", "validation"),
+        fold_seed: int = 42,
+        fold_assignments_path: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.fold_idx = fold_idx
+        self.num_folds = num_folds
+        self.pool_splits = tuple(pool_splits)
+        self.fold_seed = fold_seed
+        self.fold_assignments_path = fold_assignments_path
+        # Set by orchestrator before setup. "train" => train_dataset = pool minus
+        # held-out, val_dataset = held-out. "predict" => predict_dataset = held-out.
+        self.fold_mode: str = "train"
+        self.ds_predict = None
+        # Cached pool (concatenation of pool splits) and the assignments df.
+        self._pool = None
+        self._assignments = None
+        self._split_offsets = None
+
+    def _ensure_pool(self):
+        if self._pool is not None:
+            return
+        # Use train_data_dir as the HF dataset root; pool_splits are the splits
+        # within that dataset to concatenate.
+        loaded = [
+            hf_datasets.load_dataset(self.train_data_dir, split=s)
+            for s in self.pool_splits
+        ]
+        self._pool = hf_datasets.concatenate_datasets(loaded)
+        # Track the offset of each split inside the concatenated pool so we can
+        # recover (original_split, original_index) from a pool index.
+        self._split_offsets = []
+        offset = 0
+        for name, d in zip(self.pool_splits, loaded, strict=True):
+            self._split_offsets.append((name, offset, offset + len(d)))
+            offset += len(d)
+
+    def _ensure_assignments(self):
+        if self._assignments is not None:
+            return
+        from src.audit.folds import (
+            compute_fold_assignments,
+            load_fold_assignments,
+        )
+
+        if (
+            self.fold_assignments_path is not None
+            and Path(self.fold_assignments_path).exists()
+        ):
+            self._assignments = load_fold_assignments(Path(self.fold_assignments_path))
+        else:
+            self._ensure_pool()
+            split_sizes = {
+                name: end - start for name, start, end in self._split_offsets
+            }
+            self._assignments = compute_fold_assignments(
+                split_sizes, num_folds=self.num_folds, seed=self.fold_seed
+            )
+
+    def _pool_indices_for_fold(
+        self, fold_idx: int, holdout: bool, ordered: bool
+    ) -> list[int]:
+        """Return indices into the concatenated pool corresponding to the given fold.
+
+        If holdout is True, returns indices in the held-out fold; otherwise
+        returns the complement (training portion). When ordered=True, the
+        result is ordered by row_index (used for predict so the fold's
+        probs.zarr lines up with the aggregator's expectations).
+        """
+        self._ensure_pool()
+        self._ensure_assignments()
+        if holdout:
+            sub = self._assignments[self._assignments["fold_idx"] == fold_idx]
+        else:
+            sub = self._assignments[self._assignments["fold_idx"] != fold_idx]
+        if ordered:
+            sub = sub.iloc[np.argsort(sub["row_index"].to_numpy())]
+
+        offset_lookup = {name: start for name, start, _end in self._split_offsets}
+        return [
+            offset_lookup[row.original_split] + int(row.original_index)
+            for row in sub.itertuples()
+        ]
+
     def setup(self, stage: str | None = None):
-        if stage == "fit" or stage is None:
-            self.ds_train = WebDataset(
-                self.train_data_dir,
-                split="train",
-                transforms=self.train_trans,
+        # Default behavior preserved when fold_idx is None.
+        if self.fold_idx is None:
+            if stage == "fit" or stage is None:
+                self.ds_train = WebDataset(
+                    self.train_data_dir,
+                    split="train",
+                    transforms=self.train_trans,
+                )
+            if stage in ["fit", "validate"] or stage is None:
+                self.ds_val = WebDataset(
+                    self.val_data_dir,
+                    split="validation",
+                    transforms=self.test_trans,
+                )
+            if stage == "test":
+                self.ds_test = WebDataset(
+                    self.test_data_dir,
+                    split="test",
+                    transforms=self.test_trans,
+                )
+            return
+
+        # Fold mode.
+        self._ensure_pool()
+        self._ensure_assignments()
+
+        if self.fold_mode == "train":
+            train_indices = self._pool_indices_for_fold(
+                self.fold_idx, holdout=False, ordered=False
             )
-        if stage in ["fit", "validate"] or stage is None:
-            self.ds_val = WebDataset(
-                self.val_data_dir,
-                split="validation",
-                transforms=self.test_trans,
+            holdout_indices = self._pool_indices_for_fold(
+                self.fold_idx, holdout=True, ordered=False
             )
-        if stage == "test":
-            self.ds_test = WebDataset(
-                self.test_data_dir,
-                split="test",
-                transforms=self.test_trans,
+            self.ds_train = _PoolSubset(
+                self._pool, train_indices, transforms=self.train_trans
             )
+            self.ds_val = _PoolSubset(
+                self._pool, holdout_indices, transforms=self.test_trans
+            )
+        elif self.fold_mode == "predict":
+            ordered_pool_indices = self._pool_indices_for_fold(
+                self.fold_idx, holdout=True, ordered=True
+            )
+            self.ds_predict = _PoolSubset(
+                self._pool, ordered_pool_indices, transforms=self.test_trans
+            )
+        else:
+            raise ValueError(f"Unknown fold_mode: {self.fold_mode}")
+
+    def predict_dataloader(self, *args, **kwargs):
+        return DataLoader(
+            self.ds_predict,
+            shuffle=False,
+            batch_size=self.batch_size,
+            pin_memory=self.pin_memory,
+            num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers,
+        )
+
+
+class _PoolSubset(Dataset):
+    """Thin wrapper that selects rows from a concatenated HF dataset and
+    applies Albumentations transforms."""
+
+    def __init__(self, pool, indices: list[int], transforms=None):
+        self._pool = pool
+        self._indices = indices
+        self.transforms = transforms
+
+    def __len__(self):
+        return len(self._indices)
+
+    def __getitem__(self, idx):
+        sample = self._pool[self._indices[idx]]
+        image = np.array(sample["image.tif"])
+        mask = np.array(sample["label.tif"])
+        if self.transforms is not None:
+            with torch.no_grad():
+                augmented = self.transforms(image=image, mask=mask)
+                return augmented["image"], augmented["mask"]
+        return image, mask
 
 
 class MAEDataModule(DataModule):
