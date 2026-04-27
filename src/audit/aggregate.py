@@ -51,7 +51,7 @@ def aggregate_fold_probs(
         # row_index is the destination index into the OOF tensor.
         # The fold's probs.zarr was written in fold-local order, which corresponds
         # to fold_df sorted by row_index.
-        fold_df = fold_df.sort_values("row_index")
+        fold_df = fold_df.sort_values(by="row_index")
         target_rows = fold_df["row_index"].to_numpy()
 
         fold_probs = zarr.open(str(fold_dir / "probs.zarr"), mode="r")
