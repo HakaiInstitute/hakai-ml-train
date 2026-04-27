@@ -52,12 +52,11 @@ def aggregate_fold_probs(
     )
 
     for fold_idx, fold_dir in sorted(fold_dirs.items()):
-        fold_df = fold_assignments[fold_assignments["fold_idx"] == fold_idx]
         # row_index is the destination index into the OOF tensor.
         # The fold's probs.zarr was written in fold-local order, which corresponds
-        # to fold_df sorted by row_index.
-        fold_df = fold_df.sort_values(by="row_index")
-        target_rows = fold_df["row_index"].to_numpy()
+        # to the held-out samples sorted by row_index.
+        fold_mask = fold_assignments["fold_idx"] == fold_idx
+        target_rows = np.sort(fold_assignments.loc[fold_mask, "row_index"].to_numpy())
 
         fold_probs = zarr.open(str(fold_dir / "probs.zarr"), mode="r")
         if fold_probs.shape[0] != len(target_rows):
