@@ -1,24 +1,23 @@
 """Hybrid optimizer: Muon for ndim>=2 weights, AdamW for the rest."""
 
-from collections import ChainMap
-
 import torch
 import torch.nn as nn
+from torch.optim import Optimizer
 
 from .muon import Muon
 
 
-class MuonAdamWAux:
+class MuonAdamWAux(Optimizer):
     """Apply Muon to matrix-shaped parameters and AdamW to the rest.
 
     Parameters with ``ndim >= 2`` (Linear/Conv weights) go to Muon. Remaining
     1D parameters (biases, normalization scales, 1D embeddings) go to AdamW.
 
-    The wrapper exposes the standard ``torch.optim.Optimizer`` duck-type
-    interface (``param_groups``, ``state``, ``step``, ``zero_grad``,
-    ``state_dict``, ``load_state_dict``, ``add_param_group``) so Lightning's
-    automatic optimization, gradient clipping, gradient accumulation and
-    standard LR schedulers operate on it transparently.
+    Inherits from ``torch.optim.Optimizer`` so PyTorch LR schedulers and
+    Lightning recognize it as an optimizer. Internally holds two child
+    optimizers; ``param_groups`` is the concatenation of their groups so
+    schedulers can adjust each independently, and ``step``/``state_dict`` /
+    ``load_state_dict`` delegate to both children.
     """
 
     _TAKES_MODULE = True
@@ -46,6 +45,12 @@ class MuonAdamWAux:
             else:
                 adamw_params.append(p)
 
+        # Initialize the Optimizer base with all trainable params so isinstance
+        # checks (LRScheduler, Lightning) and base-class step/hook machinery work.
+        # We replace param_groups below with the inner optimizers' groups so
+        # LR schedulers can adjust Muon and AdamW LRs independently.
+        super().__init__(muon_params + adamw_params, defaults={})
+
         self.muon = Muon(
             muon_params,
             lr=muon_lr,
@@ -61,25 +66,17 @@ class MuonAdamWAux:
             eps=adamw_eps,
             weight_decay=adamw_weight_decay,
         )
-        self._optimizers: tuple[torch.optim.Optimizer, ...] = (self.muon, self.adamw)
         self.param_groups = list(self.muon.param_groups) + list(self.adamw.param_groups)
-        self.defaults = dict(self.muon.defaults)
 
-    @property
-    def state(self):
-        return ChainMap(self.muon.state, self.adamw.state)
-
-    def step(self, closure=None) -> float | None:
-        loss: float | None = None
+    @torch.no_grad()
+    def step(self, closure=None):  # type: ignore[override]
+        loss = None
         if closure is not None:
-            loss = closure()
-        for opt in self._optimizers:
-            opt.step()
+            with torch.enable_grad():
+                loss = closure()
+        self.muon.step()
+        self.adamw.step()
         return loss
-
-    def zero_grad(self, set_to_none: bool = True) -> None:
-        for opt in self._optimizers:
-            opt.zero_grad(set_to_none=set_to_none)
 
     def state_dict(self) -> dict:
         return {"muon": self.muon.state_dict(), "adamw": self.adamw.state_dict()}
@@ -88,14 +85,18 @@ class MuonAdamWAux:
         self.muon.load_state_dict(state_dict["muon"])
         self.adamw.load_state_dict(state_dict["adamw"])
 
-    def add_param_group(self, group: dict) -> None:
-        params = group["params"]
+    def add_param_group(self, param_group: dict) -> None:
+        if not hasattr(self, "muon"):
+            # Called from Optimizer.__init__ before inner optimizers exist.
+            super().add_param_group(param_group)
+            return
+        params = param_group["params"]
         if not isinstance(params, list):
             params = list(params)
         if any(p.ndim < 2 for p in params):
-            self.adamw.add_param_group(group)
+            self.adamw.add_param_group(param_group)
         else:
-            self.muon.add_param_group(group)
+            self.muon.add_param_group(param_group)
         self.param_groups = list(self.muon.param_groups) + list(self.adamw.param_groups)
 
 
