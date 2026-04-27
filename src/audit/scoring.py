@@ -19,7 +19,7 @@ def per_pixel_scores(
     Returns:
         scores: shape (B, H, W), float32. NaN where label == ignore_index.
     """
-    b, c, h, w = probs.shape
+    b, _, h, w = probs.shape
     if labels.shape != (b, h, w):
         raise ValueError(
             f"labels shape {labels.shape} does not match probs spatial shape ({b}, {h}, {w})"
