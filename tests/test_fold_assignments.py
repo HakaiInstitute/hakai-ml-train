@@ -1,6 +1,4 @@
-import numpy as np
 import pandas as pd
-import pytest
 
 from src.audit.folds import compute_fold_assignments
 
