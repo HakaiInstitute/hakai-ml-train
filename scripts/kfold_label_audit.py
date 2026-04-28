@@ -102,6 +102,26 @@ def _build_callbacks(fold_dir: Path) -> list:
     ]
 
 
+def _wandb_settings_from_config(base_trainer_cfg: dict) -> dict:
+    """Pull entity/project from the first WandbLogger entry in the base config.
+
+    Falls back to hakai/kom-mussel-gooseneck-rgb if not found, so older configs
+    still work, but a normal config produces dataset-specific routing.
+    """
+    loggers = base_trainer_cfg.get("logger") or []
+    if isinstance(loggers, dict):
+        loggers = [loggers]
+    for entry in loggers:
+        cls = entry.get("class_path", "")
+        if "WandbLogger" in cls:
+            args = entry.get("init_args", {})
+            return {
+                "entity": args.get("entity", "hakai"),
+                "project": args.get("project", "kom-mussel-gooseneck-rgb"),
+            }
+    return {"entity": "hakai", "project": "kom-mussel-gooseneck-rgb"}
+
+
 def _build_trainer(
     base_trainer_cfg: dict, fold_dir: Path, run_name: str, group: str, callbacks: list
 ) -> Trainer:
@@ -110,9 +130,10 @@ def _build_trainer(
     cfg.pop("callbacks", None)  # We replace these per-fold.
     cfg.pop("logger", None)
 
+    wandb = _wandb_settings_from_config(base_trainer_cfg)
     logger = WandbLogger(
-        entity="hakai",
-        project="kom-mussel-gooseneck-rgb",
+        entity=wandb["entity"],
+        project=wandb["project"],
         name=run_name,
         group=group,
         log_model=False,  # Per-fold checkpoints are kept locally; don't bloat W&B.
