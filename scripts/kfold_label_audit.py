@@ -22,11 +22,11 @@ import datasets as hf_datasets
 import lightning.pytorch as pl
 import numpy as np
 import pandas as pd
-import torch
 import yaml
 import zarr
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import (
+    BasePredictionWriter,
     EarlyStopping,
     LearningRateMonitor,
     ModelCheckpoint,
@@ -197,6 +197,60 @@ def _run_fold_training(
     return Path(best_path)
 
 
+class _ZarrBatchWriter(BasePredictionWriter):
+    """Streams predict_step outputs straight into a pre-allocated zarr array.
+
+    Avoids accumulating the entire fold's predictions in CPU memory before
+    writing — important for large folds (3000+ tiles at 640x640x3-class fp16
+    is ~8 GB, and torch.cat + zarr copy roughly triples the peak).
+
+    Validates expected (C, H, W) on every batch and tracks how many rows have
+    been written so the orchestrator can confirm full coverage.
+    """
+
+    def __init__(
+        self,
+        arr,
+        expected_classes: int,
+        expected_h: int,
+        expected_w: int,
+        fold_idx: int,
+    ):
+        super().__init__(write_interval="batch")
+        self._arr = arr
+        self._expected_classes = expected_classes
+        self._expected_h = expected_h
+        self._expected_w = expected_w
+        self._fold_idx = fold_idx
+        self.rows_written = 0
+
+    def write_on_batch_end(
+        self,
+        trainer,
+        pl_module,
+        prediction,
+        batch_indices,
+        batch,
+        batch_idx,
+        dataloader_idx,
+    ):
+        del trainer, pl_module, batch_indices, batch, dataloader_idx
+        probs = prediction.numpy()
+        if probs.shape[1:] != (
+            self._expected_classes,
+            self._expected_h,
+            self._expected_w,
+        ):
+            raise RuntimeError(
+                f"Fold {self._fold_idx} batch {batch_idx} shape {probs.shape} "
+                f"disagrees with expected "
+                f"(B, {self._expected_classes}, {self._expected_h}, {self._expected_w})"
+            )
+        n = probs.shape[0]
+        self._arr[self.rows_written : self.rows_written + n] = probs
+        self.rows_written += n
+
+
 def _run_fold_prediction(
     config: dict,
     fold_idx: int,
@@ -217,39 +271,40 @@ def _run_fold_prediction(
         fold_assignments_path=output_dir / "fold_assignments.parquet",
     )
     dm.fold_mode = "predict"
+    dm.setup()
 
-    # Predict on a clean trainer with no callbacks/loggers. logger=False
-    # (rather than popping the key) prevents Lightning from defaulting to
-    # TensorBoardLogger, which would break DataModule.on_after_batch_transfer
-    # (it expects a WandbLogger-shaped .experiment.config).
+    # Pre-allocate the zarr to the known fold size, then stream each batch
+    # straight in via a callback. logger=False (rather than popping the key)
+    # prevents Lightning from defaulting to TensorBoardLogger, which would
+    # break DataModule.on_after_batch_transfer (it expects a WandbLogger).
+    n_total = len(dm.ds_predict)
+    arr = zarr.open(
+        str(fold_dir / "probs.zarr"),
+        mode="w",
+        shape=(n_total, n_classes, height, width),
+        chunks=(min(16, n_total), n_classes, height, width),
+        dtype=np.float16,
+    )
+    writer = _ZarrBatchWriter(arr, n_classes, height, width, fold_idx)
+
     trainer_cfg = copy.deepcopy(config["trainer"])
     trainer_cfg.pop("callbacks", None)
     trainer_cfg.pop("logger", None)
     trainer_cfg["default_root_dir"] = str(fold_dir)
-    pred_trainer = Trainer(**trainer_cfg, enable_progress_bar=True, logger=False)
-
-    batch_outputs = pred_trainer.predict(model, datamodule=dm)
-    # batch_outputs: list of (B, C, H, W) float16 tensors
-    probs = torch.cat(batch_outputs, dim=0).numpy()
-    if (
-        probs.shape[1] != n_classes
-        or probs.shape[2] != height
-        or probs.shape[3] != width
-    ):
-        raise RuntimeError(
-            f"Fold {fold_idx} prediction shape {probs.shape} disagrees with expected "
-            f"(N, {n_classes}, {height}, {width})"
-        )
-
-    n = probs.shape[0]
-    arr = zarr.open(
-        str(fold_dir / "probs.zarr"),
-        mode="w",
-        shape=(n, n_classes, height, width),
-        chunks=(min(16, n), n_classes, height, width),
-        dtype=np.float16,
+    pred_trainer = Trainer(
+        **trainer_cfg,
+        enable_progress_bar=True,
+        logger=False,
+        callbacks=[writer],
     )
-    arr[:] = probs
+
+    pred_trainer.predict(model, datamodule=dm, return_predictions=False)
+
+    if writer.rows_written != n_total:
+        raise RuntimeError(
+            f"Fold {fold_idx}: wrote {writer.rows_written} predictions, "
+            f"expected {n_total}"
+        )
 
     (fold_dir / "_SUCCESS").touch()
 
