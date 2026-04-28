@@ -218,12 +218,15 @@ def _run_fold_prediction(
     )
     dm.fold_mode = "predict"
 
-    # Predict on a clean trainer with no callbacks/loggers.
+    # Predict on a clean trainer with no callbacks/loggers. logger=False
+    # (rather than popping the key) prevents Lightning from defaulting to
+    # TensorBoardLogger, which would break DataModule.on_after_batch_transfer
+    # (it expects a WandbLogger-shaped .experiment.config).
     trainer_cfg = copy.deepcopy(config["trainer"])
     trainer_cfg.pop("callbacks", None)
     trainer_cfg.pop("logger", None)
     trainer_cfg["default_root_dir"] = str(fold_dir)
-    pred_trainer = Trainer(**trainer_cfg, enable_progress_bar=True)
+    pred_trainer = Trainer(**trainer_cfg, enable_progress_bar=True, logger=False)
 
     batch_outputs = pred_trainer.predict(model, datamodule=dm)
     # batch_outputs: list of (B, C, H, W) float16 tensors
