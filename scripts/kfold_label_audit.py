@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import copy
 import importlib
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -56,9 +57,32 @@ def _import_class(dotted: str):
     return getattr(importlib.import_module(mod), name)
 
 
+class _FloatLoader(yaml.SafeLoader):
+    """SafeLoader that parses scientific notation without a decimal point as
+    float, e.g. ``3e-4`` → 0.0003 instead of "3e-4". Matches the YAML 1.2 /
+    jsonargparse behavior that LightningCLI uses, so configs work the same
+    way under both entrypoints."""
+
+
+_FloatLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:float",
+    re.compile(
+        r"""^(?:
+         [-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+]?[0-9]+)?
+        |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
+        |\.[0-9_]+(?:[eE][-+]?[0-9]+)?
+        |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*
+        |[-+]?\.(?:inf|Inf|INF)
+        |\.(?:nan|NaN|NAN))$""",
+        re.X,
+    ),
+    list("-+0123456789."),
+)
+
+
 def _load_config(path: Path) -> dict:
     with open(path) as f:
-        return yaml.safe_load(f)
+        return yaml.load(f, Loader=_FloatLoader)
 
 
 def _instantiate_model(model_cfg: dict) -> pl.LightningModule:
