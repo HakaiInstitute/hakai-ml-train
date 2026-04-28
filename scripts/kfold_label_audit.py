@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import datasets as hf_datasets
+import lightning.pytorch as pl
 import numpy as np
 import pandas as pd
 import torch
@@ -60,7 +61,7 @@ def _load_config(path: Path) -> dict:
         return yaml.safe_load(f)
 
 
-def _instantiate_model(model_cfg: dict) -> torch.nn.Module:
+def _instantiate_model(model_cfg: dict) -> pl.LightningModule:
     cls = _import_class(model_cfg["class_path"])
     return cls(**model_cfg.get("init_args", {}))
 
@@ -144,7 +145,8 @@ def _run_fold_training(
         callbacks=callbacks,
     )
     trainer.fit(model, datamodule=dm)
-    best_path = trainer.checkpoint_callback.best_model_path
+    ckpt_cb = trainer.checkpoint_callback
+    best_path = getattr(ckpt_cb, "best_model_path", None)
     if not best_path:
         raise RuntimeError(f"Fold {fold_idx} did not produce a best checkpoint")
     return Path(best_path)
