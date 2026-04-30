@@ -83,13 +83,13 @@ def main(root: Path, max_pixel_val: float = 255.0) -> None:
         dataset, batch_size=8, shuffle=False, num_workers=8
     )
 
-    print(f"Computing channel statistics...")
+    print("Computing channel statistics...")
     mean, std, valid_pixels = compute_channel_stats_fast_stable(dataloader)
     mean /= max_pixel_val
     std /= max_pixel_val
     print(f"\nValid pixels used: {valid_pixels:,}")
 
-    print(f"\nChannel-wise statistics:")
+    print("\nChannel-wise statistics:")
     print(f"Mean: {mean}")
     print(f"Std:  {std}")
 

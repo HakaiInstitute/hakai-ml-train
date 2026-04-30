@@ -24,7 +24,7 @@ class NpzSegmentationDataset(VisionDataset):
         **kwargs,
     ):
         super().__init__(root, *args, **kwargs)
-        self.chips = sorted(Path(root).glob(f"*.npz"))
+        self.chips = sorted(Path(root).glob("*.npz"))
 
     def __len__(self):
         return len(self.chips)

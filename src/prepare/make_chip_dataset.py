@@ -200,7 +200,7 @@ def main():
 
     print(f"Creating dataset {Path(args.output_dir).name}")
 
-    print(f"Pixel values will be remapped:")
+    print("Pixel values will be remapped:")
     for i, v in enumerate(args.remap):
         print(f"{i} -> {v}")
     print("All other values will be set to -100.")
