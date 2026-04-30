@@ -1,11 +1,45 @@
 import importlib
 import inspect
 
+import torch.nn as nn
+
 
 def _import_class(class_path: str):
     """Import a class from a dotted path string."""
     module_path, class_name = class_path.rsplit(".", 1)
     return getattr(importlib.import_module(module_path), class_name)
+
+
+_NORM_TYPES = (
+    nn.BatchNorm1d,
+    nn.BatchNorm2d,
+    nn.BatchNorm3d,
+    nn.SyncBatchNorm,
+    nn.LayerNorm,
+    nn.GroupNorm,
+    nn.InstanceNorm1d,
+    nn.InstanceNorm2d,
+    nn.InstanceNorm3d,
+)
+
+
+def _param_groups(module):
+    """Return two parameter groups: norm/bias params with weight_decay=0, rest unchanged."""
+    no_wd_ids = set()
+    for mod in module.modules():
+        if isinstance(mod, _NORM_TYPES):
+            no_wd_ids.update(id(p) for p in mod.parameters())
+    for name, param in module.named_parameters():
+        if name.endswith(".bias"):
+            no_wd_ids.add(id(param))
+
+    decay = [
+        p for p in module.parameters() if p.requires_grad and id(p) not in no_wd_ids
+    ]
+    no_decay = [
+        p for p in module.parameters() if p.requires_grad and id(p) in no_wd_ids
+    ]
+    return [{"params": decay}, {"params": no_decay, "weight_decay": 0.0}]
 
 
 def configure_optimizers(module):
@@ -21,7 +55,7 @@ def configure_optimizers(module):
     """
     optimizer_cls = _import_class(module.hparams.optimizer_class)
     optimizer = optimizer_cls(
-        filter(lambda p: p.requires_grad, module.parameters()),
+        _param_groups(module),
         **(module.hparams.optimizer_opts or {}),
     )
 

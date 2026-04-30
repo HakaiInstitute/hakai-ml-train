@@ -1,7 +1,7 @@
 [project]
 name = "hakai-ml-train"
 version = "0.1.0"
-description = "Add your description here"
+description = "Training scripts for segmentation models"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -10,16 +10,16 @@ dependencies = [
     "einops>=0.8.1",
     "huggingface-hub>=1.4.1",
     "lightly[timm]>=1.5.21",
-    "lightning[pytorch-extra]>=2.5.1",
+    "lightning>=2.5.1,<2.6.2",
     "onnx>=1.18.0",
+    "onnxscript>=0.6.2",
     "opencv-python-headless>=4.13.0.92",
     "pydantic>=2.11.7",
     "rich>=14.2.0",
     "segmentation-models-pytorch>=0.5.0",
-    "torch>=2.10.0",
-    "torchaudio>=2.6.0",
+    "torch>=2.11.0",
     "torchmetrics>=1.7.3",
-    "torchvision>=0.25.0",
+    "torchvision>=0.26.0",
     "tqdm>=4.67.1",
     "transformers>=5.1.0",
     "wandb>=0.21.0",
@@ -32,28 +32,16 @@ dev = [
     "notebook>=7.3.2",
     "pre-commit>=4.1.0",
     "ruff>=0.11.2",
-    "torchgeo>=0.7.1",
+    "torchgeo>=0.9.0",
 ]
 
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-]
-torchvision = [
-    { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-]
 
-[[tool.uv.index]]
-name = "pytorch-cu130"
-url = "https://download.pytorch.org/whl/cu130"
-explicit = true
+[tool.uv]
+exclude-newer = "7 days"
 
 [tool.ruff.lint]
-select = [
-    # flake8-bugbear
+extend-select = [
     "B",
-    # flake8-simplify
     "SIM",
-    # isort
     "I",
 ]

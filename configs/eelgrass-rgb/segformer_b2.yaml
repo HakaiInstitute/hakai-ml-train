@@ -3,25 +3,25 @@ seed_everything: 42
 model:
   class_path: "src.models.smp.SMPMulticlassSegmentationModel"
   init_args:
-    architecture: "UPerNet"
-    encoder_name: "tu-vit_large_patch16_dinov3.sat493m"
+    architecture: "Segformer"
+    encoder_name: "mit_b2"
     model_opts:
-      encoder_weights: "imagenet"
+      encoder_weights: imagenet
       in_channels: 3
-    num_classes: 3
+    num_classes: 2
     ignore_index: &ignore_index -100
     optimizer_class: torch.optim.AdamW
     optimizer_opts:
-      lr: 3e-4
+      lr: 1e-4
       weight_decay: 0.01
       betas:
         - 0.9
         - 0.95
-    lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
+    lr_scheduler_class: torch.optim.lr_scheduler.OneCycleLR
     lr_scheduler_opts:
-      warmup_steps: 7
-      min_lr: 1e-6
-    lr_scheduler_interval: epoch
+      max_lr: 3e-4
+      pct_start: 0.1
+    lr_scheduler_interval: step
     loss: "LovaszLoss"
     loss_opts:
       mode: "multiclass"
@@ -29,24 +29,23 @@ model:
       from_logits: true
     class_names:
       - bg
-      - mussels
-      - goosenecks
+      - seagrass
 
 data:
-  class_path: "src.data.WebDataModule"
+  class_path: "src.data.DataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512-full-webds"
-    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    batch_size: 3
-    num_workers: 8
+    train_chip_dir: "/mnt/class_data/sdalgarno/main/chips_1024/train"
+    val_chip_dir: "/mnt/class_data/sdalgarno/main/chips_1024/val"
+    batch_size: 6
+    test_chip_dir: null
+    num_workers: 16
     pin_memory: true
     persistent_workers: true
     train_transforms:
-      __version__: 2.0.9
+      __version__: 2.0.8
       transform:
         __class_fullname__: Compose
-        additional_targets: { }
+        additional_targets: {}
         bbox_params: null
         is_check_shapes: true
         keypoint_params: null
@@ -70,12 +69,12 @@ data:
                 p: 1.0
               - __class_fullname__: HueSaturationValue
                 hue_shift_limit:
-                  - -5.0
-                  - 5.0
-                p: 1.0
-                sat_shift_limit:
                   - -10.0
                   - 10.0
+                p: 1.0
+                sat_shift_limit:
+                  - -15.0
+                  - 15.0
                 val_shift_limit:
                   - -15.0
                   - 15.0
@@ -110,7 +109,7 @@ data:
                   - 360.0
                 blur_limit:
                   - 3
-                  - 7
+                  - 5
                 direction_range:
                   - -1.0
                   - 1.0
@@ -118,7 +117,7 @@ data:
               - __class_fullname__: MedianBlur
                 blur_limit:
                   - 3
-                  - 7
+                  - 5
                 p: 1.0
               - __class_fullname__: GaussianBlur
                 blur_limit:
@@ -126,8 +125,44 @@ data:
                   - 0
                 p: 1.0
                 sigma_limit:
-                  - 0.5
-                  - 3.0
+                  - 0.3
+                  - 1.5
+          - __class_fullname__: Affine
+            balanced_scale: false
+            border_mode: 0
+            fill: 0.0
+            fill_mask: 0.0
+            fit_output: false
+            interpolation: 1
+            keep_ratio: true
+            mask_interpolation: 0
+            p: 0.3
+            rotate:
+              - -5.0
+              - 5.0
+            rotate_method: largest_box
+            scale:
+              x:
+                - 0.7
+                - 1.3
+              y:
+                - 0.7
+                - 1.3
+            shear:
+              x:
+                - 0.0
+                - 0.0
+              y:
+                - 0.0
+                - 0.0
+            translate_percent:
+              x:
+                - -0.05
+                - 0.05
+              y:
+                - -0.05
+                - 0.05
+            translate_px: null
           - __class_fullname__: OneOf
             p: 0.3
             transforms:
@@ -147,21 +182,24 @@ data:
               - __class_fullname__: GridDistortion
                 border_mode: 0
                 distort_limit:
-                  - -0.1
-                  - 0.1
-                fill: 0.0
-                fill_mask: 0.0
+                  - -0.15
+                  - 0.15
                 interpolation: 1
-                keypoint_remapping_method: mask
                 mask_interpolation: 0
-                normalized: true
-                num_steps: 10
-                p: 0.3
+                num_steps: 5
+                p: 1.0
+              - __class_fullname__: ElasticTransform
+                alpha: 50.0
+                border_mode: 0
+                interpolation: 1
+                mask_interpolation: 0
+                p: 1.0
+                sigma: 10.0
           - __class_fullname__: CLAHE
             clip_limit:
               - 1.0
-              - 2.0
-            p: 0.1
+              - 4.0
+            p: 0.2
             tile_grid_size:
               - 8
               - 8
@@ -179,42 +217,6 @@ data:
             saturation:
               - 0.95
               - 1.05
-          - __class_fullname__: Affine
-            balanced_scale: false
-            border_mode: 0
-            fill: 0.0
-            fill_mask: 0.0
-            fit_output: false
-            interpolation: 1
-            keep_ratio: true
-            mask_interpolation: 0
-            p: 0.3
-            rotate:
-              - -5.0
-              - 5.0
-            rotate_method: largest_box
-            scale:
-              x:
-                - 0.9
-                - 1.1
-              y:
-                - 0.9
-                - 1.1
-            shear:
-              x:
-                - 0.0
-                - 0.0
-              y:
-                - 0.0
-                - 0.0
-            translate_percent:
-              x:
-                - -0.05
-                - 0.05
-              y:
-                - -0.05
-                - 0.05
-            translate_px: null
           - __class_fullname__: Normalize
             max_pixel_value: 255.0
             mean:
@@ -231,10 +233,10 @@ data:
             p: 1.0
             transpose_mask: false
     test_transforms:
-      __version__: 2.0.9
+      __version__: 2.0.8
       transform:
         __class_fullname__: Compose
-        additional_targets: { }
+        additional_targets: {}
         bbox_params: null
         is_check_shapes: true
         keypoint_params: null
@@ -261,44 +263,47 @@ trainer:
   accelerator: auto
   devices: auto
   precision: bf16-mixed
-  log_every_n_steps: 5
-  max_epochs: 200
+  log_every_n_steps: 20
+  max_epochs: 1000
   accumulate_grad_batches: 8
   gradient_clip_val: 0.5
+  check_val_every_n_epoch: 5
   detect_anomaly: false
-  default_root_dir: checkpoints
+  default_root_dir: /mnt/class_data/sdalgarno/checkpoints/final
   fast_dev_run: False
   logger:
     - class_path: lightning.pytorch.loggers.WandbLogger
       init_args:
-        entity: hakai
-        project: kom-mussel-gooseneck-rgb
-        name: upernet_dinov3_vitl16_lvd1689m
-        group: Feb2026
+        entity: sebdalgarno-poisson-consulting
+        project: seagrass-rgb
+        name: segformer_final
+        group: final
         log_model: true
         tags:
-          - mussel_gooseneck
-          - Feb2026
+          - seagrass
+          - final
+          - segformer
+          - domain-aug
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
+        dirpath: /mnt/class_data/sdalgarno/checkpoints/final
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_upernet_dinov3_vitl16_lvd1689m_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: segformer_final_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
         save_top_k: 2
-        save_weights_only: False
+        save_weights_only: True
         verbose: True
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val/iou_epoch
+        mode: max
+        patience: 15
+        min_delta: 0.001
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
-    - class_path: lightning.pytorch.callbacks.BackboneFinetuning
-      init_args:
-        unfreeze_backbone_at_epoch: 100000
-        backbone_initial_ratio_lr: 0.1
-        should_align: true
-        train_bn: true
-        verbose: true
   plugins:
     - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO

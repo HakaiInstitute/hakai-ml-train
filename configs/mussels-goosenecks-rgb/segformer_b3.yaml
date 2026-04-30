@@ -12,21 +12,22 @@ model:
     ignore_index: &ignore_index -100
     optimizer_class: torch.optim.AdamW
     optimizer_opts:
-      lr: 1e-4
-      weight_decay: 0.05
+      lr: 3e-4
+      weight_decay: 0.03
       betas:
         - 0.9
-        - 0.95
+        - 0.999
     lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
       warmup_steps: 500
       min_lr: 1e-6
     lr_scheduler_interval: step
-    loss: "LovaszLoss"
+    loss: "LabelSmoothingLovasz"
     loss_opts:
       mode: "multiclass"
+      smoothing: 0.1
+      lovasz_weight: 0.5
       ignore_index: *ignore_index
-      from_logits: true
     class_names:
       - bg
       - mussels
@@ -35,10 +36,10 @@ model:
 data:
   class_path: "src.data.WebDataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-512-full-webds"
-    val_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    test_chip_dir: "/home/taylor/data/MGP-RGB-Feb2026-1024-1024-full-webds"
-    batch_size: 3
+    train_chip_dir: "HakaiInstitute/mussel-gooseneck-seg-rgb-640"
+    val_chip_dir: "HakaiInstitute/mussel-gooseneck-seg-rgb-640"
+    test_chip_dir: "HakaiInstitute/mussel-gooseneck-seg-rgb-640"
+    batch_size: 6
     num_workers: 8
     pin_memory: true
     persistent_workers: true
@@ -50,6 +51,7 @@ data:
         bbox_params: null
         is_check_shapes: true
         keypoint_params: null
+        seed: 42
         p: 1
         transforms:
           - __class_fullname__: D4
@@ -61,7 +63,7 @@ data:
             fill_mask: 0.0
             fit_output: false
             interpolation: 1
-            keep_ratio: false
+            keep_ratio: true
             mask_interpolation: 0
             p: 0.5
             rotate:
@@ -208,7 +210,6 @@ data:
             transforms:
               - __class_fullname__: GridDropout
                 fill: 0.0
-                fill_mask: 0.0
                 holes_number_xy: null
                 p: 1.0
                 random_offset: true
@@ -219,7 +220,6 @@ data:
                 unit_size_range: null
               - __class_fullname__: CoarseDropout
                 fill: 0.0
-                fill_mask: 0.0
                 hole_height_range:
                   - 16
                   - 32
@@ -278,7 +278,7 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 5
-  max_epochs: 500
+  max_epochs: 100
   accumulate_grad_batches: 8
   gradient_clip_val: 1.0
   detect_anomaly: false
@@ -290,11 +290,11 @@ trainer:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
         name: segformer_b3
-        group: Feb2026
+        group: Apr2026
         log_model: true
         tags:
           - mussel_gooseneck
-          - Feb2026
+          - Apr2026
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
@@ -306,6 +306,12 @@ trainer:
         save_top_k: 2
         save_weights_only: False
         verbose: True
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val/iou_epoch
+        mode: max
+        patience: 30
+        verbose: true
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step

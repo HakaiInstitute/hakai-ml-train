@@ -4,6 +4,7 @@ from pathlib import Path
 
 import torch
 import yaml
+from torch.export import Dim
 
 
 class ONNXModel(torch.nn.Module):
@@ -19,8 +20,8 @@ def main(
     config_path: Path,
     ckpt_path: Path,
     output_path: Path,
-    opset: int = 17,
     dynamic_spatial: bool = True,
+    dynamo: bool = True,
 ) -> None:
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
@@ -38,8 +39,6 @@ def main(
     checkpoint = torch.load(ckpt_path, map_location="cpu")
     model.load_state_dict(checkpoint["state_dict"])
 
-    model.eval()
-
     # Unwrap any torch.compile'd submodules — torch.export (used internally by
     # torch.onnx.export) conflicts with compiled graphs.
     for name, submodule in list(model.named_children()):
@@ -49,9 +48,10 @@ def main(
     num_channels = init_args.get("model_opts", {}).get("in_channels", 3)
     image_size = init_args.get("image_size", 640)
     onnx_model = ONNXModel(model)
+    onnx_model.eval()
 
     x = torch.rand(
-        1,
+        2,
         num_channels,
         image_size,
         image_size,
@@ -59,30 +59,33 @@ def main(
         requires_grad=False,
     )
 
-    if dynamic_spatial:
-        dynamic_axes = {
-            "input": {0: "batch_size", 2: "height", 3: "width"},
-            "output": {0: "batch_size", 2: "height", 3: "width"},
-        }
+    if dynamo:
+        if dynamic_spatial:
+            img_shape = (Dim("batch", min=1), Dim.STATIC, Dim("height"), Dim("width"))
+        else:
+            img_shape = (Dim("batch", min=1), Dim.STATIC, Dim.STATIC, Dim.STATIC)
+        extra_kwargs = dict(dynamic_shapes={"x": img_shape}, dynamo=True)
     else:
-        dynamic_axes = {
-            "input": {0: "batch_size"},
-            "output": {0: "batch_size"},
-        }
+        img_dynamic_axes = {0: "batch_size"}
+        if dynamic_spatial:
+            img_dynamic_axes |= {2: "height", 3: "width"}
+        extra_kwargs = dict(
+            do_constant_folding=True,
+            dynamic_axes={"input": img_dynamic_axes, "output": img_dynamic_axes},
+            dynamo=False,
+        )
 
-    torch.onnx.export(
-        onnx_model,
-        x,
-        output_path,
-        export_params=True,
-        opset_version=opset,
-        do_constant_folding=True,
-        input_names=["input"],
-        output_names=["output"],
-        dynamic_axes=dynamic_axes,
-        verbose=False,
-        dynamo=False,
-    )
+    with torch.no_grad():
+        torch.onnx.export(
+            onnx_model,
+            (x,),
+            output_path,
+            export_params=True,
+            input_names=["input"],
+            output_names=["output"],
+            verbose=False,
+            **extra_kwargs,
+        )
 
     print(f"ONNX model saved to: {output_path}")
 
@@ -94,11 +97,15 @@ if __name__ == "__main__":
         "ckpt_path", type=Path, help="Path to PyTorch Lightning checkpoint"
     )
     parser.add_argument("output_path", type=Path, help="Path to save the ONNX model")
-    parser.add_argument("--opset", type=int, default=11, help="ONNX opset version")
     parser.add_argument(
         "--no-dynamic-spatial",
         action="store_true",
         help="Fix spatial dimensions (height, width) in the exported model",
+    )
+    parser.add_argument(
+        "--no-dynamo",
+        action="store_true",
+        help="Disable Dynamo and use TorchScript tracing export (default: False)",
     )
 
     args = parser.parse_args()
@@ -107,6 +114,6 @@ if __name__ == "__main__":
         args.config_path,
         args.ckpt_path,
         args.output_path,
-        args.opset,
         dynamic_spatial=not args.no_dynamic_spatial,
+        dynamo=not args.no_dynamo,
     )

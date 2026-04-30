@@ -34,7 +34,7 @@ data:
     pin_memory: true
     persistent_workers: true
     train_transforms:
-      __version__: 2.0.9
+      __version__: 2.0.8
       transform:
         __class_fullname__: Compose
         additional_targets: { }
@@ -222,7 +222,7 @@ data:
             p: 1.0
             transpose_mask: false
     test_transforms:
-      __version__: 2.0.9
+      __version__: 2.0.8
       transform:
         __class_fullname__: Compose
         additional_targets: { }

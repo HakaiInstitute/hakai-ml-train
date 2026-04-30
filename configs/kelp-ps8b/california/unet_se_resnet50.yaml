@@ -3,10 +3,10 @@ seed_everything: 42
 model:
   class_path: "src.models.smp.SMPBinarySegmentationModel"
   init_args:
-    architecture: "Segformer"
-    encoder_name: "mit_b3"
+    architecture: "Unet"
+    encoder_name: "se_resnet50"
     model_opts:
-      encoder_weights: imagenet
+      encoder_weights: "imagenet"
       in_channels: 8
     num_classes: 1
     ignore_index: &ignore_index -100
@@ -174,7 +174,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-kelp-ps8b-cali
-        name: segformer_b3
+        name: unet_se_resnet50
         group: Mar2026
         log_model: true
         tags:
@@ -183,12 +183,18 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: kelp_ps8b_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: kelp_ps8b_unet_se_resnet50_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
         save_top_k: 2
         save_weights_only: False
+        verbose: True
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val/iou_epoch
+        mode: max
+        patience: 30
         verbose: True
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:

@@ -58,7 +58,7 @@ class SMPBinarySegmentationModel(
             for p in self.model.encoder.parameters():
                 p.requires_grad = False
 
-        self.model = torch.compile(self.model)
+        # self.model = torch.compile(self.model)
 
         self.loss_fn = losses.__dict__[loss](**loss_opts)
 
@@ -108,7 +108,8 @@ class SMPBinarySegmentationModel(
         x, y = batch
         logits = self.forward(x)
 
-        loss = self.loss_fn(logits, y.long().unsqueeze(1))
+        # Explicitly compute loss in f32 (not bf16, etc.)
+        loss = self.loss_fn(logits.float(), y.long().unsqueeze(1))
         self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"), sync_dist=True)
 
         probs = self.activation_fn(logits)
@@ -188,7 +189,8 @@ class SMPMulticlassSegmentationModel(SMPBinarySegmentationModel):
         x, y = batch
         logits = self.forward(x)
 
-        loss = self.loss_fn(logits, y.long())
+        # Explicitly compute loss in f32 (not bf16, etc.)
+        loss = self.loss_fn(logits.float(), y.long())
         self.log(f"{phase}/loss", loss, prog_bar=(phase == "train"), sync_dist=True)
 
         probs = self.activation_fn(logits)
