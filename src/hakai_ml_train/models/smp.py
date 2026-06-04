@@ -7,8 +7,8 @@ import torchmetrics as tm
 import torchmetrics.classification as fm
 from huggingface_hub import PyTorchModelHubMixin
 
-from .. import losses
-from . import configure_optimizers as _configure_optimizers
+from hakai_ml_train import losses
+from hakai_ml_train.models import configure_optimizers as _configure_optimizers
 
 
 class SMPBinarySegmentationModel(

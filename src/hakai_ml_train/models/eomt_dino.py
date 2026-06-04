@@ -13,7 +13,7 @@ from transformers import (
     EomtDinov3ForUniversalSegmentation,
 )
 
-from . import configure_optimizers as _configure_optimizers
+from hakai_ml_train.models import configure_optimizers as _configure_optimizers
 
 
 def _load_dinov3_backbone_weights(

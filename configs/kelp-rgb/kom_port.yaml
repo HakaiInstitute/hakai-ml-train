@@ -1,7 +1,7 @@
 seed_everything: 42
 
 model:
-  class_path: "src.models.kom_port.KomRGBSpeciesBaselineModel"
+  class_path: "hakai_ml_train.models.kom_port.KomRGBSpeciesBaselineModel"
   init_args:
     num_classes: 3
     ignore_index: &ignore_index -100
@@ -21,7 +21,7 @@ model:
       from_logits: true
 
 data:
-  class_path: "src.data.DataModule"
+  class_path: "hakai_ml_train.data.DataModule"
   init_args:
     train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024/train"
     val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/val"

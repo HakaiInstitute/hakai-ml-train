@@ -1,7 +1,7 @@
 seed_everything: 42
 
 data:
-  class_path: "src.data.KOMBaselineRGBIDataModule"
+  class_path: "hakai_ml_train.data.KOMBaselineRGBIDataModule"
   init_args:
     train_chip_dir: "/home/taylor/data/KS-RGBI-Jul2025-1024-1024/train"
     val_chip_dir: "/home/taylor/data/KS-RGBI-Jul2025-1024-1024-full/val"
@@ -14,7 +14,7 @@ data:
     persistent_workers: true
 
 model:
-  class_path: "src.models.kom_baseline.KomRGBISpeciesBaselineModel"
+  class_path: "hakai_ml_train.models.kom_baseline.KomRGBISpeciesBaselineModel"
   init_args:
     num_classes: 3
     ignore_index: &ignore_index -100
