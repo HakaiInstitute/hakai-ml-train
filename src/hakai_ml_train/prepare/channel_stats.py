@@ -5,7 +5,7 @@ import torch
 from albumentations.pytorch import ToTensorV2
 from tqdm.auto import tqdm
 
-from src.data import NpzSegmentationDataset
+from hakai_ml_train.data import NpzSegmentationDataset
 
 
 def compute_channel_stats_fast_stable(dataloader):

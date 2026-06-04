@@ -1,7 +1,7 @@
 seed_everything: 42
 
 model:
-  class_path: "src.models.terratorch.TerraTorchSegmentationModel"
+  class_path: "hakai_ml_train.models.terratorch.TerraTorchSegmentationModel"
   init_args:
     num_classes: 1
     ignore_index: &ignore_index -100
@@ -12,7 +12,7 @@ model:
       betas:
         - 0.9
         - 0.99
-    lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
+    lr_scheduler_class: hakai_ml_train.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
       warmup_epochs: 3
       min_lr: 1e-6
@@ -53,7 +53,7 @@ model:
       vit_attr: "dofa_model"
 
 data:
-  class_path: "src.data.DataModule"
+  class_path: "hakai_ml_train.data.DataModule"
   init_args:
     train_chip_dir: /home/taylor/data/kelp-ps8b/224x112/cali_bc/kelp/train/
     val_chip_dir: /home/taylor/data/kelp-ps8b/224x224/cali_bc/full/val/
@@ -205,7 +205,7 @@ trainer:
         tags:
           - "224_20260519"
   callbacks:
-    - class_path: src.callbacks.EMAWeightAveraging
+    - class_path: hakai_ml_train.callbacks.EMAWeightAveraging
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False

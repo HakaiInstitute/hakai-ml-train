@@ -1,7 +1,7 @@
 seed_everything: 42
 
 model:
-  class_path: "src.models.smp.SMPBinarySegmentationModel"
+  class_path: "hakai_ml_train.models.smp.SMPBinarySegmentationModel"
   init_args:
     architecture: "Segformer"
     encoder_name: "mit_b3"
@@ -17,7 +17,7 @@ model:
       betas:
         - 0.9
         - 0.95
-    lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
+    lr_scheduler_class: hakai_ml_train.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
       warmup_epochs: 5
       min_lr: 3e-6
@@ -30,7 +30,7 @@ model:
       ignore_index: *ignore_index
 
 data:
-  class_path: "src.data.DataModule"
+  class_path: "hakai_ml_train.data.DataModule"
   init_args:
     train_chip_dir: /home/taylor/data/kelp-ps8b/1024x512/cali_bc/kelp/train/
     val_chip_dir: /home/taylor/data/kelp-ps8b/1024x1024/cali_bc/full/val/
@@ -182,7 +182,7 @@ trainer:
         tags:
           - "1024_20260515"
   callbacks:
-    - class_path: src.callbacks.EMAWeightAveraging
+    - class_path: hakai_ml_train.callbacks.EMAWeightAveraging
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False

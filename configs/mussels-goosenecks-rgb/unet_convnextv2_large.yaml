@@ -1,7 +1,7 @@
 seed_everything: 42
 
 model:
-  class_path: "src.models.smp.SMPMulticlassSegmentationModel"
+  class_path: "hakai_ml_train.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "Unet"
     encoder_name: "tu-convnext_large.dinov3_lvd1689m"
@@ -18,7 +18,7 @@ model:
       betas:
         - 0.8
         - 0.999
-    lr_scheduler_class: src.schedulers.LinearWarmupCosineDecayLR
+    lr_scheduler_class: hakai_ml_train.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
       warmup_steps: 1000
       min_lr: 1e-6
@@ -35,7 +35,7 @@ model:
       - goosenecks
 
 data:
-  class_path: "src.data.WebDataModule"
+  class_path: "hakai_ml_train.data.WebDataModule"
   init_args:
     train_chip_dir: "HakaiInstitute/mussel-gooseneck-seg-rgb-640"
     val_chip_dir: "HakaiInstitute/mussel-gooseneck-seg-rgb-640"

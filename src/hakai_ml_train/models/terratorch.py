@@ -11,8 +11,8 @@ from terratorch.registry import TERRATORCH_BACKBONE_REGISTRY
 from torchgeo.models import dofa
 from torchvision.models._api import Weights
 
-from .. import losses
-from . import configure_optimizers as _configure_optimizers
+from hakai_ml_train import losses
+from hakai_ml_train.models import configure_optimizers as _configure_optimizers
 
 model_factory = EncoderDecoderFactory()
 
