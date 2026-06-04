@@ -182,7 +182,6 @@ trainer:
         tags:
           - "1024_20260515"
   callbacks:
-    - class_path: hakai_ml_train.callbacks.EMAWeightAveraging
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
@@ -202,4 +201,3 @@ trainer:
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
-
