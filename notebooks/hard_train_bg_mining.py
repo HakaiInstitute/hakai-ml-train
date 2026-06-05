@@ -21,7 +21,7 @@ with app.setup:
 
 @app.cell
 def _():
-    FULL_DATA_DIR = "/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_full/train/"
+    FULL_DATA_DIR = "/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train"
     return (FULL_DATA_DIR,)
 
 
@@ -134,7 +134,7 @@ def _(BATCH_SIZE, dataloader, device, dset, model):
 @app.cell
 def _(loss_df):
     i = 0
-    for r in loss_df.filter(pl.col("loss") > 0.5).iter_rows(named=True):
+    for r in loss_df.filter(pl.col("loss") > 0.8).iter_rows(named=True):
         p = Path(r["file"])
         dest = Path(f"./data/kelp-ps8b/1024x512/train/{p.name}")
         if not dest.exists():
