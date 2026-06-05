@@ -30,7 +30,7 @@ def _():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = SMPBinarySegmentationModel.load_from_checkpoint(
-        "./kelp-ps8b/u6nrh89o/checkpoints/kelp_ps8b_segformer_b3_epoch-61_val-iou-0.7434.ckpt"
+        "./kelp-ps8b/fleqfovm/checkpoints/kelp_ps8b_segformer_b3_epoch-81_val-iou-0.7470.ckpt"
     ).to(device)
 
     model.eval()
@@ -134,7 +134,7 @@ def _(BATCH_SIZE, dataloader, device, dset, model):
 @app.cell
 def _(loss_df):
     i = 0
-    for r in loss_df.filter(pl.col("loss") > 0.8).iter_rows(named=True):
+    for r in loss_df.filter(pl.col("loss") > 0.5).iter_rows(named=True):
         p = Path(r["file"])
         dest = Path(f"./data/kelp-ps8b/1024x512/train/{p.name}")
         if not dest.exists():
