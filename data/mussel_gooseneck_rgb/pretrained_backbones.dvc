@@ -1,0 +1,6 @@
+outs:
+- md5: e3de18b30b20488270842290f5277d3a.dir
+  size: 88314270
+  nfiles: 1
+  hash: md5
+  path: pretrained_backbones
