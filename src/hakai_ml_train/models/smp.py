@@ -35,6 +35,7 @@ class SMPBinarySegmentationModel(
         lr_scheduler_interval: str = "step",
         lr_scheduler_monitor: str | None = None,
         ckpt_path: str | None = None,
+        pt_path: str | None = None,
         freeze_backbone: bool = False,
     ):
         super().__init__()
@@ -50,6 +51,9 @@ class SMPBinarySegmentationModel(
         if ckpt_path is not None:
             ckpt = torch.load(self.hparams.ckpt_path, weights_only=False)
             self.load_state_dict(ckpt["state_dict"])
+        elif pt_path is not None:
+            state_dict = torch.load(pt_path, weights_only=False)
+            self.model.load_state_dict(state_dict)
 
         for p in self.model.parameters():
             p.requires_grad = True
