@@ -52,8 +52,8 @@ class SMPBinarySegmentationModel(
             ckpt = torch.load(self.hparams.ckpt_path, weights_only=False)
             self.load_state_dict(ckpt["state_dict"])
         elif pt_path is not None:
-            state_dict = torch.load(pt_path, weights_only=False)
-            self.model.load_state_dict(state_dict)
+            state_dict = torch.load(pt_path)
+            self.model.encoder.model.load_state_dict(state_dict)
 
         for p in self.model.parameters():
             p.requires_grad = True
