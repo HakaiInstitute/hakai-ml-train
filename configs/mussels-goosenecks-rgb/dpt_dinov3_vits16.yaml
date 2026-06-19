@@ -4,12 +4,13 @@ model:
   class_path: "hakai_ml_train.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "DPT"
-    encoder_name: "tu-vit_small_patch14_dinov2.lvd142m"
+    encoder_name: "tu-vit_small_plus_patch16_dinov3.lvd1689m"
     model_opts:
       encoder_weights: true
       in_channels: 3
       decoder_intermediate_channels: [128, 256, 512, 1024]
-    pt_path: "data/mussel_gooseneck_rgb/pretrained_backbones/dinov2_subimage_overlap_28_backbone.pt"
+      dynamic_img_size: true
+    pt_path: "data/mussel_gooseneck_rgb/pretrained_backbones/dinov3_subimage_overlap_backbone.pt"
     freeze_backbone: true
     num_classes: 3
     ignore_index: &ignore_index -100
@@ -292,8 +293,8 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: dpt_dinov2_vits14
-        group: Apr2026
+        name: dpt_dinov3_vits16
+        group: Jun2026
         log_model: true
         tags:
           - mussel_gooseneck
@@ -302,7 +303,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_dpt_dinov2_vits14_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_dpt_dinov3_vits16_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
