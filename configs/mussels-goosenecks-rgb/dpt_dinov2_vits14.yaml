@@ -9,8 +9,8 @@ model:
       encoder_weights: true
       in_channels: 3
       decoder_intermediate_channels: [128, 256, 512, 1024]
-      pt_path: "data/mussel_gooseneck_rgb/pretrained_backbones/dinov2_subimage_overlap_28_backbone.pt"
-      freeze_backbone: true
+    pt_path: "data/mussel_gooseneck_rgb/pretrained_backbones/dinov2_subimage_overlap_28_backbone.pt"
+    freeze_backbone: true
     num_classes: 3
     ignore_index: &ignore_index -100
     optimizer_class: torch.optim.AdamW
