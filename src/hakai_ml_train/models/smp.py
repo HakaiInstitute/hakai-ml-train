@@ -37,6 +37,7 @@ class SMPBinarySegmentationModel(
         ckpt_path: str | None = None,
         pt_path: str | None = None,
         freeze_backbone: bool = False,
+        use_checkpointing: bool = False,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -91,6 +92,24 @@ class SMPBinarySegmentationModel(
         self.train_metrics = metrics.clone(prefix="train/")
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
+
+        if use_checkpointing:
+            self._patch_encoder_checkpointing()
+
+    def _patch_encoder_checkpointing(self):
+        encoder = self.model.encoder
+
+        # Option A: HuggingFace-backed encoders (mit_b*, swin_*, etc. via timm)
+        if hasattr(encoder, "model") and hasattr(
+            encoder.model, "gradient_checkpointing_enable"
+        ):
+            encoder.model.gradient_checkpointing_enable()
+            return
+
+        # Option B: timm backbone with native support
+        if hasattr(encoder, "gradient_checkpointing_enable"):
+            encoder.gradient_checkpointing_enable()
+            return
 
     @property
     def backbone(self):
