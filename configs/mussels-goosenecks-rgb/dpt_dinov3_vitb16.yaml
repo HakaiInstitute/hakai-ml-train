@@ -4,7 +4,7 @@ model:
   class_path: "hakai_ml_train.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "DPT"
-    encoder_name: "tu-vit_base_patch16_dinov3_qkvb.sat493m"
+    encoder_name: "tu-vit_base_patch16_dinov3_qkvb.lvd1689m"
     use_checkpointing: true
     model_opts:
       encoder_weights: true
