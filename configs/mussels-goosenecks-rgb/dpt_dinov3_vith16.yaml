@@ -4,7 +4,7 @@ model:
   class_path: "hakai_ml_train.models.smp.SMPMulticlassSegmentationModel"
   init_args:
     architecture: "DPT"
-    encoder_name: "tu-vit_base_patch16_dinov3_qkvb.lvd1689m"
+    encoder_name: "tu-vit_huge_plus_patch16_dinov3_qkvb.lvd1689m"
     use_checkpointing: true
     model_opts:
       encoder_weights: true
@@ -291,7 +291,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: dpt_dinov3_vitb16
+        name: dpt_dinov3_vith16
         group: Apr2026
         log_model: true
         tags:
@@ -301,7 +301,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_dpt_dinov3_vitb16_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_dpt_dinov3_vith16_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
