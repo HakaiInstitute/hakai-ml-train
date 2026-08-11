@@ -8,17 +8,22 @@ import torchmetrics.classification as fm
 from huggingface_hub import PyTorchModelHubMixin
 
 from hakai_ml_train import losses
+from hakai_ml_train.models import LayerDecayMixin
 from hakai_ml_train.models import configure_optimizers as _configure_optimizers
 
 
 class SMPBinarySegmentationModel(
     pl.LightningModule,
     PyTorchModelHubMixin,
+    LayerDecayMixin,
     library_name="habitat_mapper",
     tags=["pytorch", "kelp", "segmentation", "drones", "remote-sensing"],
     repo_url="https://github.com/HakaiInstitute/habitat-mapper",
     docs_url="https://habitat-mapper.readthedocs.io/",
 ):
+    # timm-universal SMP encoders (`tu-*`) hold the backbone at `.encoder.model`.
+    backbone_module_path = "model.encoder.model"
+
     def __init__(
         self,
         architecture: str,

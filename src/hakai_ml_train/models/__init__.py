@@ -1,14 +1,143 @@
 import importlib
 import inspect
+import re
 
 import torch
 import torch.nn as nn
+from timm.models import group_parameters
 
 
 def _import_class(class_path: str):
     """Import a class from a dotted path string."""
     module_path, class_name = class_path.rsplit(".", 1)
     return getattr(importlib.import_module(module_path), class_name)
+
+
+# Layer grouping for ViT-shaped backbones that don't ship a timm `group_matcher`
+# (e.g. torchgeo's DOFA). Mirrors timm's own ViT matcher: stem -> 0,
+# blocks.{i} -> i + 1. DOFA's wavelength encoder lives under
+# `patch_embed.weight_generator`, so the stem pattern already covers it.
+_VIT_GROUP_MATCHER = {
+    "stem": r"^cls_token|pos_embed|reg_token|patch_embed",
+    # Only `blocks.(\d+)` may capture -- timm floats every regex group it finds.
+    # (99999,) is timm's MATCH_PREV_GROUP: fold into the last block rather than
+    # opening a new level. The classification head is vestigial when the ViT is
+    # used as a feature extractor, so it must not add depth of its own.
+    "blocks": [
+        (r"^blocks\.(\d+)", None),
+        (r"^(?:norm|fc_norm|head)", (99999,)),
+    ],
+}
+
+
+# Learned token embeddings that timm's ViT/EVA matchers omit from their `stem`
+# pattern. Left alone they fall through to the top layer, which both gives them
+# full LR and adds a phantom depth level that shrinks every real layer's scale.
+# `reg_token` affects the whole DINOv3 family (timm 1.x vision_transformer/eva).
+_STEM_TOKEN_NAMES = ("reg_token",)
+
+
+def _with_stem_tokens(matcher):
+    """Extend a timm `group_matcher`'s stem pattern to cover stray token embeddings."""
+    if not isinstance(matcher, dict) or not isinstance(matcher.get("stem"), str):
+        return matcher
+    extra = "".join(f"|{name}" for name in _STEM_TOKEN_NAMES)
+    return {**matcher, "stem": matcher["stem"] + extra}
+
+
+def _has_vit_stem(backbone: nn.Module) -> bool:
+    """True if `_VIT_GROUP_MATCHER`'s stem pattern recognizes this backbone.
+
+    Guards against applying the fallback to something merely `.blocks`-shaped.
+    A CNN like EfficientNet has `.blocks` but a `conv_stem`, which the pattern
+    misses -- the stem would silently land in the *top* group and train at full
+    LR, inverting the whole point of layer decay.
+    """
+    stem = re.compile(_VIT_GROUP_MATCHER["stem"])
+    return any(stem.match(name) for name, _ in backbone.named_parameters())
+
+
+class LayerDecayMixin:
+    """Exposes timm's layer-wise LR decay hooks on a composite segmentation model.
+
+    ``timm.optim.create_optimizer_v2(..., layer_decay=x)`` derives per-layer LR
+    scales from ``model.group_matcher()``. timm's built-in fallback keys off
+    ``pretrained_cfg['classifier']``, which a LightningModule doesn't have, so
+    without this mixin every parameter lands in one group and ``layer_decay``
+    silently does nothing.
+
+    Subclasses set ``backbone_module_path`` to the dotted path of the backbone
+    holding the transformer blocks. Grouping is delegated to that backbone's own
+    timm ``group_matcher`` when it has one, so per-architecture knowledge stays
+    in timm. Everything outside the backbone (necks, decoder, head) trains at
+    full LR.
+    """
+
+    #: Dotted path from `self` to the module holding the transformer blocks.
+    backbone_module_path: str = ""
+
+    def _resolve_backbone(self) -> tuple[nn.Module | None, str]:
+        """Return (backbone module, its parameter-name prefix), or (None, "")."""
+        if not self.backbone_module_path:
+            return None, ""
+        obj = self
+        for attr in self.backbone_module_path.split("."):
+            obj = getattr(obj, attr, None)
+            if obj is None:
+                return None, ""
+        return obj, f"{self.backbone_module_path}."
+
+    def no_weight_decay(self) -> set[str]:
+        """Backbone params to exempt from weight decay, as full parameter names.
+
+        Read by timm's optimizer factory. Covers things weight_decay_exclude_1d
+        misses, notably `pos_embed` and `cls_token` (both >1-D).
+        """
+        backbone, prefix = self._resolve_backbone()
+        if backbone is None or not hasattr(backbone, "no_weight_decay"):
+            return set()
+        return {f"{prefix}{name}" for name in backbone.no_weight_decay()}
+
+    def group_matcher(self, coarse: bool = False):
+        """Return a callable mapping parameter name -> layer index (0 = earliest)."""
+        backbone, prefix = self._resolve_backbone()
+        if backbone is None:
+            raise ValueError(
+                f"Layer-wise LR decay needs a backbone module, but "
+                f"{type(self).__name__}.backbone_module_path="
+                f"{self.backbone_module_path!r} does not resolve to one. "
+                f"SMP's native encoders (mit_b*, resnet*, mobilenet_v2, ...) hold "
+                f"no submodule there; layer decay is currently wired up for ViT "
+                f"encoders (`tu-vit_*`, `tu-deit_*`) and DOFA -- drop "
+                f"`layer_decay` from optimizer_opts for this backbone."
+            )
+
+        if hasattr(backbone, "group_matcher"):
+            matcher = _with_stem_tokens(backbone.group_matcher(coarse=coarse))
+        elif hasattr(backbone, "blocks") and _has_vit_stem(backbone):
+            matcher = _VIT_GROUP_MATCHER
+        else:
+            raise ValueError(
+                f"Layer-wise LR decay cannot order the layers of "
+                f"{self.backbone_module_path} ({type(backbone).__name__}): it "
+                f"provides no timm `group_matcher`, and the ViT fallback needs "
+                f"`.blocks` plus a recognizable ViT stem "
+                f"(cls_token/pos_embed/patch_embed). Layer decay is currently "
+                f"wired up for ViT encoders (`tu-vit_*`, `tu-deit_*`) and DOFA -- "
+                f"drop `layer_decay` from optimizer_opts for this backbone."
+            )
+
+        # Layer ids are resolved against the backbone's own parameter names, so
+        # timm's regexes (anchored with ^) apply unchanged.
+        layer_map = group_parameters(backbone, matcher, reverse=True)
+        top = max(layer_map.values(), default=0) + 1
+
+        def match(name: str) -> int:
+            if not name.startswith(prefix):
+                return top
+            return layer_map.get(name.removeprefix(prefix), top)
+
+        return match
 
 
 _NORM_TYPES = (
@@ -43,6 +172,20 @@ def _param_groups(module):
     return [{"params": decay}, {"params": no_decay, "weight_decay": 0.0}]
 
 
+def _is_param_factory(fn) -> bool:
+    """True for timm-style factories that build their own param groups from a model.
+
+    ``timm.optim.create_optimizer_v2`` takes ``model_or_params`` first and only
+    applies ``filter_bias_and_bn`` / ``layer_decay`` when handed an ``nn.Module``
+    -- passing it a pre-built group list silently discards both.
+    """
+    try:
+        params = list(inspect.signature(fn).parameters)
+    except (TypeError, ValueError):
+        return False
+    return bool(params) and params[0] == "model_or_params"
+
+
 def configure_optimizers(module):
     """Configure optimizer and LR scheduler from module hparams.
 
@@ -53,41 +196,49 @@ def configure_optimizers(module):
     - lr_scheduler_opts: dict of kwargs (e.g., {"max_lr": 3e-4, "pct_start": 0.1})
     - lr_scheduler_interval: "step" or "epoch"
     - lr_scheduler_monitor: metric name or None (required for ReduceLROnPlateau)
+
+    Layer-wise LR decay is opt-in via a timm optimizer factory, e.g.
+    ``optimizer_class: timm.optim.create_optimizer_v2`` with
+    ``optimizer_opts: {opt: adamw, lr: 3e-4, layer_decay: 0.7}``. The model must
+    provide a `group_matcher` (see `LayerDecayMixin`).
     """
     optimizer_cls = _import_class(module.hparams.optimizer_class)
+    optimizer_opts = dict(module.hparams.optimizer_opts or {})
 
-    llrd_opts = getattr(module.hparams, "llrd_opts", None)
-    if llrd_opts:
-        # Lazy import: only loaded for models that opt into LLRD.
-        from .llrd import build_llrd_param_groups
-
-        opts = module.hparams.optimizer_opts or {}
-        if "lr" not in opts:
+    if _is_param_factory(optimizer_cls):
+        # Hand the module over so timm builds the weight-decay / layer-decay groups.
+        if optimizer_opts.get("layer_decay") is not None and not hasattr(
+            module, "group_matcher"
+        ):
             raise ValueError(
-                "LLRD requires optimizer_opts['lr'] to be set as the base learning rate."
+                f"optimizer_opts['layer_decay'] is set but "
+                f"{type(module).__name__} has no `group_matcher`, so timm would "
+                f"put every parameter in one group and apply no decay. Add "
+                f"`LayerDecayMixin` to the model class and set "
+                f"`backbone_module_path`."
             )
-        base_lr = opts["lr"]
-        param_groups = build_llrd_param_groups(module, **llrd_opts)
-        for g in param_groups:
-            g["lr"] = base_lr * g["lr_scale"]
+        optimizer = optimizer_cls(module, **optimizer_opts)
     else:
-        param_groups = _param_groups(module)
+        optimizer = optimizer_cls(_param_groups(module), **optimizer_opts)
 
-    optimizer = optimizer_cls(
-        param_groups,
-        **(module.hparams.optimizer_opts or {}),
-    )
+    # timm's layer-decay groups carry `lr_scale` and expect the *scheduler* to
+    # multiply it in (see timm.scheduler.Scheduler.update_groups). torch and
+    # Lightning schedulers don't, so fold it into `lr` now -- before any
+    # scheduler captures base_lrs from the groups.
+    lr_scales = [g.get("lr_scale", 1.0) for g in optimizer.param_groups]
+    for group, scale in zip(optimizer.param_groups, lr_scales, strict=True):
+        group["lr"] = group["lr"] * scale
 
     scheduler_cls = _import_class(module.hparams.lr_scheduler_class)
     scheduler_kwargs = dict(module.hparams.lr_scheduler_opts or {})
 
-    # When LLRD is active, OneCycleLR requires max_lr as a per-group list.
-    if llrd_opts and scheduler_cls is torch.optim.lr_scheduler.OneCycleLR:
+    # OneCycleLR ignores initial_lr, so scaled LRs must go in via a max_lr list.
+    if scheduler_cls is torch.optim.lr_scheduler.OneCycleLR and any(
+        scale != 1.0 for scale in lr_scales
+    ):
         max_lr = scheduler_kwargs.get("max_lr")
         if isinstance(max_lr, (int, float)):
-            scheduler_kwargs["max_lr"] = [
-                max_lr * g.get("lr_scale", 1.0) for g in param_groups
-            ]
+            scheduler_kwargs["max_lr"] = [max_lr * scale for scale in lr_scales]
 
     # Auto-inject total_steps/T_max for schedulers that need the total
     # training step count (e.g., OneCycleLR, CosineAnnealingLR).

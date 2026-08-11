@@ -5,10 +5,12 @@ model:
   init_args:
     num_classes: 1
     ignore_index: &ignore_index -100
-    optimizer_class: torch.optim.AdamW
+    optimizer_class: timm.optim.create_optimizer_v2
     optimizer_opts:
+      opt: adamw
       lr: 1e-4
       weight_decay: 0.01
+      layer_decay: 0.85
       betas:
         - 0.9
         - 0.99
@@ -47,10 +49,6 @@ model:
       head_channel_list:
         - 512
       head_dropout: 0.0
-    llrd_opts:
-      decay_rate: 0.85
-      encoder_attr: "model.encoder"
-      vit_attr: "dofa_model"
 
 data:
   class_path: "hakai_ml_train.data.DataModule"

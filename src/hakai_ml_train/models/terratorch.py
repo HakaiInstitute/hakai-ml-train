@@ -12,6 +12,7 @@ from torchgeo.models import dofa
 from torchvision.models._api import Weights
 
 from hakai_ml_train import losses
+from hakai_ml_train.models import LayerDecayMixin
 from hakai_ml_train.models import configure_optimizers as _configure_optimizers
 
 model_factory = EncoderDecoderFactory()
@@ -60,11 +61,15 @@ def dofa_large_patch16_224_custom(
 class TerraTorchSegmentationModel(
     pl.LightningModule,
     PyTorchModelHubMixin,
+    LayerDecayMixin,
     library_name="habitat_mapper",
     tags=["pytorch", "kelp", "segmentation", "drones", "remote-sensing"],
     repo_url="https://github.com/HakaiInstitute/habitat-mapper",
     docs_url="https://habitat-mapper.readthedocs.io/",
 ):
+    # DOFAEncoderWrapper holds the raw ViT at `.dofa_model`.
+    backbone_module_path = "model.encoder.dofa_model"
+
     def __init__(
         self,
         model_opts: dict[str, Any],
@@ -80,7 +85,6 @@ class TerraTorchSegmentationModel(
         lr_scheduler_monitor: str | None = None,
         ckpt_path: str | None = None,
         freeze_backbone: bool = False,
-        llrd_opts: dict[str, Any] | None = None,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -218,26 +222,27 @@ if __name__ == "__main__":
     out = model(x)
     print(out)
 
-    # Smoke-test the LLRD path: rebuild with llrd_opts and inspect param groups.
+    # Smoke-test the layer-decay path via timm's optimizer factory.
     # Uses UperNetDecoder to match the actual production config; the baseline
     # smoke test above uses UNetDecoder for historical reasons.
-    from src.models.llrd import build_llrd_param_groups
+    from timm.optim import create_optimizer_v2
 
-    model_llrd = TerraTorchSegmentationModel(
+    model_ld = TerraTorchSegmentationModel(
         loss="LabelSmoothingLovasz",
         loss_opts=dict(mode="binary", ignore_index=-100),
         num_classes=1,
         ignore_index=-100,
-        optimizer_class="torch.optim.AdamW",
-        optimizer_opts=dict(lr=1e-4, weight_decay=0.01, betas=[0.9, 0.99]),
+        optimizer_class="timm.optim.create_optimizer_v2",
+        optimizer_opts=dict(
+            opt="adamw",
+            lr=1e-4,
+            weight_decay=0.01,
+            layer_decay=0.75,
+            betas=[0.9, 0.99],
+        ),
         lr_scheduler_class="torch.optim.lr_scheduler.OneCycleLR",
         lr_scheduler_opts=dict(max_lr=1e-4, pct_start=0.3),
         lr_scheduler_interval="step",
-        llrd_opts=dict(
-            decay_rate=0.75,
-            encoder_attr="model.encoder",
-            vit_attr="dofa_model",
-        ),
         model_opts=dict(
             backbone="dofa_large_patch16_224_custom",
             backbone_pretrained=False,
@@ -263,8 +268,16 @@ if __name__ == "__main__":
         ),
     )
 
-    assert model_llrd.hparams.llrd_opts is not None
-    groups = build_llrd_param_groups(model_llrd, **model_llrd.hparams.llrd_opts)
-    print(f"LLRD smoke test: {len(groups)} groups")
-    print(f"  smallest lr_scale: {min(g['lr_scale'] for g in groups):.6f}")
-    print(f"  largest  lr_scale: {max(g['lr_scale'] for g in groups):.6f}")
+    opt = create_optimizer_v2(model_ld, **model_ld.hparams.optimizer_opts)
+    groups = opt.param_groups
+    scales = [g["lr_scale"] for g in groups]
+    # stem + 24 DOFA blocks (trailing norm/head folded in) + decoder/necks
+    assert len(set(scales)) == 26, sorted(set(scales))
+    assert max(scales) == 1.0, max(scales)
+    # Every trainable param is grouped exactly once.
+    n_grouped = sum(len(g["params"]) for g in groups)
+    n_trainable = sum(1 for p in model_ld.parameters() if p.requires_grad)
+    assert n_grouped == n_trainable, (n_grouped, n_trainable)
+    print(f"layer-decay smoke test: {len(groups)} groups")
+    print(f"  smallest lr_scale: {min(scales):.6f}")
+    print(f"  largest  lr_scale: {max(scales):.6f}")
