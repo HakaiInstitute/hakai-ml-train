@@ -97,7 +97,7 @@ data:
             width: 1024
           - __class_fullname__: MaskDropout
             fill: 0.0
-            fill_mask: *ignore_index
+            fill_mask: 0.0
             max_objects:
               - 1
               - 3
