@@ -129,7 +129,7 @@ data:
             transforms:
               - __class_fullname__: CoarseDropout
                 fill: 0.0
-                fill_mask: 0.0
+                fill_mask: *ignore_index
                 hole_height_range:
                   - 1
                   - 5
@@ -146,7 +146,7 @@ data:
                   - -0.1
                   - 0.1
                 fill: 0.0
-                fill_mask: 0.0
+                fill_mask: *ignore_index
                 interpolation: 1
                 keypoint_remapping_method: mask
                 mask_interpolation: 0
@@ -179,7 +179,7 @@ data:
             balanced_scale: false
             border_mode: 0
             fill: 0.0
-            fill_mask: 0.0
+            fill_mask: *ignore_index
             fit_output: false
             interpolation: 1
             keep_ratio: true

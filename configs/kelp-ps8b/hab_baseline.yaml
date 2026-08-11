@@ -48,7 +48,7 @@ data:
           - __class_fullname__: RandomCrop
             border_mode: 0
             fill: 0.0
-            fill_mask: 0.0
+            fill_mask: *ignore_index
             height: 1024
             p: 1.0
             pad_if_needed: true
@@ -71,7 +71,7 @@ data:
             p: 0.3
           - __class_fullname__: CoarseDropout
             fill: 0.0
-            fill_mask: 0.0
+            fill_mask: *ignore_index
             hole_height_range:
               - 0
               - 32
@@ -121,7 +121,7 @@ data:
           - __class_fullname__: PadIfNeeded
             border_mode: 0
             fill: 0.0
-            fill_mask: 0.0
+            fill_mask: *ignore_index
             min_height: 1024
             min_width: 1024
             p: 1.0

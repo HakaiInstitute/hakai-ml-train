@@ -147,6 +147,11 @@ class SMPBinarySegmentationModel(
         return loss
 
     def on_train_epoch_end(self) -> None:
+        computed = self.train_metrics.compute()
+        self.log_dict(
+            {f"{k}_epoch": v for k, v in computed.items()},
+            sync_dist=True,
+        )
         self.train_metrics.reset()
 
     def on_validation_epoch_end(self) -> None:
