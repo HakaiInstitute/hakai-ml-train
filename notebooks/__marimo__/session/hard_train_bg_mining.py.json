@@ -1,0 +1,113 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.23.8",
+    "script_metadata_hash": null
+  },
+  "cells": [
+    {
+      "id": "setup",
+      "code_hash": "4962cd4b75aa2275b8fdd567d8d19306",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hbol",
+      "code_hash": "a612b286c4d9ae4c4adee5a9bc3f75d9",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "8a58d36309bf630d16ccb43eb836f762",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>device(type=&#x27;cuda&#x27;)</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "4516bacffe180026f6fc4b6870485e39",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>2122</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "c564a6b93cba26fd053260c0318f7efb",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>133</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "cd7a297d79079064a2d2ae0be213cd83",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='lEQa-0' random-id='06300d8f-6179-0dbc-8f8c-06bfcfaaa17d'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;file&#92;&quot;:&#92;&quot;/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train/Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_9.npz&#92;&quot;,&#92;&quot;name&#92;&quot;:&#92;&quot;Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_9.npz&#92;&quot;,&#92;&quot;loss&#92;&quot;:1.022114634513855},{&#92;&quot;file&#92;&quot;:&#92;&quot;/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train/Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_90.npz&#92;&quot;,&#92;&quot;name&#92;&quot;:&#92;&quot;Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_90.npz&#92;&quot;,&#92;&quot;loss&#92;&quot;:1.022114634513855},{&#92;&quot;file&#92;&quot;:&#92;&quot;/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train/Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_91.npz&#92;&quot;,&#92;&quot;name&#92;&quot;:&#92;&quot;Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_91.npz&#92;&quot;,&#92;&quot;loss&#92;&quot;:1.022114634513855},{&#92;&quot;file&#92;&quot;:&#92;&quot;/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train/Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_92.npz&#92;&quot;,&#92;&quot;name&#92;&quot;:&#92;&quot;Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_92.npz&#92;&quot;,&#92;&quot;loss&#92;&quot;:1.022114634513855},{&#92;&quot;file&#92;&quot;:&#92;&quot;/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train/Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_93.npz&#92;&quot;,&#92;&quot;name&#92;&quot;:&#92;&quot;Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_93.npz&#92;&quot;,&#92;&quot;loss&#92;&quot;:1.022114634513855},{&#92;&quot;file&#92;&quot;:&#92;&quot;/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train/Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_94.npz&#92;&quot;,&#92;&quot;name&#92;&quot;:&#92;&quot;Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_94.npz&#92;&quot;,&#92;&quot;loss&#92;&quot;:1.022114634513855},{&#92;&quot;file&#92;&quot;:&#92;&quot;/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train/Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_95.npz&#92;&quot;,&#92;&quot;name&#92;&quot;:&#92;&quot;Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_95.npz&#92;&quot;,&#92;&quot;loss&#92;&quot;:1.022114634513855},{&#92;&quot;file&#92;&quot;:&#92;&quot;/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train/Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_96.npz&#92;&quot;,&#92;&quot;name&#92;&quot;:&#92;&quot;Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_96.npz&#92;&quot;,&#92;&quot;loss&#92;&quot;:1.022114634513855},{&#92;&quot;file&#92;&quot;:&#92;&quot;/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train/Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_97.npz&#92;&quot;,&#92;&quot;name&#92;&quot;:&#92;&quot;Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_97.npz&#92;&quot;,&#92;&quot;loss&#92;&quot;:1.022114634513855},{&#92;&quot;file&#92;&quot;:&#92;&quot;/home/taylor/data/PlanetScope/pre-chipped-8b/1024_512_20260515_ss2023_full/train/Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_98.npz&#92;&quot;,&#92;&quot;name&#92;&quot;:&#92;&quot;Salish_Sea_30_20230703_181834_07_2459_3B_AnalyticMS_SR_8b_clip_98.npz&#92;&quot;,&#92;&quot;loss&#92;&quot;:1.022114634513855}]&quot;' data-total-rows='2122' data-size-bytes='566373' data-total-columns='3' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-field-types='[[&quot;file&quot;,[&quot;string&quot;,&quot;str&quot;]],[&quot;name&quot;,[&quot;string&quot;,&quot;str&quot;]],[&quot;loss&quot;,[&quot;number&quot;,&quot;f64&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='true' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "8e29acab2a48aa95be886352bcc49b25",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "253 examples added\n",
+          "mimetype": "text/plain"
+        }
+      ]
+    },
+    {
+      "id": "Xref",
+      "code_hash": null,
+      "outputs": [],
+      "console": []
+    }
+  ]
+}
