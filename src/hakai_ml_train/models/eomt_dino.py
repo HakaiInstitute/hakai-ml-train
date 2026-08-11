@@ -231,6 +231,11 @@ class EomtDinoBinarySegmentationModel(
         return loss
 
     def on_train_epoch_end(self) -> None:
+        computed = self.train_metrics.compute()
+        self.log_dict(
+            {f"{k}_epoch": v for k, v in computed.items()},
+            sync_dist=True,
+        )
         self.train_metrics.reset()
 
     def on_validation_epoch_end(self) -> None:
@@ -270,6 +275,23 @@ class EomtDinoMulticlassSegmentationModel(EomtDinoBinarySegmentationModel):
         self.train_metrics = metrics.clone(prefix="train/")
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
+
+    def on_train_epoch_end(self) -> None:
+        # Per-step train metrics are computed on a single batch, so rare classes
+        # score 0 whenever they're absent. Log the epoch-accumulated values too.
+        computed = self.train_metrics.compute()
+        self.log("train/accuracy_epoch", computed["train/accuracy"], sync_dist=True)
+
+        for metric_name in ("iou", "recall", "precision", "f1"):
+            per_class = computed[f"train/{metric_name}"]
+            for i, class_name in enumerate(self.class_names):
+                self.log(
+                    f"train/{metric_name}_epoch/{class_name}",
+                    per_class[i],
+                    sync_dist=True,
+                )
+        self.log("train/iou_epoch", computed["train/iou"][1:].mean(), sync_dist=True)
+        self.train_metrics.reset()
 
     def on_validation_epoch_end(self) -> None:
         computed = self.val_metrics.compute()

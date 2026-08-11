@@ -95,6 +95,11 @@ class HabitatMapperSegmentationModel(pl.LightningModule):
         return loss
 
     def on_train_epoch_end(self) -> None:
+        computed = self.train_metrics.compute()
+        self.log_dict(
+            {f"{k}_epoch": v for k, v in computed.items()},
+            sync_dist=True,
+        )
         self.train_metrics.reset()
 
     def on_validation_epoch_end(self) -> None:
@@ -214,6 +219,9 @@ class HabitatMapperLegacyKelpModel(HabitatMapperSegmentationModel):
         self.log(f"{phase}/iou", step_values[f"{phase}/iou"][1:].mean(), sync_dist=True)
 
         return loss
+
+    def on_train_epoch_end(self) -> None:
+        self._log_epoch_metrics("train")
 
     def on_validation_epoch_end(self) -> None:
         self._log_epoch_metrics("val")

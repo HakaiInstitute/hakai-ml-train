@@ -60,7 +60,7 @@ data:
             balanced_scale: false
             border_mode: 0
             fill: 0.0
-            fill_mask: 0.0
+            fill_mask: *ignore_index
             fit_output: false
             interpolation: 1
             keep_ratio: true
