@@ -1,0 +1,7 @@
+[core]
+    autostage = true
+    remote = nas
+[cache]
+    type = "hardlink,symlink"
+['remote "nas"']
+    url = /mnt/geospatial/Internal/OngoingProjects/KoM/dvc_store

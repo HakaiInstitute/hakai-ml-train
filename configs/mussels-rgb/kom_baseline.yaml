@@ -1,7 +1,7 @@
 seed_everything: 42
 
 data:
-  class_path: "src.data.DataModule"
+  class_path: "hakai_ml_train.data.DataModule"
   init_args:
     train_chip_dir: "/home/taylor/data/MP-RGB-Jul2025-1024-512/train"
     val_chip_dir: "/home/taylor/data/MP-RGB-Jul2025-1024-512-full/val"
@@ -14,7 +14,7 @@ data:
     persistent_workers: true
 
 model:
-  class_path: "src.models.kom_baseline.KomMusselsBaselineModel"
+  class_path: "hakai_ml_train.models.kom_baseline.KomMusselsBaselineModel"
   init_args:
     num_classes: 1
     ignore_index: &ignore_index -100

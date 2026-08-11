@@ -7,18 +7,23 @@ import torchmetrics as tm
 import torchmetrics.classification as fm
 from huggingface_hub import PyTorchModelHubMixin
 
-from .. import losses
-from . import configure_optimizers as _configure_optimizers
+from hakai_ml_train import losses
+from hakai_ml_train.models import LayerDecayMixin
+from hakai_ml_train.models import configure_optimizers as _configure_optimizers
 
 
 class SMPBinarySegmentationModel(
     pl.LightningModule,
     PyTorchModelHubMixin,
+    LayerDecayMixin,
     library_name="habitat_mapper",
     tags=["pytorch", "kelp", "segmentation", "drones", "remote-sensing"],
     repo_url="https://github.com/HakaiInstitute/habitat-mapper",
     docs_url="https://habitat-mapper.readthedocs.io/",
 ):
+    # timm-universal SMP encoders (`tu-*`) hold the backbone at `.encoder.model`.
+    backbone_module_path = "model.encoder.model"
+
     def __init__(
         self,
         architecture: str,
@@ -35,7 +40,9 @@ class SMPBinarySegmentationModel(
         lr_scheduler_interval: str = "step",
         lr_scheduler_monitor: str | None = None,
         ckpt_path: str | None = None,
+        pt_path: str | None = None,
         freeze_backbone: bool = False,
+        use_checkpointing: bool = False,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -50,6 +57,9 @@ class SMPBinarySegmentationModel(
         if ckpt_path is not None:
             ckpt = torch.load(self.hparams.ckpt_path, weights_only=False)
             self.load_state_dict(ckpt["state_dict"])
+        elif pt_path is not None:
+            state_dict = torch.load(pt_path)
+            self.model.encoder.model.load_state_dict(state_dict)
 
         for p in self.model.parameters():
             p.requires_grad = True
@@ -87,6 +97,24 @@ class SMPBinarySegmentationModel(
         self.train_metrics = metrics.clone(prefix="train/")
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
+
+        if use_checkpointing:
+            self._patch_encoder_checkpointing()
+
+    def _patch_encoder_checkpointing(self):
+        encoder = self.model.encoder
+
+        # Option A: HuggingFace-backed encoders (mit_b*, swin_*, etc. via timm)
+        if hasattr(encoder, "model") and hasattr(
+            encoder.model, "gradient_checkpointing_enable"
+        ):
+            encoder.model.gradient_checkpointing_enable()
+            return
+
+        # Option B: timm backbone with native support
+        if hasattr(encoder, "gradient_checkpointing_enable"):
+            encoder.gradient_checkpointing_enable()
+            return
 
     @property
     def backbone(self):

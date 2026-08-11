@@ -159,7 +159,6 @@ fabric.properties
 *.tiff
 *.tif
 
-data
 checkpoints
 
 !/src/kelp-pa-aco/training/checkpoints/

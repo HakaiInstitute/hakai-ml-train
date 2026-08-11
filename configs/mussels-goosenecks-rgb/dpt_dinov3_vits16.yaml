@@ -3,24 +3,29 @@ seed_everything: 42
 model:
   class_path: "hakai_ml_train.models.smp.SMPMulticlassSegmentationModel"
   init_args:
-    architecture: "Unet"
-    encoder_name: "tu-convnext_large.dinov3_lvd1689m"
+    architecture: "DPT"
+    encoder_name: "tu-vit_small_plus_patch16_dinov3.lvd1689m"
     model_opts:
       encoder_weights: true
       in_channels: 3
-      drop_path_rate: 0.4
+      decoder_intermediate_channels: [128, 256, 512, 1024]
+      dynamic_img_size: true
+    pt_path: "data/mussel_gooseneck_rgb/pretrained_backbones/dinov3_subimage_overlap_backbone.pt"
+    freeze_backbone: true
     num_classes: 3
     ignore_index: &ignore_index -100
-    optimizer_class: torch.optim.AdamW
+    optimizer_class: timm.optim.create_optimizer_v2
     optimizer_opts:
-      lr: 1e-4
-      weight_decay: 0.05
+      opt: adamw
+      lr: 3e-4
+      weight_decay: 0.03
+      layer_decay: 0.7
       betas:
-        - 0.8
+        - 0.9
         - 0.999
     lr_scheduler_class: hakai_ml_train.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      warmup_steps: 1000
+      warmup_steps: 500
       min_lr: 1e-6
     lr_scheduler_interval: step
     loss: "LabelSmoothingLovasz"
@@ -35,12 +40,12 @@ model:
       - goosenecks
 
 data:
-  class_path: "hakai_ml_train.data.WebDataModule"
+  class_path: "hakai_ml_train.data.DataModule"
   init_args:
-    train_chip_dir: "HakaiInstitute/mussel-gooseneck-seg-rgb-640"
-    val_chip_dir: "HakaiInstitute/mussel-gooseneck-seg-rgb-640"
-    test_chip_dir: "HakaiInstitute/mussel-gooseneck-seg-rgb-640"
-    batch_size: 6
+    train_chip_dir: data/mussel_gooseneck_rgb/224x112/train/
+    val_chip_dir: data/mussel_gooseneck_rgb/224x224/val/
+    test_chip_dir: data/mussel_gooseneck_rgb/224x224/test/
+    batch_size: 32
     num_workers: 8
     pin_memory: true
     persistent_workers: true
@@ -207,7 +212,7 @@ data:
                   - 5
                 p: 1.0
           - __class_fullname__: OneOf
-            p: 0.35
+            p: 0.1
             transforms:
               - __class_fullname__: GridDropout
                 fill: 0.0
@@ -222,27 +227,27 @@ data:
               - __class_fullname__: CoarseDropout
                 fill: 0.0
                 hole_height_range:
-                  - 24
-                  - 64
+                  - 16
+                  - 32
                 hole_width_range:
-                  - 24
-                  - 64
+                  - 16
+                  - 32
                 num_holes_range:
-                  - 4
-                  - 10
+                  - 2
+                  - 6
                 p: 1.0
           - __class_fullname__: Normalize
             max_pixel_value: 255.0
             mean:
-              - 0.485
-              - 0.456
-              - 0.406
+              - 0.430
+              - 0.411
+              - 0.296
             normalization: standard
             p: 1.0
             std:
-              - 0.229
-              - 0.224
-              - 0.225
+              - 0.213
+              - 0.156
+              - 0.143
           - __class_fullname__: ToTensorV2
             p: 1.0
             transpose_mask: false
@@ -261,15 +266,15 @@ data:
           - __class_fullname__: Normalize
             max_pixel_value: 255.0
             mean:
-              - 0.485
-              - 0.456
-              - 0.406
+              - 0.430
+              - 0.411
+              - 0.296
             normalization: standard
             p: 1.0
             std:
-              - 0.229
-              - 0.224
-              - 0.225
+              - 0.213
+              - 0.156
+              - 0.143
           - __class_fullname__: ToTensorV2
             p: 1.0
             transpose_mask: false
@@ -290,17 +295,17 @@ trainer:
       init_args:
         entity: hakai
         project: kom-mussel-gooseneck-rgb
-        name: unet_convnextv2_large
-        group: Apr2026
+        name: dpt_dinov3_vits16
+        group: Jun2026
         log_model: true
         tags:
           - mussel_gooseneck
-          - Apr2026
+          - Jun2026
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: mussel_gooseneck_rgb_unet_convnextv2_large_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: mussel_gooseneck_rgb_dpt_dinov3_vits16_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
@@ -316,5 +321,10 @@ trainer:
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
-  plugins:
-    - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO
+    - class_path: lightning.pytorch.callbacks.BackboneFinetuning
+      init_args:
+        unfreeze_backbone_at_epoch: 100000
+        backbone_initial_ratio_lr: 0.1
+        should_align: true
+        train_bn: true
+        verbose: true

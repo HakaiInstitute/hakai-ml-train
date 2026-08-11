@@ -6,8 +6,8 @@ import torchmetrics as tm
 from lightning import pytorch as pl
 from torchmetrics import classification as fm
 
-from src import losses
-from src.models import configure_optimizers as _configure_optimizers
+from hakai_ml_train import losses
+from hakai_ml_train.models import configure_optimizers as _configure_optimizers
 
 
 class HabitatMapperSegmentationModel(pl.LightningModule):
