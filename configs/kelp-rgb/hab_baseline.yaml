@@ -1,7 +1,7 @@
 seed_everything: 42
 
 model:
-  class_path: "hakai_ml_train.models.hab_baseline.HabitatMapperSegmentationModel"
+  class_path: "hakai_ml_train.models.hab_baseline.HabitatMapperLegacyKelpModel"
   init_args:
     model: "kelp-rgb"
     revision: "20240722"
