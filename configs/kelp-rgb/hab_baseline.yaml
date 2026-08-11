@@ -1,8 +1,10 @@
 seed_everything: 42
 
 model:
-  class_path: "hakai_ml_train.models.kom_baseline.KomRGBSpeciesBaselineModel"
+  class_path: "hakai_ml_train.models.hab_baseline.HabitatMapperSegmentationModel"
   init_args:
+    model: "kelp-rgb"
+    revision: "20240722"
     num_classes: 3
     ignore_index: &ignore_index -100
     optimizer_class: torch.optim.AdamW
@@ -265,12 +267,12 @@ trainer:
       init_args:
         entity: hakai
         project: kom-kelp-rgb
-        name: kom-baseline-v0.13.1
+        name: hab-baseline-20240722
         group: Jul2025
         log_model: true
         tags:
           - kelp
-          - Jul2025
+          - Aug2026
   callbacks:
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
