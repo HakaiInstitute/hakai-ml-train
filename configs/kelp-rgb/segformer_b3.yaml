@@ -33,13 +33,6 @@ model:
 data:
   class_path: "hakai_ml_train.data.DataModule"
   init_args:
-    # All 4330 kelp-bearing chips plus a 5k random sample of the 17803
-    # background-only ones, so the model sees open water, land and glint
-    # without kelp. val/test are the full, unfiltered distribution, where
-    # kelp is ~3% of pixels and precision on background sets the IoU ceiling.
-    # Rebuild with:
-    #   python -m hakai_ml_train.prepare.make_bg_sampled_dir \
-    #     <...>-1024-1024-full/train <...>-1024-1024-mixed/train --num-bg 5000
     train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-mixed/train"
     val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/val"
     test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/test"
@@ -60,12 +53,6 @@ data:
         transforms:
           - __class_fullname__: D4
             p: 1.0
-          # Widened and fired more often (0.5 -> 0.6). Nereo scores train 0.810
-          # / val 0.592 while macro manages 0.889 / 0.807, and nereo is the
-          # *more* common training class -- so the gap is site generalization,
-          # not imbalance. 8 of 17 train mosaics are single-species, so water
-          # colour, sun angle and sensor are a shortcut the model can use in
-          # place of morphology. Perturbing colour harder attacks that directly.
           - __class_fullname__: OneOf
             p: 0.6
             transforms:
@@ -257,10 +244,6 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 50
-  # An 80-epoch run peaked at epoch 17 and then declined for 30 epochs until
-  # EarlyStopping fired, so the cosine never annealed and the best checkpoint
-  # was taken while the LR was still near max. 40 epochs (~10 h at 3.5 it/s)
-  # ends the decay near where this dataset actually converges.
   max_epochs: 40
   accumulate_grad_batches: 8
   gradient_clip_val: 0.8
