@@ -60,30 +60,36 @@ data:
         transforms:
           - __class_fullname__: D4
             p: 1.0
+          # Widened and fired more often (0.5 -> 0.6). Nereo scores train 0.810
+          # / val 0.592 while macro manages 0.889 / 0.807, and nereo is the
+          # *more* common training class -- so the gap is site generalization,
+          # not imbalance. 8 of 17 train mosaics are single-species, so water
+          # colour, sun angle and sensor are a shortcut the model can use in
+          # place of morphology. Perturbing colour harder attacks that directly.
           - __class_fullname__: OneOf
-            p: 0.5
+            p: 0.6
             transforms:
               - __class_fullname__: RandomBrightnessContrast
                 brightness_by_max: true
                 brightness_limit:
-                  - -0.1
-                  - 0.1
+                  - -0.2
+                  - 0.2
                 contrast_limit:
-                  - -0.1
-                  - 0.1
+                  - -0.2
+                  - 0.2
                 ensure_safe_range: false
                 p: 1.0
               - __class_fullname__: HueSaturationValue
                 hue_shift_limit:
-                  - -5.0
-                  - 5.0
+                  - -8.0
+                  - 8.0
                 p: 1.0
                 sat_shift_limit:
-                  - -10.0
-                  - 10.0
-                val_shift_limit:
                   - -15.0
                   - 15.0
+                val_shift_limit:
+                  - -20.0
+                  - 20.0
           - __class_fullname__: OneOf
             p: 0.3
             transforms:
@@ -156,18 +162,18 @@ data:
               - 8
           - __class_fullname__: ColorJitter
             brightness:
-              - 0.95
-              - 1.05
+              - 0.9
+              - 1.1
             contrast:
-              - 0.95
-              - 1.05
+              - 0.9
+              - 1.1
             hue:
-              - -0.05
-              - 0.05
-            p: 0.3
+              - -0.08
+              - 0.08
+            p: 0.4
             saturation:
-              - 0.95
-              - 1.05
+              - 0.9
+              - 1.1
           - __class_fullname__: Affine
             balanced_scale: false
             border_mode: 0
@@ -251,7 +257,11 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 50
-  max_epochs: 80
+  # An 80-epoch run peaked at epoch 17 and then declined for 30 epochs until
+  # EarlyStopping fired, so the cosine never annealed and the best checkpoint
+  # was taken while the LR was still near max. 40 epochs (~10 h at 3.5 it/s)
+  # ends the decay near where this dataset actually converges.
+  max_epochs: 40
   accumulate_grad_batches: 8
   gradient_clip_val: 0.8
   detect_anomaly: false
@@ -283,7 +293,7 @@ trainer:
       init_args:
         monitor: val/iou_epoch
         mode: max
-        patience: 30
+        patience: 15
         verbose: True
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
