@@ -267,7 +267,7 @@ trainer:
         log_model: true
         tags:
           - kelp
-          - Jul2025
+          - Aug2026
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
