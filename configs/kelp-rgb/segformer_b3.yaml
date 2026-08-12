@@ -33,9 +33,9 @@ model:
 data:
   class_path: "hakai_ml_train.data.DataModule"
   init_args:
-    train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-mixed/train"
-    val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/val"
-    test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/test"
+    train_chip_dir: "data/kelp-rgb/1024x512-mixed/train"
+    val_chip_dir: "data/kelp-rgb/1024x1024/val"
+    test_chip_dir: "data/kelp-rgb/1024x1024/test"
     batch_size: 3
     num_workers: 8
     pin_memory: true
@@ -53,6 +53,33 @@ data:
         transforms:
           - __class_fullname__: D4
             p: 1.0
+          - __class_fullname__: RandomScale
+            area_for_downscale: null
+            interpolation: 1
+            mask_interpolation: 0
+            p: 0.5
+            scale_limit:
+              - -0.5
+              - 0.5
+          - __class_fullname__: PadIfNeeded
+            border_mode: 0
+            fill: 0.0
+            fill_mask: *ignore_index
+            min_height: 1024
+            min_width: 1024
+            pad_height_divisor: null
+            pad_width_divisor: null
+            p: 1.0
+            position: random
+          - __class_fullname__: RandomCrop
+            border_mode: 0
+            fill: 0.0
+            fill_mask: *ignore_index
+            height: 1024
+            pad_if_needed: false
+            pad_position: center
+            p: 1.0
+            width: 1024
           - __class_fullname__: OneOf
             p: 0.6
             transforms:
@@ -244,7 +271,7 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 50
-  max_epochs: 40
+  max_epochs: 20
   accumulate_grad_batches: 8
   gradient_clip_val: 0.8
   detect_anomaly: false
@@ -256,11 +283,11 @@ trainer:
         entity: hakai
         project: kom-kelp-rgb
         name: segformer_b3
-        group: Jul2025
+        group: Aug2026-resplit
         log_model: true
         tags:
           - kelp
-          - Aug2026
+          - Aug2026-resplit
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
@@ -276,7 +303,7 @@ trainer:
       init_args:
         monitor: val/iou_epoch
         mode: max
-        patience: 15
+        patience: 8
         verbose: True
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:

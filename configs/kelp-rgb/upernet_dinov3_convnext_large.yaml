@@ -289,11 +289,11 @@ trainer:
         entity: hakai
         project: kom-kelp-rgb
         name: upernet_dinov3_convnext_large
-        group: Jul2025
+        group: Aug2026-resplit
         log_model: true
         tags:
           - kelp
-          - Aug2026
+          - Aug2026-resplit
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
