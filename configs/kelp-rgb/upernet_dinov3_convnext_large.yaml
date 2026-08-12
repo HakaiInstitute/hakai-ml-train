@@ -1,31 +1,3 @@
-# UPerNet + DINOv3 ConvNeXt-Large for kelp-rgb.
-#
-# Successor to segformer_b3.yaml, which peaked at val/iou_epoch 0.714 (epoch 17
-# of 80) and then declined for 30 epochs before EarlyStopping fired. Two things
-# that run showed:
-#
-#   1. Nereo is the weak class and the failure is generalization, not capacity
-#      or frequency -- nereo is 6.9% of train pixels vs macro's 3.3%, yet scores
-#      train 0.810 / val 0.592 (gap 0.22) against macro's 0.889 / 0.807 (0.08).
-#      Species are heavily confounded with site: 8 of 17 train mosaics are
-#      single-species, so a model can score well on train by learning which site
-#      it is looking at rather than which species.
-#   2. The 80-epoch cosine meant the model peaked while the LR was still near
-#      max, so it never annealed into a minimum.
-#
-# Both are addressed here: DINOv3-pretrained features for cross-site
-# generalization, a schedule short enough that the anneal completes, and
-# stronger photometric augmentation to break site-appearance shortcuts.
-#
-# Benchmarked at 1024px on an RTX 4090 (24 GB): 17.3 GB peak at batch_size 3,
-# 12.4 chips/s -- less memory and faster than segformer_b3 (21.2 GB, 11.0
-# chips/s) despite 4.7x the parameters, since ConvNeXt has no quadratic
-# attention over the 1024x1024 grid.
-#
-# NOTE: layer-wise LR decay is not available for this encoder -- timm wraps it
-# in a FeatureListNet with no `group_matcher`. Plain AdamW at a reduced LR is
-# used instead to avoid washing out the pretrained representation.
-
 seed_everything: 42
 
 model:
@@ -65,13 +37,6 @@ model:
 data:
   class_path: "hakai_ml_train.data.DataModule"
   init_args:
-    # All 4330 kelp-bearing chips plus a 5k random sample of the 17803
-    # background-only ones, so the model sees open water, land and glint
-    # without kelp. val/test are the full, unfiltered distribution, where
-    # kelp is ~3% of pixels and precision on background sets the IoU ceiling.
-    # Rebuild with:
-    #   python -m hakai_ml_train.prepare.make_bg_sampled_dir \
-    #     <...>-1024-1024-full/train <...>-1024-1024-mixed/train --num-bg 5000
     train_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-mixed/train"
     val_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/val"
     test_chip_dir: "/home/taylor/data/KS-RGB-Jul2025-1024-1024-full/test"
@@ -92,11 +57,6 @@ data:
         transforms:
           - __class_fullname__: D4
             p: 1.0
-          # Photometric augmentation is widened relative to segformer_b3 and
-          # fires more often (0.5 -> 0.6). Macro and nereo sites differ in water
-          # colour, sun angle and sensor, so colour is a shortcut the model can
-          # use in place of morphology -- exactly the confound behind nereo's
-          # 0.22 train/val gap.
           - __class_fullname__: OneOf
             p: 0.6
             transforms:
@@ -288,9 +248,6 @@ trainer:
   devices: auto
   precision: bf16-mixed
   log_every_n_steps: 50
-  # segformer_b3 peaked at epoch 17 of 80, so its cosine never annealed. 40
-  # epochs (~9.5 h at 12.4 chips/s) puts the end of the decay near where this
-  # dataset actually converges.
   max_epochs: 40
   accumulate_grad_batches: 8
   gradient_clip_val: 0.8
