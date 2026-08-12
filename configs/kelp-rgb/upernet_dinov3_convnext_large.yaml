@@ -10,10 +10,12 @@ model:
       in_channels: 3
     num_classes: 3
     ignore_index: &ignore_index -100
-    optimizer_class: torch.optim.AdamW
+    optimizer_class: timm.optim.create_optimizer_v2
     optimizer_opts:
-      lr: 1e-4
+      opt: adamw
+      lr: 2e-4
       weight_decay: 0.03
+      layer_decay: 0.95
       betas:
         - 0.9
         - 0.999
