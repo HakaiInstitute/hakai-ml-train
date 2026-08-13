@@ -16,14 +16,12 @@ class ONNXModel(torch.nn.Module):
         return self.model(x)
 
 
-def main(
-    config_path: Path,
-    ckpt_path: Path,
-    output_path: Path,
-    dynamic_spatial: bool = True,
-    dynamo: bool = True,
-    min_image_size: int = 1,
-) -> None:
+def load_model_from_config(config_path: Path, ckpt_path: Path):
+    """Instantiate the Lightning module described by a training config and load weights.
+
+    Returns the eval-mode module plus the `model.init_args` dict, which callers use
+    to recover input channels / image size.
+    """
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
@@ -45,6 +43,20 @@ def main(
     for name, submodule in list(model.named_children()):
         if hasattr(submodule, "_orig_mod"):
             setattr(model, name, submodule._orig_mod)
+
+    model.eval()
+    return model, init_args
+
+
+def main(
+    config_path: Path,
+    ckpt_path: Path,
+    output_path: Path,
+    dynamic_spatial: bool = True,
+    dynamo: bool = True,
+    min_image_size: int = 1,
+) -> None:
+    model, init_args = load_model_from_config(config_path, ckpt_path)
 
     num_channels = init_args.get("model_opts", {}).get("in_channels", 3)
     image_size = init_args.get("image_size", 640)
