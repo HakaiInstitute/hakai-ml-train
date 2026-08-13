@@ -3,8 +3,10 @@
 Takes the same `(config, ckpt)` pair as `kom_onnx`, and applies the three things
 that actually move CPU latency:
 
-1. Fixed spatial dimensions. Dynamic H/W blocks several ONNX Runtime graph
-   fusions, and Kelp-o-Matic tiles at a fixed size anyway.
+1. A batch dim fixed at 1, which measured ~10% faster than a symbolic one and
+   costs nothing given CPU inference tiles one chip at a time. Tile size stays
+   dynamic, which measured free, so one artifact serves any tile size;
+   `--no-dynamic-spatial` pins it but is rarely worth it.
 2. Shape inference + graph pre-processing, so the quantizer sees a clean graph.
 3. Static int8 QDQ quantization, calibrated on real chips drawn from the
    config's own `data` section (using its `test_transforms`, so calibration
@@ -39,7 +41,11 @@ from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 from onnxruntime.quantization.shape_inference import quant_pre_process
 from torch.export import Dim
 
-from hakai_ml_train.deploy.kom_onnx import ONNXModel, load_model_from_config
+from hakai_ml_train.deploy.kom_onnx import (
+    ONNXModel,
+    encoder_min_image_size,
+    load_model_from_config,
+)
 
 
 def _build_calibration_transform(config: dict, image_size: int) -> A.Compose:
@@ -123,25 +129,34 @@ class NpzCalibrationDataReader(CalibrationDataReader):
         self._iter = None
 
 
-def export_fixed_shape(
+def export_for_quantization(
     model: torch.nn.Module,
     output_path: Path,
     num_channels: int,
     image_size: int,
-    dynamic_batch: bool,
+    dynamic_spatial: bool,
+    min_image_size: int,
 ) -> None:
-    """Export with H/W pinned so ORT can fuse aggressively."""
+    """Export at batch 1, optionally keeping tile size dynamic.
+
+    Batch is pinned: a symbolic batch dim measured ~10% slower at batch 1, 512px
+    on Segformer/resnet34 (interleaved medians, consistent across min and p90),
+    and batching buys under 5% throughput on CPU because it is already compute
+    saturated. Spatial dims stay dynamic by default at no measurable cost, so one
+    artifact serves any tile size.
+    """
     onnx_model = ONNXModel(model)
     onnx_model.eval()
 
-    # torch.export infers a `batch <= 1` guard from a single-sample example, which
-    # then conflicts with a dynamic batch Dim; trace with 2 samples to avoid it.
-    example_batch = 2 if dynamic_batch else 1
-    x = torch.rand(
-        example_batch, num_channels, image_size, image_size, requires_grad=False
-    )
-    batch_dim = Dim("batch", min=1) if dynamic_batch else Dim.STATIC
-    dynamic_shapes = {"x": (batch_dim, Dim.STATIC, Dim.STATIC, Dim.STATIC)}
+    x = torch.rand(1, num_channels, image_size, image_size, requires_grad=False)
+    if dynamic_spatial:
+        spatial = (
+            Dim("height", min=min_image_size),
+            Dim("width", min=min_image_size),
+        )
+    else:
+        spatial = (Dim.STATIC, Dim.STATIC)
+    dynamic_shapes = {"x": (Dim.STATIC, Dim.STATIC, *spatial)}
 
     with torch.no_grad():
         torch.onnx.export(
@@ -163,9 +178,10 @@ def export_fixed_shape(
 def _pre_process(src: Path, dst: Path) -> None:
     """Shape-infer and fold the graph so the quantizer sees clean, typed tensors.
 
-    ORT's symbolic shape inference asserts on some graphs that mix a symbolic
-    batch dim with MatMul (the Segformer all-MLP decoder is one), so fall back to
-    skipping it. Quantization still works; only some fusions are lost.
+    ORT's symbolic shape inference asserts on some graphs that combine any
+    symbolic dim with MatMul (the Segformer all-MLP decoder is one), so fall
+    back to skipping it. Quantization still works; only some fusions are lost,
+    and in practice the int8 graph is no slower for it.
     """
     try:
         quant_pre_process(str(src), str(dst), skip_symbolic_shape=False)
@@ -265,7 +281,8 @@ def main(
     calib_split: str,
     calib_samples: int,
     threads: int,
-    dynamic_batch: bool,
+    dynamic_spatial: bool,
+    min_image_size: int | None,
     per_channel: bool,
     skip_benchmark: bool,
 ) -> None:
@@ -274,14 +291,23 @@ def main(
 
     model, init_args = load_model_from_config(config_path, ckpt_path)
     num_channels = init_args.get("model_opts", {}).get("in_channels", 3)
+    if min_image_size is None:
+        min_image_size = encoder_min_image_size(model)
 
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
     fp32_path = output_prefix.with_name(f"{output_prefix.name}_fp32.onnx")
     prepped_path = output_prefix.with_name(f"{output_prefix.name}_fp32_prepped.onnx")
     int8_path = output_prefix.with_name(f"{output_prefix.name}_int8.onnx")
 
-    print(f"[1/4] Exporting fp32 graph at {image_size}x{image_size}...")
-    export_fixed_shape(model, fp32_path, num_channels, image_size, dynamic_batch)
+    shape_desc = (
+        f"1x{num_channels}xHxW (H,W dynamic, min {min_image_size}px)"
+        if dynamic_spatial
+        else f"1x{num_channels}x{image_size}x{image_size}"
+    )
+    print(f"[1/4] Exporting fp32 graph, input {shape_desc}...")
+    export_for_quantization(
+        model, fp32_path, num_channels, image_size, dynamic_spatial, min_image_size
+    )
     print(f"      wrote {fp32_path}")
 
     print("[2/4] Running shape inference and graph pre-processing...")
@@ -333,7 +359,10 @@ if __name__ == "__main__":
         "--image-size",
         type=int,
         default=512,
-        help="Fixed tile size to export at (default: 512)",
+        help=(
+            "Tile size used for calibration and benchmarking, and the fixed "
+            "export size under --no-dynamic-spatial (default: 512)"
+        ),
     )
     parser.add_argument(
         "--calib-split",
@@ -354,9 +383,21 @@ if __name__ == "__main__":
         help="intra_op_num_threads used for benchmarking (default: 4)",
     )
     parser.add_argument(
-        "--no-dynamic-batch",
+        "--no-dynamic-spatial",
         action="store_true",
-        help="Pin batch size to 1 as well as H/W",
+        help=(
+            "Pin H/W to --image-size. Batch is always fixed at 1. Costs "
+            "flexibility but lets ORT fuse more aggressively"
+        ),
+    )
+    parser.add_argument(
+        "--min-image-size",
+        type=int,
+        default=None,
+        help=(
+            "Smallest tile the dynamic graph accepts "
+            "(default: the encoder's output_stride)"
+        ),
     )
     parser.add_argument(
         "--no-per-channel",
@@ -379,7 +420,8 @@ if __name__ == "__main__":
         calib_split=args.calib_split,
         calib_samples=args.calib_samples,
         threads=args.threads,
-        dynamic_batch=not args.no_dynamic_batch,
+        dynamic_spatial=not args.no_dynamic_spatial,
+        min_image_size=args.min_image_size,
         per_channel=not args.no_per_channel,
         skip_benchmark=args.skip_benchmark,
     )

@@ -16,6 +16,16 @@ class ONNXModel(torch.nn.Module):
         return self.model(x)
 
 
+def encoder_min_image_size(model: torch.nn.Module, default: int = 32) -> int:
+    """Smallest tile the encoder can consume, i.e. its total downsampling factor.
+
+    Below this, the deepest stage's feature map collapses to zero size and
+    export fails. SMP encoders expose this as `output_stride`.
+    """
+    encoder = getattr(getattr(model, "model", model), "encoder", None)
+    return int(getattr(encoder, "output_stride", default) or default)
+
+
 def load_model_from_config(config_path: Path, ckpt_path: Path):
     """Instantiate the Lightning module described by a training config and load weights.
 
@@ -54,9 +64,12 @@ def main(
     output_path: Path,
     dynamic_spatial: bool = True,
     dynamo: bool = True,
-    min_image_size: int = 1,
+    min_image_size: int | None = None,
 ) -> None:
     model, init_args = load_model_from_config(config_path, ckpt_path)
+
+    if min_image_size is None:
+        min_image_size = encoder_min_image_size(model)
 
     num_channels = init_args.get("model_opts", {}).get("in_channels", 3)
     image_size = init_args.get("image_size", 640)
@@ -128,8 +141,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--min-image-size",
         type=int,
-        default=1,
-        help="Minimum image size for spatial dimensions (default: 1)",
+        default=None,
+        help=(
+            "Minimum image size for spatial dimensions "
+            "(default: the encoder's output_stride)"
+        ),
     )
 
     args = parser.parse_args()
