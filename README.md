@@ -44,10 +44,19 @@ This repository provides PyTorch Lightning-based training infrastructure for com
    .venv\Scripts\activate  # On Windows
    ```
 
-4. **Set up pre-commit hooks (optional but recommended):**
+4. **Set up git hooks with [prek](https://github.com/j178/prek) (optional but recommended):**
+
+   `prek` is a fast, drop-in replacement for `pre-commit` that reads the same
+   `.pre-commit-config.yaml`. It is included in the `dev` dependency group, so
+   `uv sync --all-groups` above already installed it:
+
    ```bash
-   pre-commit install
+   # Install the git hooks defined in .pre-commit-config.yaml
+   uv run prek install
    ```
+
+   Hooks then run automatically on `git commit`. See
+   [Code Quality](#code-quality) for running them manually.
 
 ## Dataset Preparation
 
@@ -491,7 +500,33 @@ Training checkpoints and experiment logs remain in Weights & Biases under the ha
 
 ### Code Quality
 
-Format and lint with Ruff:
+Linting and formatting are managed by [prek](https://github.com/j178/prek), a fast
+drop-in replacement for `pre-commit` that uses the existing
+`.pre-commit-config.yaml` (Ruff check/format plus a set of standard file hygiene
+hooks).
+
+`prek` ships in the `dev` dependency group (`uv sync --all-groups`). Prefix the
+commands below with `uv run` if the virtual environment is not activated.
+
+```bash
+# One-time: install the git hooks so they run on every commit
+prek install
+
+# Run all hooks (lint + format fixes) against every file in the repo
+prek run -a
+
+# Run all hooks against staged files only
+prek run
+
+# Run a single hook
+prek run ruff-format -a
+```
+
+Hooks that modify files (e.g. Ruff's `--fix`, trailing whitespace) will fail the
+run and leave the fixes in your working tree — re-stage and re-run to confirm
+everything passes.
+
+You can also invoke Ruff directly without the hook framework:
 
 ```bash
 # Check for issues
@@ -502,12 +537,6 @@ ruff check --fix .
 
 # Format code
 ruff format .
-```
-
-Run pre-commit hooks on all files:
-
-```bash
-pre-commit run --all-files
 ```
 
 ### Key Source Files
