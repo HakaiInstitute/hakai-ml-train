@@ -4,7 +4,7 @@ model:
   class_path: "hakai_ml_train.models.hab_baseline.HabitatMapperSegmentationModel"
   init_args:
     model: "kelp-ps8b"
-    revision: "20250818"
+    revision: "20260604"
     num_classes: 1
     ignore_index: &ignore_index -100
     optimizer_class: torch.optim.AdamW
@@ -27,9 +27,9 @@ model:
 data:
   class_path: "hakai_ml_train.data.DataModule"
   init_args:
-    train_chip_dir: /home/taylor/data/kelp-ps8b/1024x512/cali_bc/kelp/train/
-    val_chip_dir: /home/taylor/data/kelp-ps8b/1024x1024/cali_bc/full/val/
-    test_chip_dir: /home/taylor/data/kelp-ps8b/1024x1024/cali_bc/full/test/
+    train_chip_dir: data/kelp-ps8b/1024x512/train/
+    val_chip_dir: data/kelp-ps8b/1024x1024/val/
+    test_chip_dir: data/kelp-ps8b/1024x1024/test/
     batch_size: 3
     num_workers: 8
     pin_memory: true
@@ -129,6 +129,28 @@ data:
             pad_width_divisor: null
             padding: 0
             position: center
+          - __class_fullname__: Normalize
+            max_pixel_value: 4000.0
+            mean:
+              - 0.43
+              - 0.42875
+              - 0.47825
+              - 0.522
+              - 0.5685
+              - 0.5725
+              - 0.65325
+              - 0.9925
+            normalization: standard
+            p: 1.0
+            std:
+              - 0.18675
+              - 0.1745
+              - 0.18475
+              - 0.192
+              - 0.21225
+              - 0.217
+              - 0.21225
+              - 0.2285
           - __class_fullname__: ToTensorV2
             p: 1.0
             transpose_mask: false
