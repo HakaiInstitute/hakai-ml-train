@@ -149,9 +149,14 @@ def process_split(
     num_bands: int = 3,
     band_remapping: tuple[int] = (0, 1),
     dtype: np.dtype = np.uint8,
+    only: str | None = None,
 ):
     dir = data_dir / split
     imgs = sorted(dir.glob("images/*.tif", case_sensitive=False))
+    if only is not None:
+        imgs = [i for i in imgs if i.name == only]
+        if not imgs:
+            raise SystemExit(f"No mosaic named {only} in {dir / 'images'}")
     for i, x in enumerate(imgs):
         print(i, x.name)
 
@@ -196,6 +201,20 @@ def main():
 
     parser.add_argument("--remap", "-r", type=int, nargs="+", default=[0, 1, 2])
 
+    parser.add_argument(
+        "--splits",
+        nargs="+",
+        default=["train", "val", "test"],
+        help="Which splits to tile. Lets train take an overlapping stride while "
+        "val and test stay non-overlapping.",
+    )
+    parser.add_argument(
+        "--only",
+        default=None,
+        help="Tile just this mosaic filename, for resuming or for running "
+        "several mosaics in parallel.",
+    )
+
     args = parser.parse_args()
 
     print(f"Creating dataset {Path(args.output_dir).name}")
@@ -205,7 +224,7 @@ def main():
         print(f"{i} -> {v}")
     print("All other values will be set to -100.")
 
-    for split in ["train", "val", "test"]:
+    for split in args.splits:
         process_split(
             args.data_dir,
             split,
@@ -215,6 +234,7 @@ def main():
             args.num_bands,
             args.remap,
             args.dtype,
+            args.only,
         )
 
 
