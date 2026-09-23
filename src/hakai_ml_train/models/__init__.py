@@ -57,6 +57,37 @@ def _has_vit_stem(backbone: nn.Module) -> bool:
     return any(stem.match(name) for name, _ in backbone.named_parameters())
 
 
+# timm's feature-extraction wrappers rebuild a backbone as a flat container, so
+# `tu-convnext_*` encoders arrive as a `FeatureListNet` with no `group_matcher`
+# and with `stages.0` rewritten to `stages_0`. This mirrors timm's own ConvNeXt
+# matcher against the flattened names -- the only change is the separator.
+_CONVNEXT_FLAT_STAGE_RE = re.compile(r"^stages_\d+\.blocks\.\d+")
+
+
+def _convnext_flat_group_matcher(coarse: bool = False):
+    if coarse:
+        return {"stem": r"^stem", "blocks": r"^stages_(\d+)"}
+    return {
+        "stem": r"^stem",
+        # (0,) puts a stage's downsample ahead of its blocks; (99999,) is timm's
+        # MATCH_PREV_GROUP, folding the final norm into the last block rather
+        # than opening a level of its own.
+        "blocks": [
+            (r"^stages_(\d+)\.downsample", (0,)),
+            (r"^stages_(\d+)\.blocks\.(\d+)", None),
+            (r"^norm_pre", (99999,)),
+        ],
+    }
+
+
+def _has_flat_convnext_stages(backbone: nn.Module) -> bool:
+    """True if this is a timm ConvNeXt flattened by a feature-extraction wrapper."""
+    names = [name for name, _ in backbone.named_parameters()]
+    return any(_CONVNEXT_FLAT_STAGE_RE.match(n) for n in names) and any(
+        n.startswith("stem") for n in names
+    )
+
+
 class LayerDecayMixin:
     """Exposes timm's layer-wise LR decay hooks on a composite segmentation model.
 
@@ -116,15 +147,19 @@ class LayerDecayMixin:
             matcher = _with_stem_tokens(backbone.group_matcher(coarse=coarse))
         elif hasattr(backbone, "blocks") and _has_vit_stem(backbone):
             matcher = _VIT_GROUP_MATCHER
+        elif _has_flat_convnext_stages(backbone):
+            matcher = _convnext_flat_group_matcher(coarse)
         else:
             raise ValueError(
                 f"Layer-wise LR decay cannot order the layers of "
                 f"{self.backbone_module_path} ({type(backbone).__name__}): it "
-                f"provides no timm `group_matcher`, and the ViT fallback needs "
-                f"`.blocks` plus a recognizable ViT stem "
-                f"(cls_token/pos_embed/patch_embed). Layer decay is currently "
-                f"wired up for ViT encoders (`tu-vit_*`, `tu-deit_*`) and DOFA -- "
-                f"drop `layer_decay` from optimizer_opts for this backbone."
+                f"provides no timm `group_matcher`, and neither fallback "
+                f"applies -- the ViT one needs `.blocks` plus a recognizable "
+                f"ViT stem (cls_token/pos_embed/patch_embed), the ConvNeXt one "
+                f"needs flattened `stem*`/`stages_N.blocks.M` names. Layer decay "
+                f"is currently wired up for ViT encoders (`tu-vit_*`, "
+                f"`tu-deit_*`), `tu-convnext_*` and DOFA -- drop `layer_decay` "
+                f"from optimizer_opts for this backbone."
             )
 
         # Layer ids are resolved against the backbone's own parameter names, so
