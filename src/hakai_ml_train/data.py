@@ -15,16 +15,22 @@ from torchvision.datasets import VisionDataset
 
 
 class NpzSegmentationDataset(VisionDataset):
-    """Load preprocessed image chips. Used during model train and validation phases."""
+    """Load preprocessed image chips. Used during model train and validation phases.
+
+    ``label_remap`` maps stored label values to new ones before transforms run,
+    e.g. ``{2: 1}`` merges species classes 1 and 2 into a single kelp class.
+    """
 
     def __init__(
         self,
         root: str,
         *args,
+        label_remap: dict[int, int] | None = None,
         **kwargs,
     ):
         super().__init__(root, *args, **kwargs)
         self.chips = sorted(Path(root).glob("*.npz"))
+        self.label_remap = label_remap
 
     def __len__(self):
         return len(self.chips)
@@ -33,12 +39,19 @@ class NpzSegmentationDataset(VisionDataset):
     def __getitem__(self, idx):
         chip_name = self.chips[idx]
         data = np.load(chip_name)
+        image, label = data["image"], data["label"]
+        if self.label_remap:
+            remapped = label.copy()
+            for src, dst in self.label_remap.items():
+                remapped[label == src] = dst
+            label = remapped
+
         if self.transforms is not None:
             with torch.no_grad():
-                augmented = self.transforms(image=data["image"], mask=data["label"])
+                augmented = self.transforms(image=image, mask=label)
                 return augmented["image"], augmented["mask"]
 
-        return data["image"], data["label"]
+        return image, label
 
 
 class WebDataset(Dataset):
@@ -82,6 +95,7 @@ class DataModule(pl.LightningDataModule):
         persistent_workers: bool = False,
         train_transforms: Any | None = None,
         test_transforms: Any | None = None,
+        label_remap: dict[int, int] | None = None,
     ):
         super().__init__()
         self.train_data_dir = train_chip_dir
@@ -92,6 +106,7 @@ class DataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.persistent_workers = persistent_workers
+        self.label_remap = label_remap
 
         self.train_trans = (
             A.from_dict(train_transforms) if train_transforms is not None else None
@@ -110,16 +125,19 @@ class DataModule(pl.LightningDataModule):
             self.ds_train = NpzSegmentationDataset(
                 self.train_data_dir,
                 transforms=self.train_trans,
+                label_remap=self.label_remap,
             )
         if stage in ["fit", "validate"] or stage is None:
             self.ds_val = NpzSegmentationDataset(
                 self.val_data_dir,
                 transforms=self.test_trans,
+                label_remap=self.label_remap,
             )
         if stage == "test":
             self.ds_test = NpzSegmentationDataset(
                 self.test_data_dir,
                 transforms=self.test_trans,
+                label_remap=self.label_remap,
             )
 
     def teardown(self, stage: str | None = None) -> None:
