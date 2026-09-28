@@ -48,12 +48,7 @@ class SMPBinarySegmentationModel(
         self.save_hyperparameters()
         task = "binary" if num_classes == 1 else "multiclass"
 
-        self.model = smp.create_model(
-            arch=architecture,
-            encoder_name=encoder_name,
-            classes=self.hparams.num_classes,
-            **model_opts,
-        )
+        self.model = self._create_model()
         if ckpt_path is not None:
             ckpt = torch.load(self.hparams.ckpt_path, weights_only=False)
             self.load_state_dict(ckpt["state_dict"])
@@ -100,6 +95,14 @@ class SMPBinarySegmentationModel(
 
         if use_checkpointing:
             self._patch_encoder_checkpointing()
+
+    def _create_model(self) -> torch.nn.Module:
+        return smp.create_model(
+            arch=self.hparams.architecture,
+            encoder_name=self.hparams.encoder_name,
+            classes=self.hparams.num_classes,
+            **self.hparams.model_opts,
+        )
 
     def _patch_encoder_checkpointing(self):
         encoder = self.model.encoder
