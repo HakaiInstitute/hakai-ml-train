@@ -3,23 +3,25 @@ seed_everything: 42
 model:
   class_path: "hakai_ml_train.models.smp.SMPMulticlassSegmentationModel"
   init_args:
-    architecture: "Segformer"
-    encoder_name: "mit_b3"
+    architecture: "UPerNet"
+    encoder_name: "tu-convnext_large.dinov3_lvd1689m"
     model_opts:
-      encoder_weights: imagenet
+      encoder_weights: true
       in_channels: 3
     num_classes: 3
     ignore_index: &ignore_index -100
-    optimizer_class: torch.optim.AdamW
+    optimizer_class: timm.optim.create_optimizer_v2
     optimizer_opts:
-      lr: 1.5e-4
-      weight_decay: 0.01
+      opt: adamw
+      lr: 2e-4
+      weight_decay: 0.03
+      layer_decay: 0.95
       betas:
         - 0.9
-        - 0.95
+        - 0.999
     lr_scheduler_class: hakai_ml_train.schedulers.LinearWarmupCosineDecayLR
     lr_scheduler_opts:
-      warmup_steps: 1000
+      warmup_steps: 500
       min_lr: 1e-6
     lr_scheduler_interval: step
     loss: "LabelSmoothingLovasz"
@@ -29,6 +31,10 @@ model:
       ce_weight: 0.5
       lovasz_weight: 0.5
       ignore_index: *ignore_index
+    class_names:
+      - bg
+      - macro
+      - nereo
 
 data:
   class_path: "hakai_ml_train.data.DataModule"
@@ -282,7 +288,7 @@ trainer:
       init_args:
         entity: hakai
         project: kom-kelp-rgb
-        name: segformer_b3
+        name: upernet_dinov3_convnext_large
         group: Aug2026-resplit
         log_model: true
         tags:
@@ -292,7 +298,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         auto_insert_metric_name: False
-        filename: kelp_rgb_segformer_b3_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
+        filename: kelp_rgb_upernet_dinov3_convnext_large_epoch-{epoch:02d}_val-iou-{val/iou_epoch:.4f}
         monitor: val/iou_epoch
         mode: max
         save_last: True
