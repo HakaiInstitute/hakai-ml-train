@@ -1,0 +1,298 @@
+seed_everything: 42
+
+# habitat_mapper kelp-rgb@20240722 scored on the KPS-Sep2026 COGs, for comparison with the
+# *_species_torchgeo configs. Evaluation only: python trainer.py validate --config <this>
+
+model:
+  class_path: "hakai_ml_train.models.hab_baseline.HabitatMapperLegacyKelpModel"
+  init_args:
+    model: "kelp-rgb"
+    revision: "20240722"
+    num_classes: 3
+    ignore_index: &ignore_index -100
+    optimizer_class: torch.optim.AdamW
+    optimizer_opts:
+      lr: 0.01
+      weight_decay: 0.01
+      betas:
+        - 0.9
+        - 0.95
+    lr_scheduler_class: torch.optim.lr_scheduler.OneCycleLR
+    lr_scheduler_opts:
+      max_lr: 0.01
+      pct_start: 0.1
+    lr_scheduler_interval: step
+    loss: "LovaszLoss"
+    loss_opts:
+      mode: "multiclass"
+      ignore_index: *ignore_index
+      from_logits: false
+
+data:
+  class_path: "hakai_ml_train.scene_data.SceneDataModule"
+  init_args:
+    root: "/home/taylor/data/KPS-Sep2026-cog"
+    # Common grid: NAD83(CSRS) / UTM 9N at 3 cm, California reprojected on the fly.
+    # Set both to null to read each scene on its native grid (~2.3-15 cm).
+    crs: "EPSG:3156"
+    res: 0.03
+    patch_size: 1024  # 30.7 m at 3 cm
+    train_samples_per_epoch: 1000  # split across scenes by native valid-pixel count
+    eval_patch_size: 1024  # non-overlapping grid for val and test
+    foreground_patch_fraction: 0.8  # share of training patches centred on kelp
+    label_remap:
+      1: 3  # kelp of unknown species (train only)
+      2: 1
+      3: 2
+    ignore_index: *ignore_index
+    seed: 42
+    batch_size: 3
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    train_transforms:
+      __version__: 2.0.8
+      transform:
+        __class_fullname__: Compose
+        additional_targets: { }
+        bbox_params: null
+        is_check_shapes: true
+        keypoint_params: null
+        p: 1
+        seed: null
+        transforms:
+          - __class_fullname__: D4
+            p: 1.0
+          - __class_fullname__: OneOf
+            p: 0.5
+            transforms:
+              - __class_fullname__: RandomBrightnessContrast
+                brightness_by_max: true
+                brightness_limit:
+                  - -0.1
+                  - 0.1
+                contrast_limit:
+                  - -0.1
+                  - 0.1
+                ensure_safe_range: false
+                p: 1.0
+              - __class_fullname__: HueSaturationValue
+                hue_shift_limit:
+                  - -5.0
+                  - 5.0
+                p: 1.0
+                sat_shift_limit:
+                  - -10.0
+                  - 10.0
+                val_shift_limit:
+                  - -15.0
+                  - 15.0
+          - __class_fullname__: OneOf
+            p: 0.3
+            transforms:
+              - __class_fullname__: GaussNoise
+                mean_range:
+                  - 0.0
+                  - 0.0
+                noise_scale_factor: 1.0
+                p: 1.0
+                per_channel: true
+                std_range:
+                  - 0.02
+                  - 0.044
+              - __class_fullname__: ISONoise
+                color_shift:
+                  - 0.01
+                  - 0.05
+                intensity:
+                  - 0.1
+                  - 0.2
+                p: 1.0
+          - __class_fullname__: OneOf
+            p: 0.3
+            transforms:
+              - __class_fullname__: MotionBlur
+                allow_shifted: true
+                angle_range:
+                  - 0.0
+                  - 360.0
+                blur_limit:
+                  - 3
+                  - 7
+                direction_range:
+                  - -1.0
+                  - 1.0
+                p: 1.0
+              - __class_fullname__: MedianBlur
+                blur_limit:
+                  - 3
+                  - 7
+                p: 1.0
+              - __class_fullname__: GaussianBlur
+                blur_limit:
+                  - 0
+                  - 0
+                p: 1.0
+                sigma_limit:
+                  - 0.5
+                  - 3.0
+          - __class_fullname__: OneOf
+            p: 0.3
+            transforms:
+              - __class_fullname__: CoarseDropout
+                fill: 0.0
+                fill_mask: *ignore_index
+                hole_height_range:
+                  - 1
+                  - 5
+                hole_width_range:
+                  - 1
+                  - 5
+                num_holes_range:
+                  - 1
+                  - 64
+                p: 1.0
+              - __class_fullname__: GridDistortion
+                border_mode: 0
+                distort_limit:
+                  - -0.1
+                  - 0.1
+                fill: 0.0
+                fill_mask: *ignore_index
+                interpolation: 1
+                keypoint_remapping_method: mask
+                mask_interpolation: 0
+                normalized: true
+                num_steps: 10
+                p: 0.3
+          - __class_fullname__: CLAHE
+            clip_limit:
+              - 1.0
+              - 2.0
+            p: 0.1
+            tile_grid_size:
+              - 8
+              - 8
+          - __class_fullname__: ColorJitter
+            brightness:
+              - 0.95
+              - 1.05
+            contrast:
+              - 0.95
+              - 1.05
+            hue:
+              - -0.05
+              - 0.05
+            p: 0.3
+            saturation:
+              - 0.95
+              - 1.05
+          - __class_fullname__: Affine
+            balanced_scale: false
+            border_mode: 0
+            fill: 0.0
+            fill_mask: *ignore_index
+            fit_output: false
+            interpolation: 1
+            keep_ratio: true
+            mask_interpolation: 0
+            p: 0.3
+            rotate:
+              - -5.0
+              - 5.0
+            rotate_method: largest_box
+            scale:
+              x:
+                - 0.9
+                - 1.1
+              y:
+                - 0.9
+                - 1.1
+            shear:
+              x:
+                - 0.0
+                - 0.0
+              y:
+                - 0.0
+                - 0.0
+            translate_percent:
+              x:
+                - -0.05
+                - 0.05
+              y:
+                - -0.05
+                - 0.05
+            translate_px: null
+          - __class_fullname__: Normalize
+            max_pixel_value: 255.0
+            mean:
+              - 0.485
+              - 0.456
+              - 0.406
+            normalization: standard
+            p: 1.0
+            std:
+              - 0.229
+              - 0.224
+              - 0.225
+          - __class_fullname__: ToTensorV2
+            p: 1.0
+            transpose_mask: false
+    test_transforms:
+      __version__: 2.0.8
+      transform:
+        __class_fullname__: Compose
+        additional_targets: { }
+        bbox_params: null
+        is_check_shapes: true
+        keypoint_params: null
+        p: 1
+        seed: null
+        transforms:
+          - __class_fullname__: Normalize
+            max_pixel_value: 255.0
+            mean:
+              - 0.485
+              - 0.456
+              - 0.406
+            normalization: standard
+            p: 1.0
+            std:
+              - 0.229
+              - 0.224
+              - 0.225
+          - __class_fullname__: ToTensorV2
+            p: 1.0
+            transpose_mask: false
+
+
+trainer:
+  accelerator: auto
+  devices: auto
+  num_nodes: 1
+  precision: bf16-mixed
+  log_every_n_steps: 5
+  max_epochs: 20
+  accumulate_grad_batches: 4
+  gradient_clip_val: 0.5
+  detect_anomaly: false
+  default_root_dir: checkpoints
+  fast_dev_run: False
+  logger:
+    - class_path: lightning.pytorch.loggers.WandbLogger
+      init_args:
+        entity: hakai
+        project: kom-kelp-rgb
+        name: hab-baseline-20240722
+        group: Sep2026
+        log_model: true
+        tags:
+          - kelp
+          - Sep2026
+          - torchgeo
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: step
+  plugins:
+    - class_path: lightning.pytorch.plugins.io.AsyncCheckpointIO
