@@ -35,7 +35,7 @@ model:
 data:
   class_path: "hakai_ml_train.scene_data.SceneDataModule"
   init_args:
-    root: "/mnt/geospatial/Working/Taylor/KPS-Sep2026-cog"
+    root: "/home/taylor/data/KPS-Sep2026-cog"
     # Common grid: NAD83(CSRS) / UTM 9N at 3 cm, California reprojected on the fly.
     # Set both to null to read each scene on its native grid (~2.3-15 cm).
     crs: "EPSG:3156"
